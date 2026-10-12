@@ -17,6 +17,8 @@ const MAX_RISE = 3.0;
 const STOREY = 3.0;
 const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
+// the Oratório inside Porta da Vila: the gate tower is open to the sky in the game
+const SKIP_ID = new Set( [ 1276312776 ] );
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [
@@ -53,7 +55,7 @@ export class Town {
 		const list = [];
 		for ( const b of OSM.buildings ) {
 
-			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) ) continue;
+			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) || SKIP_ID.has( b.id ) ) continue;
 			let poly = cleanPolygon( b.pts );
 			if ( poly.length < 3 ) continue;
 			poly = poly.map( ( q ) => {

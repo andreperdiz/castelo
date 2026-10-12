@@ -37,8 +37,12 @@ export class Walls {
 		this.walkLines = [];
 		this.buildingIndex = new SegmentIndex( OSM.buildings.map( ( b ) => b.pts ), 12 );
 
+		// Porta da Vila's outer arch is narrower than the street, so it clears the tower's west wall
+		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
+		if ( portaDaVila ) portaDaVila.half = 1.7;
 		// the curtain round the town
 		this.curtain = this._wallLine( terrain.wall, terrain.gates, 0.37 );
+		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
 		const castle = OSM.walls.find( ( w ) => w.name && /Castelo/.test( w.name ) );
 		if ( castle ) {
@@ -75,6 +79,22 @@ export class Walls {
 		this.group.add( mesh );
 		this.mesh = mesh;
 		scene.add( this.group );
+
+	}
+
+	// Porta da Vila is a gate tower open to the sky. The curtain makes its outer (south) and east sides,
+	// with the outer arch to the left as you come in; these are its town (north) and west sides, after
+	// OSM way 475653576, with the inner arch to the right, so the way through crosses the tower on a
+	// diagonal.
+	_portaDaVila( outerGate ) {
+
+		const T = this.terrain;
+		const pts = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.6 ] ];
+		const inner = { x: - 51.1, z: 225, y: T.heightAt( - 51.1, 225 ), half: 1.6, street: 'Rua da Porta da Vila', highway: 'pedestrian' };
+		// outward - 1: the town side, so the parapet faces the town and the tower's inside is open
+		const prof = T.profile( pts, - 1, { gates: [ inner, outerGate ], aboveIn: 3, aboveOut: 3 } );
+		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37 );
+		this.portaDaVila.gates = [ outerGate, inner ];
 
 	}
 

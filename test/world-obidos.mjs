@@ -3,6 +3,7 @@
 //   - the terrain spans the plain (~5 m) to the ridge (~75 m) and the curtain encloses the town
 //   - gates where the streets cross the curtain, flights of steps up onto the walls
 //   - Rua Direita can be walked from Porta da Vila to the castle end
+//   - Porta da Vila can be walked through, in by one arch and out by the other
 //   - every flight of steps can be climbed onto the wall walk
 //   - on the walk the parapet holds you in; stepping off the town side drops you into the street
 //   node test/world-obidos.mjs
@@ -61,6 +62,16 @@ P.placeAt( rd[ 0 ][ 0 ], 200, rd[ 0 ][ 1 ] );
 let ok = true;
 for ( let k = 1; k < rd.length && ok; k ++ ) ok = walkTo( rd[ k ][ 0 ], rd[ k ][ 1 ], 40, 0.8 );
 check( ok, `walked Rua Direita to (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
+
+// in through Porta da Vila: the outer arch, across the tower, out through the inner arch
+P.placeAt( - 58.7, T.heightAt( - 58.7, 241 ) + 0.2, 241 );
+ok = true;
+for ( const [ x, z ] of [ [ - 58.5, 234.9 ], [ - 57.9, 229.4 ], [ - 51.8, 229 ], [ - 51.1, 225 ], [ - 50.5, 220.3 ] ] ) if ( ok ) ok = walkTo( x, z, 20, 0.6 );
+check( ok, `walked in through both arches of Porta da Vila to (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
+// straight on from the outer arch is the tower's town wall
+P.placeAt( - 58.5, T.heightAt( - 58.5, 231 ) + 0.2, 231 );
+const blocked = ! walkTo( - 58.5, 220, 6 );
+check( blocked, `the tower's town wall stops you going straight on (${ P.position.z.toFixed( 1 ) })` );
 
 // every flight of steps
 let climbed = 0;
