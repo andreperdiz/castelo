@@ -148,6 +148,24 @@ export class Walls {
 			}
 
 		}
+		// round arch over each passage: its radius reaches the jambs (the outermost piece edges), and the
+		// crown stays about 4.2 m above the street unless the arch is too wide for that
+		const arcR = new Map();
+		for ( let i = 0; i < n; i ++ ) {
+
+			const g = samples[ i ].gate;
+			if ( ! g ) continue;
+			const p = samples[ i ];
+			for ( const e of [ edge[ i ], edge[ i + 1 ] ] ) arcR.set( g, Math.max( arcR.get( g ) || 0, Math.abs( ( e.x - g.x ) * p.tx + ( e.z - g.z ) * p.tz ) ) );
+
+		}
+
+		const archY = ( g, p, x, z ) => {
+
+			const R = arcR.get( g ), a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz;
+			return g.y + Math.max( 2.4, 4.2 - R ) + Math.sqrt( Math.max( 0, R * R - a * a ) );
+
+		};
 
 		const T = this.terrain;
 		const kit = this.kit;
@@ -168,7 +186,28 @@ export class Walls {
 			const IA = off( A, inner ), IB = off( B, inner ), PA = off( A, PARAPET_IN ), PB = off( B, PARAPET_IN );
 			const OA = off( A, outer ), OB = off( B, outer );
 			const gate = p.gate;
-			const yg = gate ? gate.y + 4.2 : null; // soffit of the passage
+			// soffit of the passage, sampled in slices across the piece so the arch reads as a curve
+			const SUB = 4;
+			const arch = gate ? Array.from( { length: SUB + 1 }, ( _, k ) => {
+
+				const t = k / SUB, m = { x: A.x + ( B.x - A.x ) * t, z: A.z + ( B.z - A.z ) * t, nx: A.nx + ( B.nx - A.nx ) * t, nz: A.nz + ( B.nz - A.nz ) * t };
+				return { t, m, y: archY( gate, p, m.x, m.z ) };
+
+			} ) : null;
+			const yg = gate ? Math.min( arch[ 0 ].y, arch[ SUB ].y ) : null;
+			// a face from the arch up to yTop, at offset d from the wall line
+			const archFace = ( d, yTop, N, u0 ) => {
+
+				for ( let k = 0; k < SUB; k ++ ) {
+
+					const a = arch[ k ], b = arch[ k + 1 ], qa = off( a.m, d ), qb = off( b.m, d );
+					const ua = u0 + len * a.t, ub = u0 + len * b.t;
+					kit.quadFacing( [ qa[ 0 ], a.y, qa[ 1 ] ], [ qb[ 0 ], b.y, qb[ 1 ] ], [ qb[ 0 ], yTop, qb[ 1 ] ], [ qa[ 0 ], yTop, qa[ 1 ] ], N,
+						[ [ ua, a.y ], [ ub, b.y ], [ ub, yTop ], [ ua, yTop ] ] );
+
+				}
+
+			};
 			const tone = 0.92 + 0.08 * Math.sin( p.s * 0.05 + seed * 9 );
 			kit.color = [ tone, tone * 0.99, tone * 0.97 ];
 
@@ -177,9 +216,9 @@ export class Walls {
 				[ [ u, 0 ], [ u + len, 0 ], [ u + len, W / 2 + PARAPET_IN ], [ u, W / 2 + PARAPET_IN ] ] );
 			// inner face
 			const gIn = Math.min( ground( IA ), ground( IB ) ) - FOOT;
-			const yb = gate ? yg : gIn;
-			kit.quadFacing( [ IA[ 0 ], yb, IA[ 1 ] ], [ IB[ 0 ], yb, IB[ 1 ] ], [ IB[ 0 ], y, IB[ 1 ] ], [ IA[ 0 ], y, IA[ 1 ] ], inN,
-				[ [ u, yb ], [ u + len, yb ], [ u + len, y ], [ u, y ] ] );
+			if ( gate ) archFace( inner, y, inN, u );
+			else kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ IB[ 0 ], gIn, IB[ 1 ] ], [ IB[ 0 ], y, IB[ 1 ] ], [ IA[ 0 ], y, IA[ 1 ] ], inN,
+				[ [ u, gIn ], [ u + len, gIn ], [ u + len, y ], [ u, y ] ] );
 			// parapet: inner face, top, outer face (down to the ground outside)
 			const yp = y + PARAPET_H;
 			kit.quadFacing( [ PA[ 0 ], y, PA[ 1 ] ], [ PB[ 0 ], y, PB[ 1 ] ], [ PB[ 0 ], yp, PB[ 1 ] ], [ PA[ 0 ], yp, PA[ 1 ] ], inN,
@@ -187,9 +226,9 @@ export class Walls {
 			kit.quadFacing( [ PA[ 0 ], yp, PA[ 1 ] ], [ PB[ 0 ], yp, PB[ 1 ] ], [ OB[ 0 ], yp, OB[ 1 ] ], [ OA[ 0 ], yp, OA[ 1 ] ], up,
 				[ [ u, 0 ], [ u + len, 0 ], [ u + len, 0.65 ], [ u, 0.65 ] ] );
 			const gOut = Math.min( ground( OA ), ground( OB ) ) - FOOT;
-			const ybo = gate ? yg : gOut;
-			kit.quadFacing( [ OA[ 0 ], ybo, OA[ 1 ] ], [ OB[ 0 ], ybo, OB[ 1 ] ], [ OB[ 0 ], yp, OB[ 1 ] ], [ OA[ 0 ], yp, OA[ 1 ] ], outN,
-				[ [ u, ybo ], [ u + len, ybo ], [ u + len, yp ], [ u, yp ] ] );
+			if ( gate ) archFace( outer, yp, outN, u );
+			else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], yp, OB[ 1 ] ], [ OA[ 0 ], yp, OA[ 1 ] ], outN,
+				[ [ u, gOut ], [ u + len, gOut ], [ u + len, yp ], [ u, yp ] ] );
 			if ( parapetBoth ) {
 
 				// a free-standing stretch: a parapet on the town side too
@@ -203,11 +242,19 @@ export class Walls {
 			// the passage: soffit and jambs
 			if ( gate ) {
 
-				kit.quadFacing( [ IA[ 0 ], yg, IA[ 1 ] ], [ IB[ 0 ], yg, IB[ 1 ] ], [ OB[ 0 ], yg, OB[ 1 ] ], [ OA[ 0 ], yg, OA[ 1 ] ], [ 0, - 1, 0 ] );
+				for ( let k = 0; k < SUB; k ++ ) {
+
+					const a = arch[ k ], b = arch[ k + 1 ];
+					const ia = off( a.m, inner ), ib = off( b.m, inner ), oa = off( a.m, outer ), ob = off( b.m, outer );
+					kit.quadFacing( [ ia[ 0 ], a.y, ia[ 1 ] ], [ ib[ 0 ], b.y, ib[ 1 ] ], [ ob[ 0 ], b.y, ob[ 1 ] ], [ oa[ 0 ], a.y, oa[ 1 ] ], [ 0, - 1, 0 ] );
+
+				}
+
 				const prev = samples[ i - 1 ], next = samples[ i + 1 ];
 				const tA = [ - p.tx, 0, - p.tz ], tB = [ p.tx, 0, p.tz ];
-				if ( ! prev || prev.gate !== gate ) kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ OA[ 0 ], gOut, OA[ 1 ] ], [ OA[ 0 ], yg, OA[ 1 ] ], [ IA[ 0 ], yg, IA[ 1 ] ], tB );
-				if ( ! next || next.gate !== gate ) kit.quadFacing( [ IB[ 0 ], gIn, IB[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], yg, OB[ 1 ] ], [ IB[ 0 ], yg, IB[ 1 ] ], tA );
+				const yA = arch[ 0 ].y, yB = arch[ SUB ].y;
+				if ( ! prev || prev.gate !== gate ) kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ OA[ 0 ], gOut, OA[ 1 ] ], [ OA[ 0 ], yA, OA[ 1 ] ], [ IA[ 0 ], yA, IA[ 1 ] ], tB );
+				if ( ! next || next.gate !== gate ) kit.quadFacing( [ IB[ 0 ], gIn, IB[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], yB, OB[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], tA );
 
 			}
 
