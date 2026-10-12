@@ -292,10 +292,9 @@ export class TerrainData {
 	_wallProfile() {
 
 		this._gates();
-		// Porta da Vila: the walk just clears the gate's arch, and dips 12 m west of it to where the sloping
-		// path up from inside the gate meets it
+		// at Porta da Vila the curtain comes down to the gate tower's height, so the steps inside reach it
 		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
-		const caps = pv ? [ { x: pv.x, z: pv.z, r: 4, y: pv.y + 5.2 }, { x: pv.x - 12, z: pv.z - 1, r: 1.5, y: this.heightAt( pv.x - 2.5, pv.z - 3 ) + 1.5 } ] : [];
+		const caps = pv ? [ { x: pv.x, z: pv.z, r: 7, y: pv.y + 8 } ] : [];
 		this.wall = this.profile( this.wallInfo.line, this.wallInfo.outward, { gates: this.gates, caps } );
 
 	}

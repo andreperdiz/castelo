@@ -19,6 +19,8 @@ const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
 // the Oratório inside Porta da Vila: the gate tower is open to the sky in the game
 const SKIP_ID = new Set( [ 1276312776 ] );
+// the Auditório without its north-east wing, which stands where the steps by Porta da Vila are built
+const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 215.5 ], [ - 60, 215.5 ], [ - 64.4, 195.6 ] ] };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [
@@ -49,16 +51,17 @@ export class Town {
 		// (the OSM outlines and centre lines are a metre or so apart in the narrow lanes)
 		const CLEAR = { pedestrian: 1.5, residential: 2.2, living_street: 1.8, service: 1.6, unclassified: 2.4, tertiary: 3, secondary: 3.2, primary: 3.6, footway: 0.8, steps: 0.9, path: 0.6 };
 		const streetLines = OSM.streets.filter( ( st ) => CLEAR[ st.highway ] && ! st.tunnel ).map( ( st ) => ( { pts: st.pts, clear: CLEAR[ st.highway ] } ) );
-		// the steps by Porta da Vila are built over their OSM line, so keep the houses back from what's built
-		for ( const st of walls?.stairs || [] ) if ( st.clear ) streetLines.push( { pts: st.steps.map( ( q ) => [ q.x, q.z ] ), clear: st.clear } );
 		const streetIndex = new SegmentIndex( streetLines, 16 );
+		// what the walls build in the town (the steps by Porta da Vila): houses are pushed back to the left of
+		// these lines (away from the walls), even from the wrong side
+		const clearIndex = new SegmentIndex( walls?.clearLines || [], 16 );
 
 		// footprints, cleaned, with a grid for "is this point inside another building" queries
 		const list = [];
 		for ( const b of OSM.buildings ) {
 
 			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) || SKIP_ID.has( b.id ) ) continue;
-			let poly = cleanPolygon( b.pts );
+			let poly = cleanPolygon( OUTLINE[ b.id ] || b.pts );
 			if ( poly.length < 3 ) continue;
 			poly = poly.map( ( q ) => {
 
@@ -71,6 +74,20 @@ export class Town {
 				if ( d < 1e-3 ) return q; // on the centre line: a passage, leave it
 				dx /= d; dz /= d;
 				return [ px + dx * near.seg.line.clear, pz + dz * near.seg.line.clear ];
+
+			} ).map( ( q ) => {
+
+				const near = clearIndex.nearest( q[ 0 ], q[ 1 ], 6 );
+				if ( ! near ) return q;
+				const { a, b: e } = near.seg, clear = near.seg.line.clear;
+				const L = Math.hypot( e[ 0 ] - a[ 0 ], e[ 1 ] - a[ 1 ] ) || 1;
+				const nx = - ( e[ 1 ] - a[ 1 ] ) / L, nz = ( e[ 0 ] - a[ 0 ] ) / L;
+				const px = a[ 0 ] + ( e[ 0 ] - a[ 0 ] ) * near.t, pz = a[ 1 ] + ( e[ 1 ] - a[ 1 ] ) * near.t;
+				const side = ( q[ 0 ] - px ) * nx + ( q[ 1 ] - pz ) * nz;
+				// round the outside of a bend: beyond a segment's end, push out from the bend itself
+				if ( side > 0 && ( near.t <= 0 || near.t >= 1 ) ) return near.d >= clear ? q : [ px + ( q[ 0 ] - px ) / near.d * clear, pz + ( q[ 1 ] - pz ) / near.d * clear ];
+				if ( side >= clear ) return q;
+				return [ px + nx * clear, pz + nz * clear ];
 
 			} );
 			poly = cleanPolygon( poly );

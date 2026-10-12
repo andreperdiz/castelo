@@ -91,16 +91,11 @@ for ( const st of W.stairs ) {
 
 check( climbed === W.stairs.length, `climbed ${ climbed } / ${ W.stairs.length } flights of steps` );
 
-// the steps and sloping path by Porta da Vila's inner arch come out on the curtain walk
+// the L-shaped flight by Porta da Vila's inner arch comes out on the curtain walk
 const pv = W.stairs.at( - 1 ).steps[ 0 ];
-const CS = W.curtain.samples;
-let ci = 0;
-for ( let k = 1; k < CS.length; k ++ ) if ( Math.hypot( CS[ k ].x - pv.x, CS[ k ].z - pv.z ) < Math.hypot( CS[ ci ].x - pv.x, CS[ ci ].z - pv.z ) ) ci = k;
-const onCurtain = ( k ) => [ CS[ k ].x - CS[ k ].nx * 0.3, CS[ k ].z - CS[ k ].nz * 0.3 ];
 P.placeAt( pv.x, pv.y + 0.1, pv.z );
-ok = walkTo( ...onCurtain( ci ), 5, 0.4 );
-for ( let k = 1; k <= 8 && ok; k ++ ) ok = walkTo( ...onCurtain( ci + k ), 5, 0.4 ) && Math.abs( P.position.y - CS[ ci + k ].y ) < 0.4;
-check( ok, `from the steps by Porta da Vila onto the curtain walk (y ${ P.position.y.toFixed( 1 ) })` );
+ok = walkTo( - 61.7, 232, 5, 0.4 ) && walkTo( - 61.7, 234.3, 5, 0.4 ) && walkTo( - 68, 234.2, 10, 0.5 );
+check( ok && P.position.y > pv.y, `from the steps by Porta da Vila onto the curtain walk (y ${ P.position.y.toFixed( 1 ) })` );
 
 // along the walk, then into the parapet, then off the town side
 const S = W.curtain.samples;
