@@ -39,9 +39,10 @@ export class Walls {
 		this.walkLines = [];
 		this.buildingIndex = new SegmentIndex( OSM.buildings.map( ( b ) => b.pts ), 12 );
 
-		// Porta da Vila's outer arch is narrower than the street, so it clears the tower's west wall
+		// Porta da Vila's outer arch is narrower than the street, so it clears the tower's west wall, and
+		// springs a little lower, to stay under the walk where it comes down toward the steps inside
 		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
-		if ( portaDaVila ) portaDaVila.half = 1.7;
+		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, spring: 2.0 } );
 		// the curtain round the town
 		this.curtain = this._wallLine( terrain.wall, terrain.gates, 0.37 );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
@@ -98,73 +99,89 @@ export class Walls {
 		// outward + 1: into the tower, so the parapet guards the drop into it and the town side is open
 		// to the steps below
 		const prof = T.profile( pts, 1, { gates: [ inner, outerGate ], aboveIn: 3, aboveOut: 3 } );
-		// the west wall rises to meet the curtain's walk where it joins it, as a flight of the walk would
+		// the tower's walls stand level with the curtain's walk where they join it
 		const end = this._nearestWalk( pts[ 3 ][ 0 ], pts[ 3 ][ 1 ] + 1, 4 );
-		if ( end ) for ( const p of prof.pts ) p.top = Math.max( p.top, end.p.y - ( prof.length - p.s ) / 2.5 );
+		if ( end ) for ( const p of prof.pts ) p.top = end.p.y;
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37 );
 		this.portaDaVila.gates = [ outerGate, inner ];
 
 	}
 
-	// The L-shaped flight at Porta da Vila (OSM way 314791407): from the street just through the inner
-	// arch, up along the tower's town wall to a landing at the corner, then along its west wall to the
-	// wall walk. Built from the top down, against the outer faces of the two walls.
+	// The way up onto the walls at Porta da Vila (OSM way 314791407). A metre past the inner arch, on
+	// the left, a broad flight of deep, low steps runs along the tower's town wall, turns left at the
+	// corner and runs along its west wall; a few metres short of the curtain it becomes a sloping path,
+	// which turns right along the curtain's town face and rises until it is level with the walk.
 	_portaDaVilaStairs() {
 
-		const wl = this.portaDaVila;
-		if ( ! wl ) return;
+		if ( ! this.portaDaVila ) return;
 		const T = this.terrain, kit = this.kit;
-		const width = 1.5, run = 0.32, off = W / 2 + width / 2 + 0.02;
-		// the two legs' centre lines: the walls' lines moved off their town faces
-		const shift = ( a, b ) => {
+		const width = 3, tread = 1.6, off = W / 2 + width / 2 + 0.02;
+		// a centre line beside a wall line a -> b, on side s (+ 1: to the left of a -> b on the map)
+		const beside = ( a, b, s ) => {
 
 			const dx = b[ 0 ] - a[ 0 ], dz = b[ 1 ] - a[ 1 ], L = Math.hypot( dx, dz );
-			const nx = - dz / L, nz = dx / L; // the town side of a -> b (north wall east to west, west wall north to south)
-			return { a: [ a[ 0 ] + nx * off, a[ 1 ] + nz * off ], dx: dx / L, dz: dz / L, nx, nz };
+			const nx = - dz / L * s, nz = dx / L * s;
+			return { a: [ a[ 0 ] + nx * off, a[ 1 ] + nz * off ], dx: dx / L, dz: dz / L };
 
 		};
+		const meet = ( l, m ) => {
+
+			const k = ( ( m.a[ 0 ] - l.a[ 0 ] ) * m.dz - ( m.a[ 1 ] - l.a[ 1 ] ) * m.dx ) / ( l.dx * m.dz - l.dz * m.dx );
+			return [ l.a[ 0 ] + l.dx * k, l.a[ 1 ] + l.dz * k ];
+
+		};
+		const at = ( p, l, d ) => [ p[ 0 ] + l.dx * d, p[ 1 ] + l.dz * d ];
 		const [ , a, b, c ] = PORTA_DA_VILA;
-		const north = shift( a, b ), west = shift( b, c );
-		// the corner where the two centre lines meet
-		const det = north.dx * west.dz - north.dz * west.dx;
-		const k = ( ( west.a[ 0 ] - north.a[ 0 ] ) * west.dz - ( west.a[ 1 ] - north.a[ 1 ] ) * west.dx ) / det;
-		const corner = [ north.a[ 0 ] + north.dx * k, north.a[ 1 ] + north.dz * k ];
-		// the top: beside the walk, short of the curtain's town face
-		const topZ = 232.3;
-		const tk = ( topZ - corner[ 1 ] ) / west.dz;
-		const top = [ corner[ 0 ] + west.dx * tk, corner[ 1 ] + west.dz * tk ];
-		let walkY = 0, bd = Infinity;
-		for ( const p of wl.samples ) {
+		const north = beside( b, a, - 1 ), west = beside( c, b, - 1 ); // both running toward the corner from below
+		const curtain = beside( [ - 60.8, 234.7 ], [ - 72, 233.7 ], 1 ); // the curtain west of the tower, westward
+		const corner = meet( north, west );
+		const turn = meet( west, curtain );
+		const startX = - 53.7, stepsEndZ = turn[ 1 ] - 5; // a metre past the arch; 5 m before the right turn
 
-			const d = Math.hypot( p.x - top[ 0 ], p.z - top[ 1 ] );
-			if ( d < bd ) {
+		const steps = [];
+		let y = - Infinity;
+		const put = ( p, l, len, rise ) => {
 
-				bd = d;
-				walkY = p.y;
+			const g = T.heightAt( p[ 0 ], p[ 1 ] );
+			const ahead = T.heightAt( p[ 0 ] + l.dx * len / 2, p[ 1 ] + l.dz * len / 2 );
+			y = y === - Infinity ? ahead + 0.15 : Math.min( y + rise[ 1 ], Math.max( y + rise[ 0 ], ahead + 0.15 ) );
+			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len } );
+
+		};
+		// deep, low steps: each a little above the ground at its far edge
+		const flight = ( from, l, length, rise ) => {
+
+			const n = Math.max( 1, Math.round( length / tread ) ), len = length / n;
+			for ( let i = 0; i < n; i ++ ) put( at( from, l, len * ( i + 0.5 ) ), l, len, rise );
+
+		};
+		const up = { dx: - north.dx, dz: - north.dz }; // north leg, walking up (west)
+		const dStart = ( startX - corner[ 0 ] ) / north.dx;
+		flight( at( corner, north, dStart ), up, dStart - width / 2, [ 0.1, 0.38 ] );
+		put( corner, { dx: - west.dx, dz: - west.dz }, width, [ 0.1, 0.38 ] ); // the landing
+		const wUp = { dx: - west.dx, dz: - west.dz };
+		const wLen = ( stepsEndZ - corner[ 1 ] ) / wUp.dz - width / 2;
+		flight( at( corner, wUp, width / 2 ), wUp, wLen, [ 0.1, 0.38 ] );
+		// the sloping path (fine treads, 1 in 5, then 1 in 4 along the curtain), to the turn and then along
+		// the curtain until level with its walk
+		const RUN = 0.3;
+		const walkAt = ( p ) => ( this._nearestWalk( p[ 0 ] + curtain.dz * off, p[ 1 ] - curtain.dx * off, 3 ) || { p: { y: Infinity } } ).p.y;
+		const ramp = [ { p: at( corner, wUp, width / 2 + wLen ), l: wUp, len: ( turn[ 1 ] - stepsEndZ ) / wUp.dz - width / 2 }, { p: at( turn, curtain, width / 2 ), l: curtain, len: 30 } ];
+		let level = false;
+		for ( const r of ramp ) {
+
+			for ( let d = RUN / 2; d < r.len && ! level; d += RUN ) {
+
+				const p = at( r.p, r.l, d );
+				const slope = RUN / ( r.l === curtain ? 4 : 5 );
+				put( p, r.l, RUN, [ slope, slope + 0.05 ] );
+				if ( r.l === curtain && y >= walkAt( p ) - 0.3 ) level = true; // a kerb-high step up onto it
 
 			}
 
+			if ( r.l === wUp ) put( turn, curtain, width, [ 0.06, 0.1 ] ); // a landing at the turn
+
 		}
-
-		const steps = [];
-		let y = walkY;
-		const put = ( x, z, dx, dz, len ) => {
-
-			steps.push( { x, z, y, g: T.heightAt( x, z ), yaw: Math.atan2( - dz, dx ), len } );
-			y -= STEP_RISE;
-
-		};
-		// west leg, down toward the corner
-		for ( let d = run / 2; d < tk - width / 2; d += run ) put( top[ 0 ] - west.dx * d, top[ 1 ] - west.dz * d, west.dx, west.dz, run );
-		// the landing
-		put( corner[ 0 ], corner[ 1 ], north.dx, north.dz, width );
-		// north leg, down to the street just left of the inner arch: the street climbs toward the corner,
-		// so these steps are spread out (long treads) to reach it
-		const dEnd = ( - 53.4 - corner[ 0 ] ) / - north.dx;
-		const gEnd = T.heightAt( corner[ 0 ] - north.dx * dEnd, corner[ 1 ] - north.dz * dEnd );
-		const nN = Math.max( 1, Math.round( ( y - gEnd ) / STEP_RISE ) );
-		const runN = Math.max( run, ( dEnd - width / 2 ) / nN );
-		for ( let j = 0, d = width / 2 + runN / 2; j < nN && y - T.heightAt( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d ) > 0.12; j ++, d += runN ) put( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d, north.dx, north.dz, runN );
 
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 1, 0.98, 0.95 ];
@@ -176,8 +193,9 @@ export class Walls {
 
 		}
 
+		steps.reverse(); // top first, like the other flights
 		// clear: houses keep this far from the flight's centre line (about 1.8 m of street beside it)
-		this.stairs.push( { x: steps[ 0 ].x, z: steps[ 0 ].z, top: steps[ 0 ].y, bottom: steps[ steps.length - 1 ], n: steps.length, steps: steps.map( ( st ) => ( { x: st.x, z: st.z, y: st.y } ) ), clear: width / 2 + 1.8 } );
+		this.stairs.push( { x: steps[ 0 ].x, z: steps[ 0 ].z, top: steps[ 0 ].y, bottom: steps[ steps.length - 1 ], n: steps.length, steps: steps.map( ( st ) => ( { x: st.x, z: st.z, y: st.y } ) ), clear: width / 2 + 1.8, level } );
 
 	}
 
@@ -266,7 +284,7 @@ export class Walls {
 		const archY = ( g, p, x, z ) => {
 
 			const R = arcR.get( g ), a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz;
-			return g.y + Math.max( 2.4, 4.2 - R ) + Math.sqrt( Math.max( 0, R * R - a * a ) );
+			return g.y + ( g.spring ?? Math.max( 2.4, 4.2 - R ) ) + Math.sqrt( Math.max( 0, R * R - a * a ) );
 
 		};
 
@@ -559,6 +577,8 @@ export class Walls {
 
 			const p = S[ i ];
 			if ( p.gate ) continue;
+			// Porta da Vila has its own way up
+			if ( this.portaDaVila && this.portaDaVila.gates.some( ( g ) => Math.hypot( p.x - g.x, p.z - g.z ) < 40 ) ) continue;
 			const fx = p.x - p.nx * 2.0, fz = p.z - p.nz * 2.0; // the stair's line, just inside
 			const rise = p.y - T.heightAt( fx, fz );
 			if ( rise < 1.6 || rise > 6.5 ) continue;
