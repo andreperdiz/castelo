@@ -21,6 +21,8 @@ const MERLON_PITCH = 1.85;
 const PIECE = 0.6;
 const STEP_RISE = 0.18;
 const FOOT = 2.0; // the faces go this far below the ground
+// Porta da Vila's town and west walls (after OSM way 475653576): east end, inner arch, corner, curtain
+const PORTA_DA_VILA = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ];
 
 export class Walls {
 
@@ -70,6 +72,7 @@ export class Walls {
 
 		this._towers();
 		this._stairs();
+		this._portaDaVilaStairs();
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
 		mesh.name = 'walls';
@@ -89,12 +92,91 @@ export class Walls {
 	_portaDaVila( outerGate ) {
 
 		const T = this.terrain;
-		const pts = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.6 ] ];
+		// the west wall stops at the curtain walk's town edge, so its walk runs straight onto the curtain's
+		const pts = PORTA_DA_VILA;
 		const inner = { x: - 51.1, z: 225, y: T.heightAt( - 51.1, 225 ), half: 1.6, street: 'Rua da Porta da Vila', highway: 'pedestrian' };
-		// outward - 1: the town side, so the parapet faces the town and the tower's inside is open
-		const prof = T.profile( pts, - 1, { gates: [ inner, outerGate ], aboveIn: 3, aboveOut: 3 } );
+		// outward + 1: into the tower, so the parapet guards the drop into it and the town side is open
+		// to the steps below
+		const prof = T.profile( pts, 1, { gates: [ inner, outerGate ], aboveIn: 3, aboveOut: 3 } );
+		// the west wall rises to meet the curtain's walk where it joins it, as a flight of the walk would
+		const end = this._nearestWalk( pts[ 3 ][ 0 ], pts[ 3 ][ 1 ] + 1, 4 );
+		if ( end ) for ( const p of prof.pts ) p.top = Math.max( p.top, end.p.y - ( prof.length - p.s ) / 2.5 );
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37 );
 		this.portaDaVila.gates = [ outerGate, inner ];
+
+	}
+
+	// The L-shaped flight at Porta da Vila (OSM way 314791407): from the street just through the inner
+	// arch, up along the tower's town wall to a landing at the corner, then along its west wall to the
+	// wall walk. Built from the top down, against the outer faces of the two walls.
+	_portaDaVilaStairs() {
+
+		const wl = this.portaDaVila;
+		if ( ! wl ) return;
+		const T = this.terrain, kit = this.kit;
+		const width = 1.5, run = 0.32, off = W / 2 + width / 2 + 0.02;
+		// the two legs' centre lines: the walls' lines moved off their town faces
+		const shift = ( a, b ) => {
+
+			const dx = b[ 0 ] - a[ 0 ], dz = b[ 1 ] - a[ 1 ], L = Math.hypot( dx, dz );
+			const nx = - dz / L, nz = dx / L; // the town side of a -> b (north wall east to west, west wall north to south)
+			return { a: [ a[ 0 ] + nx * off, a[ 1 ] + nz * off ], dx: dx / L, dz: dz / L, nx, nz };
+
+		};
+		const [ , a, b, c ] = PORTA_DA_VILA;
+		const north = shift( a, b ), west = shift( b, c );
+		// the corner where the two centre lines meet
+		const det = north.dx * west.dz - north.dz * west.dx;
+		const k = ( ( west.a[ 0 ] - north.a[ 0 ] ) * west.dz - ( west.a[ 1 ] - north.a[ 1 ] ) * west.dx ) / det;
+		const corner = [ north.a[ 0 ] + north.dx * k, north.a[ 1 ] + north.dz * k ];
+		// the top: beside the walk, short of the curtain's town face
+		const topZ = 232.3;
+		const tk = ( topZ - corner[ 1 ] ) / west.dz;
+		const top = [ corner[ 0 ] + west.dx * tk, corner[ 1 ] + west.dz * tk ];
+		let walkY = 0, bd = Infinity;
+		for ( const p of wl.samples ) {
+
+			const d = Math.hypot( p.x - top[ 0 ], p.z - top[ 1 ] );
+			if ( d < bd ) {
+
+				bd = d;
+				walkY = p.y;
+
+			}
+
+		}
+
+		const steps = [];
+		let y = walkY;
+		const put = ( x, z, dx, dz, len ) => {
+
+			steps.push( { x, z, y, g: T.heightAt( x, z ), yaw: Math.atan2( - dz, dx ), len } );
+			y -= STEP_RISE;
+
+		};
+		// west leg, down toward the corner
+		for ( let d = run / 2; d < tk - width / 2; d += run ) put( top[ 0 ] - west.dx * d, top[ 1 ] - west.dz * d, west.dx, west.dz, run );
+		// the landing
+		put( corner[ 0 ], corner[ 1 ], north.dx, north.dz, width );
+		// north leg, down to the street just left of the inner arch: the street climbs toward the corner,
+		// so these steps are spread out (long treads) to reach it
+		const dEnd = ( - 53.4 - corner[ 0 ] ) / - north.dx;
+		const gEnd = T.heightAt( corner[ 0 ] - north.dx * dEnd, corner[ 1 ] - north.dz * dEnd );
+		const nN = Math.max( 1, Math.round( ( y - gEnd ) / STEP_RISE ) );
+		const runN = Math.max( run, ( dEnd - width / 2 ) / nN );
+		for ( let j = 0, d = width / 2 + runN / 2; j < nN && y - T.heightAt( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d ) > 0.12; j ++, d += runN ) put( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d, north.dx, north.dz, runN );
+
+		kit.vdata = [ 0.29, 0.6, 0, 0 ];
+		kit.color = [ 1, 0.98, 0.95 ];
+		for ( const st of steps ) {
+
+			const bottom = st.g - 0.6, h = st.y - bottom;
+			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, width, st.yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, width / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+
+		}
+
+		this.stairs.push( { x: steps[ 0 ].x, z: steps[ 0 ].z, top: steps[ 0 ].y, bottom: steps[ steps.length - 1 ], n: steps.length, steps: steps.map( ( st ) => ( { x: st.x, z: st.z, y: st.y } ) ) } );
 
 	}
 

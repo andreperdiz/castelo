@@ -214,7 +214,8 @@ export class TerrainData {
 	// at least ~8 m above the ground just outside; smoothed along the wall, with the slope kept to what
 	// flights of steps can take, and room for an arch over each gate. Returns { pts, length, outward }:
 	// pts [{ x, z, s, nx, nz (outward normal), dx, dz (tangent), gi, ge (ground in / out), top }].
-	profile( lineIn, outward, { gates = [], aboveIn = 3.2, aboveOut = 7.5, closed = false } = {} ) {
+	// caps [{ x, z, r, y }]: no higher than y within r (the slope limit eases the wall down to it).
+	profile( lineIn, outward, { gates = [], aboveIn = 3.2, aboveOut = 7.5, closed = false, caps = [] } = {} ) {
 
 		const line = resample( lineIn, 2 );
 		const pts = [];
@@ -266,6 +267,11 @@ export class TerrainData {
 
 		} );
 
+		for ( const c of caps ) pts.forEach( ( p, i ) => {
+
+			if ( Math.hypot( p.x - c.x, p.z - c.z ) < c.r ) sm[ i ] = Math.min( sm[ i ], c.y );
+
+		} );
 		const maxRise = 2 / 2.5;
 		for ( let pass = 0; pass < ( closed ? 2 : 1 ); pass ++ ) {
 
@@ -286,7 +292,10 @@ export class TerrainData {
 	_wallProfile() {
 
 		this._gates();
-		this.wall = this.profile( this.wallInfo.line, this.wallInfo.outward, { gates: this.gates } );
+		// at Porta da Vila the curtain comes down to the gate tower's height, so the steps inside reach it
+		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
+		const caps = pv ? [ { x: pv.x, z: pv.z, r: 7, y: pv.y + 8 } ] : [];
+		this.wall = this.profile( this.wallInfo.line, this.wallInfo.outward, { gates: this.gates, caps } );
 
 	}
 
