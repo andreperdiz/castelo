@@ -49,6 +49,8 @@ export class Town {
 		// (the OSM outlines and centre lines are a metre or so apart in the narrow lanes)
 		const CLEAR = { pedestrian: 1.5, residential: 2.2, living_street: 1.8, service: 1.6, unclassified: 2.4, tertiary: 3, secondary: 3.2, primary: 3.6, footway: 0.8, steps: 0.9, path: 0.6 };
 		const streetLines = OSM.streets.filter( ( st ) => CLEAR[ st.highway ] && ! st.tunnel ).map( ( st ) => ( { pts: st.pts, clear: CLEAR[ st.highway ] } ) );
+		// the steps by Porta da Vila are built over their OSM line, so keep the houses back from what's built
+		for ( const st of walls?.stairs || [] ) if ( st.clear ) streetLines.push( { pts: st.steps.map( ( q ) => [ q.x, q.z ] ), clear: st.clear } );
 		const streetIndex = new SegmentIndex( streetLines, 16 );
 
 		// footprints, cleaned, with a grid for "is this point inside another building" queries
