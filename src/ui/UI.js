@@ -2156,6 +2156,7 @@ export class UI {
 						<h3>Interface</h3>
 						${ row( k( 'H' ), 'Settings panel' ) }
 						${ row( k( 'P' ), 'Photo mode<small>Hides all interface</small>' ) }
+						${ row( k( 'R' ), 'Reference photo<small>Line the game up with a real photo</small>' ) }
 						${ row( k( 'F1' ) + k( '?' ), 'This sheet' ) }
 						${ row( k( 'Esc' ), 'Release the mouse' ) }
 					</section>

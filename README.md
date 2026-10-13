@@ -62,6 +62,7 @@ on the west side faces the sunset all year.
 | M | Sound on / off |
 | H | Settings panel: time of day, day of the year, clouds, haze, post-processing, render scale |
 | P | Photo mode |
+| R | Reference photo: line the game up with a real photo and save the view (`npm run dev`: saved to `references/`) |
 | F1 or ? | All controls |
 
 ## URL options
@@ -74,6 +75,7 @@ on the west side faces the sunset all year.
 | `noVeg` | Skip the trees |
 | `noAudio` | No sound |
 | `bg` | Keep rendering when the tab is hidden (automation) |
+| `ref=<folder>` | Open a saved reference photo: its view, the photo over the game |
 | `bench&shots=gate,westWall,…` | Render reference shots of the named views (`src/core/DebugViews.js`) and post them to a local collector |
 
 ## Running locally

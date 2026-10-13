@@ -2608,3 +2608,63 @@ body {
 	}
 
 }
+
+/* ── reference photo (R): the photo over the game, and its panel ───────────── */
+.tw-ref-overlay {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	justify-content: center;
+	overflow: hidden;
+	pointer-events: none;
+	z-index: 5;
+}
+.tw-ref-overlay[hidden] { display: none; }
+/* full height, so the camera's (vertical) field of view is the photo's */
+.tw-ref-overlay img { height: 100%; width: auto; max-width: none; opacity: 0.5; }
+.tw-ref-panel {
+	position: fixed;
+	left: var(--tw-edge, 16px);
+	bottom: var(--tw-edge, 16px);
+	width: min(300px, calc(100vw - 32px));
+	padding: var(--tw-3, 12px);
+	display: grid;
+	gap: var(--tw-2, 8px);
+	background: var(--tw-glass);
+	color: var(--tw-ink);
+	font: 13px/1.4 var(--tw-font);
+	border: 1px solid var(--tw-line);
+	border-radius: 12px;
+	backdrop-filter: blur(12px);
+	pointer-events: auto;
+	z-index: 20;
+}
+.tw-ref-panel[hidden], .tw-ref-panel.is-looking { display: none; }
+.tw-ref-head { display: flex; justify-content: space-between; align-items: center; }
+.tw-ref-close { background: none; border: 0; color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.tw-ref-hint, .tw-ref-status { margin: 0; opacity: 0.75; }
+.tw-ref-status:empty { display: none; }
+.tw-ref-row { display: grid; gap: 4px; }
+.tw-ref-row span { display: flex; justify-content: space-between; opacity: 0.8; }
+.tw-ref-row input[type=text] {
+	background: var(--tw-fill);
+	border: 1px solid var(--tw-line);
+	border-radius: 6px;
+	color: inherit;
+	font: inherit;
+	padding: 5px 8px;
+}
+.tw-ref-row input[type=range] { width: 100%; accent-color: var(--tw-aqua); }
+.tw-ref-btn {
+	display: block;
+	text-align: center;
+	padding: 7px 10px;
+	border-radius: 8px;
+	border: 1px solid var(--tw-line);
+	background: var(--tw-fill);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.tw-ref-save { background: var(--tw-aqua); color: #06201d; font-weight: 600; border: 0; }
+.tw-ref-save:disabled { opacity: 0.5; cursor: default; }

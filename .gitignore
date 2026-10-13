@@ -5,3 +5,5 @@ dist
 tools/geodata/raw/
 .claude/worktrees/
 .claude/settings.local.json
+# reference photos saved from the game (R): personal photos, kept out of the repository
+references/
