@@ -25,6 +25,9 @@ const UNPAVED = new Set( [ 'earth', 'dirt', 'ground', 'grass', 'unpaved', 'compa
 //   gully -> scrub and woodland (OSM scrub / wood, steep uncultivated slopes)
 //   scarp -> town ground (inside the walls and among the houses outside them)
 //   rock  -> bare limestone (Float32 0..1) on the steepest slopes
+// the square outside Porta da Vila, between the gate and the houses south of it
+export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
+
 export class TerrainData {
 
 	constructor( dem, seed = 7 ) {
@@ -443,6 +446,14 @@ export class TerrainData {
 			} );
 
 		}
+
+		// the square outside Porta da Vila: setts (town ground + paved), as in the photo
+		this._fill( PORTA_DA_VILA_SQUARE, ( k ) => {
+
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
 
 		// squares (closed pedestrian ways are plazas)
 		for ( const st of OSM.streets ) {
