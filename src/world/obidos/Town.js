@@ -166,6 +166,19 @@ export class Town {
 		}
 
 		for ( const f of list ) this._building( f, rand );
+		// the Passo da Porta da Vila's dressed stone (Walls._passoPortal): smooth, pale cream
+		if ( walls?.passo ) {
+
+			this.walls.color = srgbToLinear( [ 0.93, 0.88, 0.76 ] );
+			for ( const b of walls.passo ) {
+
+				this.walls.vdata = [ b.sx, 1, 0.37, 0 ]; // no windows
+				this.walls.box( b.x, b.y, b.z, b.sx, b.sy, b.sz, b.yaw, 'bottom' );
+
+			}
+
+		}
+
 		if ( walls?.casaTerrace ) for ( const pts of walls.casaTerrace.lines ) this._parapet( { ...walls.casaTerrace, pts }, PAINT[ 298902328 ] );
 		this.edges = list;
 		this._lanterns( materials, rand );
