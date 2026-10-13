@@ -23,6 +23,7 @@ const STEP_RISE = 0.18;
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end, inner arch, corner, curtain
 const PORTA_DA_VILA = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ];
+const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 
 export class Walls {
 
@@ -110,13 +111,14 @@ export class Walls {
 
 	// The L-shaped flight at Porta da Vila (OSM way 314791407): from the street just through the inner
 	// arch, up along the tower's town wall to a landing at the corner, then along its west wall to the
-	// wall walk. Built from the top down, against the outer faces of the two walls.
+	// wall walk. Built from the top down, against the outer faces of the two walls, in even steps from the
+	// walk to the street: broad, steep and dark with wear, as in the photo.
 	_portaDaVilaStairs() {
 
 		const wl = this.portaDaVila;
 		if ( ! wl ) return;
 		const T = this.terrain, kit = this.kit;
-		const width = 1.5, run = 0.32, off = W / 2 + width / 2 + 0.02;
+		const width = PV_FLIGHT, run = 0.3, off = W / 2 + width / 2 + 0.02;
 		// the two legs' centre lines: the walls' lines moved off their town faces
 		const shift = ( a, b ) => {
 
@@ -148,28 +150,39 @@ export class Walls {
 
 		}
 
+		// the two legs in whole steps of about `run`, one rise all the way from the walk down to the street
+		// just left of the inner arch
+		const dEnd = ( - 53.4 - corner[ 0 ] ) / - north.dx;
+		const gEnd = T.heightAt( corner[ 0 ] - north.dx * dEnd, corner[ 1 ] - north.dz * dEnd );
+		const lenW = tk - width / 2, lenN = dEnd - width / 2;
+		const nW = Math.max( 1, Math.round( lenW / run ) ), nN = Math.max( 1, Math.round( lenN / run ) );
+		const rise = ( walkY - gEnd - 0.15 ) / ( nW + nN );
 		const steps = [];
 		let y = walkY;
 		const put = ( x, z, dx, dz, len ) => {
 
 			steps.push( { x, z, y, g: T.heightAt( x, z ), yaw: Math.atan2( - dz, dx ), len } );
-			y -= STEP_RISE;
+			y -= rise;
 
 		};
-		// west leg, down toward the corner
-		for ( let d = run / 2; d < tk - width / 2; d += run ) put( top[ 0 ] - west.dx * d, top[ 1 ] - west.dz * d, west.dx, west.dz, run );
-		// the landing
+		// west leg, down toward the corner; the landing; north leg, down to the street
+		for ( let i = 0; i < nW; i ++ ) {
+
+			const d = ( i + 0.5 ) * lenW / nW;
+			put( top[ 0 ] - west.dx * d, top[ 1 ] - west.dz * d, west.dx, west.dz, lenW / nW );
+
+		}
+
 		put( corner[ 0 ], corner[ 1 ], north.dx, north.dz, width );
-		// north leg, down to the street just left of the inner arch: the street climbs toward the corner,
-		// so these steps are spread out (long treads) to reach it
-		const dEnd = ( - 53.4 - corner[ 0 ] ) / - north.dx;
-		const gEnd = T.heightAt( corner[ 0 ] - north.dx * dEnd, corner[ 1 ] - north.dz * dEnd );
-		const nN = Math.max( 1, Math.round( ( y - gEnd ) / STEP_RISE ) );
-		const runN = Math.max( run, ( dEnd - width / 2 ) / nN );
-		for ( let j = 0, d = width / 2 + runN / 2; j < nN && y - T.heightAt( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d ) > 0.12; j ++, d += runN ) put( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d, north.dx, north.dz, runN );
+		for ( let i = 0; i < nN; i ++ ) {
+
+			const d = width / 2 + ( i + 0.5 ) * lenN / nN;
+			put( corner[ 0 ] - north.dx * d, corner[ 1 ] - north.dz * d, north.dx, north.dz, lenN / nN );
+
+		}
 
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
-		kit.color = [ 1, 0.98, 0.95 ];
+		kit.color = [ 0.62, 0.6, 0.56 ]; // old, dark stone
 		for ( const st of steps ) {
 
 			const bottom = st.g - 0.6, h = st.y - bottom;
@@ -183,14 +196,15 @@ export class Walls {
 	}
 
 	// The stepped lane beside the L-shaped flight at Porta da Vila: from a metre past the inner arch it
-	// follows the flight round the tower, in low steps (about 15 cm), three short then two long, over and
-	// over; about 5 m short of the curtain it becomes a sloping path that turns right along the curtain.
+	// follows the flight round the tower, in low steps of pale stone (up to 16 cm), three short then two
+	// long, over and over, fanning out into the street at the foot, with an iron handrail on the town side;
+	// about 5 m short of the curtain it becomes a sloping path that turns right along the curtain.
 	_portaDaVilaLane() {
 
 		if ( ! this.portaDaVila ) return;
 		const T = this.terrain, kit = this.kit;
-		const width = 3, FLIGHT = 1.5; // the lane, and the L-shaped flight between it and the tower
-		const off = W / 2 + FLIGHT + 0.04 + width / 2;
+		const width = 3;
+		const off = W / 2 + PV_FLIGHT + 0.04 + width / 2; // the L-shaped flight between it and the tower
 		// a centre line beside a wall line a -> b, on side s (+ 1: to the left of a -> b on the map)
 		const beside = ( a, b, s, d ) => {
 
@@ -221,15 +235,15 @@ export class Walls {
 			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len } );
 
 		};
-		// three short steps, two long, again and again, each 6-18 cm up, keeping to the ground
-		const PATTERN = [ 0.45, 0.45, 0.45, 1.5, 1.5 ];
+		// three short steps, two long, again and again, each 6-16 cm up, keeping to the ground
+		const PATTERN = [ 0.45, 0.45, 0.45, 1.1, 1.1 ];
 		let k = 0;
 		const flight = ( from, l, length ) => {
 
 			for ( let d = 0; d < length - 0.2; k ++ ) {
 
 				const len = Math.min( PATTERN[ k % PATTERN.length ], length - d );
-				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.18 ] );
+				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.16 ] );
 				d += len;
 
 			}
@@ -237,9 +251,10 @@ export class Walls {
 		};
 		const dStart = ( corner[ 0 ] - startX ) / north.dx;
 		flight( at( corner, north, - dStart ), north, dStart - width / 2 );
-		put( corner, west, width, [ 0.06, 0.18 ] ); // the corner
+		put( corner, west, width, [ 0.06, 0.16 ] ); // the corner
 		const stepsEnd = turn[ 1 ] - 5 - width / 2;
 		flight( at( corner, west, width / 2 ), west, ( stepsEnd - corner[ 1 ] ) / west.dz - width / 2 );
+		const nSteps = steps.length;
 		// the sloping path, following the ground, to the turn and a few metres along the curtain
 		const RUN = 0.3;
 		const slope = ( from, l, length ) => {
@@ -253,18 +268,67 @@ export class Walls {
 		slope( at( turn, curtain, width / 2 ), curtain, 5 );
 
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
-		kit.color = [ 1, 0.98, 0.95 ];
-		for ( const st of steps ) {
+		kit.color = [ 1.06, 1.05, 1.02 ]; // pale limestone
+		// the town side of a step (to the left going up)
+		const side = ( st ) => [ Math.sin( st.yaw ), Math.cos( st.yaw ) ];
+		steps.forEach( ( st, i ) => {
 
+			// the first steps fan out into the street on the town side
+			const fan = Math.max( 0, 3 - i ) * 0.5, [ nx, nz ] = side( st );
+			const cx = st.x + nx * fan / 2, cz = st.z + nz * fan / 2;
 			const bottom = st.g - 0.6, h = st.y - bottom;
-			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, width, st.yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, width / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+			kit.box( cx, bottom + h / 2, cz, st.len + 0.02, h, width + fan, st.yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( cx, bottom + h / 2, cz ), new Vector3( st.len / 2 + 0.01, h / 2, ( width + fan ) / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+
+		} );
+
+		// the handrail along the town edge of the steps: posts about every 2 m, a bar 0.9 m over the treads
+		kit.color = [ 0.07, 0.07, 0.07 ];
+		const post = ( st, end ) => {
+
+			const [ nx, nz ] = side( st ), tx = Math.cos( st.yaw ), tz = - Math.sin( st.yaw ), e = end * st.len / 2;
+			return [ st.x + nx * ( width / 2 - 0.1 ) + tx * e, st.y + 0.9, st.z + nz * ( width / 2 - 0.1 ) + tz * e ];
+
+		};
+		const rail = [];
+		let since = Infinity;
+		for ( let i = 3; i < nSteps; i ++ ) {
+
+			if ( since >= 2 || i === nSteps - 1 ) {
+
+				rail.push( post( steps[ i ], i === nSteps - 1 ? 1 : 0 ) );
+				since = 0;
+
+			}
+
+			since += steps[ i ].len;
 
 		}
+
+		rail.forEach( ( p, i ) => {
+
+			kit.box( p[ 0 ], p[ 1 ] - 0.45, p[ 2 ], 0.05, 0.9, 0.05, 0, 'bottom' );
+			if ( i > 0 ) this._bar( rail[ i - 1 ], p, 0.025 );
+
+		} );
 
 		this.lane = steps;
 		// houses keep 2.5 m back from the lane's outer edge (the steps run up it, the tower to their right)
 		this.clearLines.push( { pts: steps.map( ( st ) => [ st.x, st.z ] ), clear: width / 2 + 2.5 } );
+
+	}
+
+	// a thin square bar from p to q (iron work), half thickness r
+	_bar( p, q, r ) {
+
+		const dx = q[ 0 ] - p[ 0 ], dz = q[ 2 ] - p[ 2 ], L = Math.hypot( dx, dz ) || 1;
+		const sx = - dz / L, sz = dx / L; // across, level
+		const c = ( o, s, u ) => [ o[ 0 ] + sx * r * s, o[ 1 ] + r * u, o[ 2 ] + sz * r * s ];
+		for ( const [ s0, u0, s1, u1, n ] of [ [ - 1, 1, 1, 1, [ 0, 1, 0 ] ], [ 1, - 1, - 1, - 1, [ 0, - 1, 0 ] ], [ 1, 1, 1, - 1, [ sx, 0, sz ] ], [ - 1, - 1, - 1, 1, [ - sx, 0, - sz ] ] ] ) {
+
+			this.kit.quadFacing( c( p, s0, u0 ), c( q, s0, u0 ), c( q, s1, u1 ), c( p, s1, u1 ), n );
+
+		}
 
 	}
 
