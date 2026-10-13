@@ -166,6 +166,7 @@ export class Town {
 		}
 
 		for ( const f of list ) this._building( f, rand );
+		this._slabPath( [ [ - 58.5, 236.4 ], [ - 58.7, 241.1 ], [ - 56.6, 246.5 ], [ - 54.6, 261 ] ] );
 		// the Passo da Porta da Vila's dressed stone (Walls._passoPortal): smooth, pale cream
 		if ( walls?.passo ) {
 
@@ -289,6 +290,32 @@ export class Town {
 		}
 
 		return best;
+
+	}
+
+	// A path of big pale limestone slabs set in the setts (the one across the square to Porta da Vila, as in
+	// the photo): about a metre wide, each slab 0.5-0.9 m long, nudged a little left or right of the line.
+	_slabPath( pts ) {
+
+		const T = this.terrain, kit = this.walls, rand = mulberry32( 2207 );
+		kit.color = srgbToLinear( [ 0.82, 0.8, 0.74 ] );
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const a = pts[ i ], b = pts[ i + 1 ];
+			const L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), ux = ( b[ 0 ] - a[ 0 ] ) / L, uz = ( b[ 1 ] - a[ 1 ] ) / L;
+			const yaw = Math.atan2( - uz, ux );
+			for ( let d = 0; d < L - 0.3; ) {
+
+				const len = Math.min( 0.5 + rand() * 0.4, L - d ), w = 0.85 + rand() * 0.3, off = ( rand() - 0.5 ) * 0.3;
+				const x = a[ 0 ] + ux * ( d + len / 2 ) - uz * off, z = a[ 1 ] + uz * ( d + len / 2 ) + ux * off;
+				const y = T.heightAt( x, z );
+				kit.vdata = [ len, 1, rand(), 0 ]; // no windows
+				kit.box( x, y - 0.05, z, len - 0.03, 0.14, w, yaw, 'bottom' );
+				d += len;
+
+			}
+
+		}
 
 	}
 
