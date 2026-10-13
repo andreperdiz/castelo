@@ -76,6 +76,7 @@ export class Walls {
 		this._stairs();
 		this._portaDaVilaStairs();
 		this._portaDaVilaLane();
+		this._casaDaMusicaTerrace();
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
 		mesh.name = 'walls';
@@ -197,8 +198,8 @@ export class Walls {
 
 	// The stepped lane beside the L-shaped flight at Porta da Vila: from a metre past the inner arch it
 	// follows the flight round the tower, in low steps of pale stone (up to 16 cm), three short then two
-	// long, over and over, fanning out into the street at the foot, with an iron handrail on the town side;
-	// about 5 m short of the curtain it becomes a sloping path that turns right along the curtain.
+	// long, over and over, fanning out into the street at the foot; about 5 m short of the curtain it
+	// becomes a sloping path that turns right along the curtain.
 	_portaDaVilaLane() {
 
 		if ( ! this.portaDaVila ) return;
@@ -254,7 +255,6 @@ export class Walls {
 		put( corner, west, width, [ 0.06, 0.16 ] ); // the corner
 		const stepsEnd = turn[ 1 ] - 5 - width / 2;
 		flight( at( corner, west, width / 2 ), west, ( stepsEnd - corner[ 1 ] ) / west.dz - width / 2 );
-		const nSteps = steps.length;
 		// the sloping path, following the ground, to the turn and a few metres along the curtain
 		const RUN = 0.3;
 		const slope = ( from, l, length ) => {
@@ -282,39 +282,95 @@ export class Walls {
 
 		} );
 
-		// the handrail along the town edge of the steps: posts about every 2 m, a bar 0.9 m over the treads
-		kit.color = [ 0.07, 0.07, 0.07 ];
-		const post = ( st, end ) => {
+		this.lane = steps;
+		this.laneNorth = { corner, north, width }; // its first leg, for the Casa da Música's terrace beside it
+		// houses keep 2.5 m back from the lane's outer edge (the steps run up it, the tower to their right)
+		this.clearLines.push( { pts: steps.map( ( st ) => [ st.x, st.z ] ), clear: width / 2 + 2.5 } );
 
-			const [ nx, nz ] = side( st ), tx = Math.cos( st.yaw ), tz = - Math.sin( st.yaw ), e = end * st.len / 2;
-			return [ st.x + nx * ( width / 2 - 0.1 ) + tx * e, st.y + 0.9, st.z + nz * ( width / 2 - 0.1 ) + tz * e ];
+	}
+
+	// The Casa da Música (the Auditório) beside the lane, as in the photo: a terrace in front of it, raised
+	// over the lane, reached by a short flight of white steps with an iron handrail that climbs beside the
+	// lane to a gateway of two blue piers. The terrace's white parapet along the lane is plaster, built with
+	// the houses (Town reads this.casaTerrace).
+	_casaDaMusicaTerrace() {
+
+		const L = this.laneNorth;
+		if ( ! L ) return;
+		const T = this.terrain, kit = this.kit;
+		const { corner, north, width } = L;
+		const n = [ - north.dz, north.dx ]; // the town side of the lane (toward the building)
+		const t = [ - north.dx, - north.dz ]; // along the lane, eastward (down)
+		// a point on the lane's town edge at x, moved `off` further toward the building
+		const edge = ( x, off = 0 ) => {
+
+			const d = ( x - corner[ 0 ] ) / north.dx;
+			return [ corner[ 0 ] + north.dx * d + n[ 0 ] * ( width / 2 + off ), corner[ 1 ] + north.dz * d + n[ 1 ] * ( width / 2 + off ) ];
 
 		};
-		const rail = [];
-		let since = Infinity;
-		for ( let i = 3; i < nSteps; i ++ ) {
+		// the terrace: from the gateway west to where the rising ground comes up to its floor; back to the building
+		const GATE_X = - 60, WEST_X = - 66.5, FACE_Z = 211.5;
+		const yaw = Math.atan2( - north.dz, north.dx );
+		const a = edge( GATE_X, 0.15 ), b = edge( WEST_X, 0.15 ); // the parapet's line
+		const depth = ( ( a[ 1 ] + b[ 1 ] ) / 2 - FACE_Z ) + 0.5;
+		// the terrace floor: level, about 1.3 m over the lane at the gateway (the ground rises to it westward)
+		let gMin = Infinity;
+		for ( let u = 0; u <= 1; u += 0.1 ) for ( let v = 0; v <= 1; v += 0.25 ) gMin = Math.min( gMin, T.heightAt( a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * u + n[ 0 ] * depth * v, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * u + n[ 1 ] * depth * v ) );
+		const yT = T.heightAt( a[ 0 ], a[ 1 ] ) + 1.3, bottom = gMin - 0.6;
+		const len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+		const c = [ ( a[ 0 ] + b[ 0 ] ) / 2 + n[ 0 ] * depth / 2, ( a[ 1 ] + b[ 1 ] ) / 2 + n[ 1 ] * depth / 2 ];
+		kit.vdata = [ 0.29, 0.6, 0, 0 ];
+		kit.color = [ 1.06, 1.05, 1.02 ];
+		kit.box( c[ 0 ], ( yT + bottom ) / 2, c[ 1 ], len, yT - bottom, depth, yaw, 'bottom' );
+		this.colliders.addBox( new Vector3( c[ 0 ], ( yT + bottom ) / 2, c[ 1 ] ), new Vector3( len / 2, ( yT - bottom ) / 2, depth / 2 ), yaw, { walkable: true, tag: 'terrace' } );
 
-			if ( since >= 2 || i === nSteps - 1 ) {
+		// the short flight: from the gateway down eastward beside the lane, until it meets the ground
+		const SW = 1.3, run = 0.3;
+		const steps = [];
+		let y = yT;
+		for ( let d = run / 2; d < 10; d += run ) {
 
-				rail.push( post( steps[ i ], i === nSteps - 1 ? 1 : 0 ) );
-				since = 0;
-
-			}
-
-			since += steps[ i ].len;
+			const e = edge( GATE_X, SW / 2 + 0.02 );
+			const p = [ e[ 0 ] + t[ 0 ] * d, e[ 1 ] + t[ 1 ] * d ];
+			y -= 0.16;
+			const g = T.heightAt( p[ 0 ], p[ 1 ] );
+			if ( y < g + 0.05 ) break;
+			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g } );
 
 		}
 
-		rail.forEach( ( p, i ) => {
+		for ( const st of steps ) {
 
-			kit.box( p[ 0 ], p[ 1 ] - 0.45, p[ 2 ], 0.05, 0.9, 0.05, 0, 'bottom' );
-			if ( i > 0 ) this._bar( rail[ i - 1 ], p, 0.025 );
+			const sb = st.g - 0.6, h = st.y - sb;
+			kit.box( st.x, sb + h / 2, st.z, run + 0.02, h, SW, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( st.x, sb + h / 2, st.z ), new Vector3( run / 2 + 0.01, h / 2, SW / 2 ), yaw, { walkable: true, tag: 'stair' } );
 
-		} );
+		}
 
-		this.lane = steps;
-		// houses keep 2.5 m back from the lane's outer edge (the steps run up it, the tower to their right)
-		this.clearLines.push( { pts: steps.map( ( st ) => [ st.x, st.z ] ), clear: width / 2 + 2.5 } );
+		// its handrail, on the lane side: a post at each end, a bar 0.9 m over the nosings
+		kit.color = [ 0.07, 0.07, 0.07 ];
+		if ( steps.length ) {
+
+			const rail = ( st, k ) => [ st.x - n[ 0 ] * ( SW / 2 - 0.08 ) + t[ 0 ] * k, st.y + 0.9, st.z - n[ 1 ] * ( SW / 2 - 0.08 ) + t[ 1 ] * k ];
+			const top = rail( { x: steps[ 0 ].x, z: steps[ 0 ].z, y: yT }, - run ), foot = rail( steps.at( - 1 ), 0 );
+			for ( const p of [ top, foot ] ) kit.box( p[ 0 ], p[ 1 ] - 0.45, p[ 2 ], 0.05, 0.9, 0.05, 0, 'bottom' );
+			this._bar( top, foot, 0.025 );
+
+		}
+
+		// the gateway: two blue piers, on the lane side and the building side of the top step
+		kit.color = [ 0.13, 0.27, 0.62 ]; // Óbidos blue
+		for ( const off of [ - 0.2, SW + 0.25 ] ) {
+
+			const p = edge( GATE_X + 0.25, off );
+			const g = T.heightAt( p[ 0 ], p[ 1 ] ) - 0.6;
+			kit.box( p[ 0 ], ( g + yT + 1.3 ) / 2, p[ 1 ], 0.45, yT + 1.3 - g, 0.45, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( p[ 0 ], ( g + yT + 1.3 ) / 2, p[ 1 ] ), new Vector3( 0.23, ( yT + 1.3 - g ) / 2, 0.23 ), yaw, { walkable: false, tag: 'pier' } );
+
+		}
+
+		// the parapet's line along the lane, for Town
+		this.casaTerrace = { pts: [ a, b ], top: yT + 0.9, floor: yT, thick: 0.25 };
 
 	}
 

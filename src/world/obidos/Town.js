@@ -19,8 +19,12 @@ const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
 // the Oratório inside Porta da Vila: the gate tower is open to the sky in the game
 const SKIP_ID = new Set( [ 1276312776 ] );
-// the Auditório without its north-east wing, which stands where the steps by Porta da Vila are built
-const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 215.5 ], [ - 60, 215.5 ], [ - 64.4, 195.6 ] ] };
+// the Auditório (Casa da Música) without its north-east wing, where the steps by Porta da Vila are built,
+// and set back behind its terrace (Walls._casaDaMusicaTerrace)
+const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 73.2, 211.5 ], [ - 60.9, 211.5 ], [ - 64.4, 195.6 ] ] };
+// as in the photos: the Casa da Música is white with strong blue trim, two storeys
+const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ] };
+const STOREYS = { 298902328: 2 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [
@@ -161,6 +165,7 @@ export class Town {
 		}
 
 		for ( const f of list ) this._building( f, rand );
+		if ( walls?.casaTerrace ) this._parapet( walls.casaTerrace, PAINT[ 298902328 ] );
 		this.edges = list;
 		this._lanterns( materials, rand );
 
@@ -273,6 +278,37 @@ export class Town {
 
 	}
 
+	// a whitewashed parapet wall along pts (the Casa da Música's terrace), with a painted base band on its
+	// outer (street) side, from below the ground up to `top`
+	_parapet( { pts, top, thick }, paint ) {
+
+		const T = this.terrain, kit = this.walls;
+		kit.color = srgbToLinear( paint );
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const a = pts[ i ], c = pts[ i + 1 ];
+			const L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+			const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = - uz * thick / 2, nz = ux * thick / 2; // across the wall
+			const g = Math.min( T.heightAt( a[ 0 ], a[ 1 ] ), T.heightAt( c[ 0 ], c[ 1 ] ) );
+			const base = g - 0.8;
+			kit.vdata = [ L, 1, 0.71 + i, 0 ]; // no windows
+			for ( const s of [ - 1, 1 ] ) {
+
+				const A = [ a[ 0 ] + nx * s, a[ 1 ] + nz * s ], C = [ c[ 0 ] + nx * s, c[ 1 ] + nz * s ];
+				kit.quadFacing( [ A[ 0 ], base, A[ 1 ] ], [ C[ 0 ], base, C[ 1 ] ], [ C[ 0 ], top, C[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ nx * s, 0, nz * s ],
+					[ [ 0, base - g ], [ L, base - g ], [ L, top - g ], [ 0, top - g ] ] );
+
+			}
+
+			kit.quadFacing( [ a[ 0 ] - nx, top, a[ 1 ] - nz ], [ c[ 0 ] - nx, top, c[ 1 ] - nz ], [ c[ 0 ] + nx, top, c[ 1 ] + nz ], [ a[ 0 ] + nx, top, a[ 1 ] + nz ], [ 0, 1, 0 ] );
+			for ( const [ e, f ] of [ [ a, - 1 ], [ c, 1 ] ] ) kit.quadFacing( [ e[ 0 ] - nx, base, e[ 1 ] - nz ], [ e[ 0 ] + nx, base, e[ 1 ] + nz ], [ e[ 0 ] + nx, top, e[ 1 ] + nz ], [ e[ 0 ] - nx, top, e[ 1 ] - nz ], [ ux * f, 0, uz * f ] );
+			this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2, ( base + top ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 ), new Vector3( L / 2, ( top - base ) / 2, thick / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
+
+		}
+
+	}
+
 	_building( f, rand ) {
 
 		const T = this.terrain;
@@ -291,7 +327,7 @@ export class Town {
 		const gC = T.heightAt( f.cx, f.cz );
 		gMin = Math.min( gMin, gC ); gMax = Math.max( gMax, gC );
 		// storeys: tagged, or by size (small houses 1-2, bigger 2-3); churches by area
-		const tagged = Number( b[ 'building:levels' ] );
+		const tagged = STOREYS[ b.id ] ?? Number( b[ 'building:levels' ] );
 		let storeys = tagged > 0 ? tagged : f.area < 60 ? 1 + ( rand() < 0.6 ? 1 : 0 ) : f.area < 160 ? 2 : 2 + ( rand() < 0.3 ? 1 : 0 );
 		if ( ! inTown && tagged <= 0 && rand() < 0.3 ) storeys = Math.max( 1, storeys - 1 );
 		// the eave from the mean ground (on a slope the downhill side shows a little more wall)
@@ -337,7 +373,7 @@ export class Town {
 
 		}
 
-		this.walls.color = srgbToLinear( trim );
+		this.walls.color = srgbToLinear( PAINT[ b.id ] || trim );
 		const seed = rand();
 
 		// walls
