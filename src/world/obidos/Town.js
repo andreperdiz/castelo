@@ -17,8 +17,9 @@ const MAX_RISE = 3.0;
 const STOREY = 3.0;
 const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
-// the Oratório inside Porta da Vila: the gate tower is open to the sky in the game
-const SKIP_ID = new Set( [ 1276312776 ] );
+// the Oratório inside Porta da Vila (the gate tower is open to the sky in the game), and the Passo da Porta
+// da Vila, built as a portal on the tower's face (Walls._passoPortal)
+const SKIP_ID = new Set( [ 1276312776, 1276312777 ] );
 // the Auditório (Casa da Música) without its south wing, where the steps by Porta da Vila are built (its
 // terrace along Rua Direita: Walls._casaDaMusicaTerrace)
 const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };

@@ -341,6 +341,9 @@ export class TerrainData {
 		const i0 = Math.max( 0, Math.floor( ( b.x0 - R - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( b.x1 + R - origin ) / texel ) );
 		const j0 = Math.max( 0, Math.floor( ( b.z0 - R - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( b.z1 + R - origin ) / texel ) );
 		const nz = this.noise2;
+		// the square outside Porta da Vila: nearly level from the gate (rising 6 cm a metre), back to the
+		// natural ground 16-28 m out
+		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
 			const k = j * res + i;
@@ -356,6 +359,12 @@ export class TerrainData {
 			const h = heights[ k ];
 			const shaped = Math.min( h, lerp( target, h, k2 ) );
 			heights[ k ] = lerp( h, shaped, gateK );
+			if ( pv ) {
+
+				const d = Math.hypot( pv.x - x, pv.z - z );
+				if ( d < 28 ) heights[ k ] = lerp( pv.y + 0.06 * d, heights[ k ], smoothstep( 16, 28, d ) );
+
+			}
 
 		}
 

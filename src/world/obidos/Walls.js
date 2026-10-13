@@ -43,10 +43,12 @@ export class Walls {
 
 		// Porta da Vila's outer arch is narrower than the street, so it clears the tower's west wall
 		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
-		if ( portaDaVila ) portaDaVila.half = 1.7;
+		// and is pointed (photo references/...-portadavila)
+		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, pointed: 1.6 } );
 		// the curtain round the town
 		this.curtain = this._wallLine( terrain.wall, terrain.gates, 0.37 );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
+		if ( portaDaVila ) this._passoPortal( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
 		const castle = OSM.walls.find( ( w ) => w.name && /Castelo/.test( w.name ) );
 		if ( castle ) {
@@ -107,6 +109,50 @@ export class Walls {
 		if ( end ) for ( const p of prof.pts ) p.top = Math.max( p.top, end.p.y - ( prof.length - p.s ) / 2.5 );
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37 );
 		this.portaDaVila.gates = [ outerGate, inner ];
+
+	}
+
+	// The chapel portal on Porta da Vila's outer face, right of the arch (the Passo da Porta da Vila, as in
+	// the photo): a frame of pale stone round an arched wooden door, a cornice, a pediment with scrolls,
+	// two finials and a cross, three steps in front.
+	_passoPortal( gate ) {
+
+		const T = this.terrain, kit = this.kit;
+		// the curtain's line here runs east, out is south; the portal 4.8 m right of the arch's centre
+		const dx = 0.997, dz = 0.077, nx = - dz, nz = dx; // along, out
+		const yaw = Math.atan2( - dz, dx );
+		const u0 = 4.8, face = W / 2;
+		const P = ( u, v ) => [ gate.x + dx * u + nx * ( face + v ), gate.z + dz * u + nz * ( face + v ) ];
+		const g0 = T.heightAt( ...P( u0, 2 ) );
+		const part = ( u, v, y0, sx, sy, sz, solid = true, walk = false ) => {
+
+			const c = P( u0 + u, v + sz / 2 );
+			kit.box( c[ 0 ], y0 + sy / 2, c[ 1 ], sx, sy, sz, yaw, 'bottom' );
+			if ( solid ) this.colliders.addBox( new Vector3( c[ 0 ], y0 + sy / 2, c[ 1 ] ), new Vector3( sx / 2, sy / 2, sz / 2 ), yaw, { walkable: walk, tag: walk ? 'stair' : 'portal' } );
+
+		};
+		kit.vdata = [ 0.41, 0.15, 0, 0 ];
+		kit.color = [ 1.08, 1.02, 0.9 ]; // pale stone
+		part( 0, - 0.2, g0 - 0.6, 4, 6.1, 0.6 ); // the frame, from below the ground to the cornice
+		part( 0, - 0.2, g0 + 5.5, 4.5, 0.3, 0.85 ); // the cornice
+		part( 0, - 0.2, g0 + 5.8, 2.6, 0.75, 0.55, false ); // the pediment
+		for ( const s of [ - 1, 1 ] ) {
+
+			part( s * 1.45, - 0.2, g0 + 5.8, 0.45, 0.45, 0.6, false ); // its scrolls
+			part( s * 1.95, - 0.1, g0 + 5.8, 0.3, 0.75, 0.3, false ); // a finial
+			part( s * 1.95, - 0.1, g0 + 6.55, 0.18, 0.2, 0.18, false );
+
+		}
+
+		part( 0, - 0.1, g0 + 6.55, 0.15, 1.2, 0.15, false ); // the cross
+		part( 0, - 0.1, g0 + 7.25, 0.75, 0.15, 0.15, false );
+		// the door: dark wood, its round head in steps
+		kit.color = [ 0.18, 0.11, 0.07 ];
+		part( 0, 0.4, g0 + 0.45, 1.8, 2.75, 0.04, false );
+		[ [ 1.65, 0.25 ], [ 1.35, 0.25 ], [ 0.85, 0.25 ] ].reduce( ( y, [ w, h ] ) => ( part( 0, 0.4, y, w, h, 0.04, false ), y + h ), g0 + 3.2 );
+		// three steps up to it
+		kit.color = [ 0.98, 0.95, 0.88 ];
+		for ( let i = 0; i < 3; i ++ ) part( 0, 0.4 + ( 2 - i ) * 0.4, g0 - 0.6, 4.4 - i * 0.3, 0.6 + 0.15 * ( i + 1 ), 0.4, true, true );
 
 	}
 
@@ -496,7 +542,16 @@ export class Walls {
 		const archY = ( g, p, x, z ) => {
 
 			const R = arcR.get( g ), a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz;
-			return g.y + Math.max( 2.4, 4.2 - R ) + Math.sqrt( Math.max( 0, R * R - a * a ) );
+			const spring = g.y + Math.max( 2.4, 4.2 - R );
+			// pointed: two arcs of radius R * pointed, each struck from beyond the opposite jamb
+			if ( g.pointed ) {
+
+				const rr = R * g.pointed, e = Math.abs( a ) + rr - R;
+				return spring + Math.sqrt( Math.max( 0, rr * rr - e * e ) );
+
+			}
+
+			return spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
 
 		};
 
@@ -542,7 +597,7 @@ export class Walls {
 
 			};
 			const tone = 0.92 + 0.08 * Math.sin( p.s * 0.05 + seed * 9 );
-			kit.color = [ tone, tone * 0.99, tone * 0.97 ];
+			kit.color = [ tone, tone * 0.87, tone * 0.66 ]; // golden limestone, as in the photos
 
 			// walk
 			kit.quadFacing( [ IA[ 0 ], y, IA[ 1 ] ], [ IB[ 0 ], y, IB[ 1 ] ], [ PB[ 0 ], y, PB[ 1 ] ], [ PA[ 0 ], y, PA[ 1 ] ], up,
@@ -705,7 +760,7 @@ export class Walls {
 			const top = walkY + extra;
 			const walkable = extra === 0;
 			kit.vdata = [ 0.13 + cx * 0.01, 0.9, 0, 0 ];
-			kit.color = [ 0.95, 0.94, 0.92 ];
+			kit.color = [ 0.95, 0.83, 0.63 ];
 			// sides
 			let u = 0;
 			for ( let i = 0; i < poly.length; i ++ ) {
