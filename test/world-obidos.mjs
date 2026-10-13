@@ -97,6 +97,15 @@ P.placeAt( pv.x, pv.y + 0.1, pv.z );
 ok = walkTo( - 61.7, 232, 5, 0.4 ) && walkTo( - 61.7, 234.3, 5, 0.4 ) && walkTo( - 68, 234.2, 10, 0.5 );
 check( ok && P.position.y > pv.y, `from the steps by Porta da Vila onto the curtain walk (y ${ P.position.y.toFixed( 1 ) })` );
 
+// up the short flight beside the lane onto the Casa da Música's terrace
+const ct = W.casaTerrace;
+const flightSteps = C.boxes.filter( ( b ) => b.tag === 'stair' && b.center.x > - 60.5 && b.center.x < - 54 && b.center.z > 210 && b.center.z < 217.5 ).sort( ( a, b ) => b.center.x - a.center.x );
+P.placeAt( - 55.5, T.heightAt( - 55.5, 218.5 ) + 0.3, 218.5 );
+ok = flightSteps.length > 3;
+for ( const st of flightSteps ) if ( ok ) ok = walkTo( st.center.x, st.center.z, 5, 0.35 );
+ok = ok && walkTo( - 63, 214, 5, 0.4 ) && Math.abs( P.position.y - ct.floor ) < 0.1;
+check( ok, `up the steps onto the Casa da Música's terrace (y ${ P.position.y.toFixed( 1 ) } of ${ ct.floor.toFixed( 1 ) })` );
+
 // along the walk, then into the parapet, then off the town side
 const S = W.curtain.samples;
 const i0 = Math.floor( S.length * 0.3 );
