@@ -289,49 +289,54 @@ export class Walls {
 
 	}
 
-	// The Casa da Música (the Auditório) beside the lane, as in the photo: a terrace in front of it, raised
-	// over the lane, reached by a short flight of white steps with an iron handrail that climbs beside the
-	// lane to a gateway of two blue piers. The terrace's white parapet along the lane is plaster, built with
-	// the houses (Town reads this.casaTerrace).
+	// The Casa da Música (the Auditório), as in the photos (references/...-duasescadas, -apossaidadaporta2):
+	// a terrace runs the length of its east front, a level above Rua Direita, behind a whitewashed wall with
+	// a blue band and blue pilasters along the street. At its south end a short flight of white steps with
+	// an iron handrail climbs beside the lane and turns onto it through a gateway of two blue piers. The
+	// wall is plaster, built with the houses (Town reads this.casaTerrace).
 	_casaDaMusicaTerrace() {
 
 		const L = this.laneNorth;
 		if ( ! L ) return;
 		const T = this.terrain, kit = this.kit;
-		const { corner, north, width } = L;
-		const n = [ - north.dz, north.dx ]; // the town side of the lane (toward the building)
-		const t = [ - north.dx, - north.dz ]; // along the lane, eastward (down)
-		// a point on the lane's town edge at x, moved `off` further toward the building
-		const edge = ( x, off = 0 ) => {
+		// the building's east front (Town.OUTLINE), and the wall 2.6 m off Rua Direita's centre line
+		const FS = [ - 60.2, 214.5 ], FN = [ - 64.4, 195.6 ];
+		const WS = [ - 56.1, 215 ], WK = [ - 58.1, 210.8 ], WN = [ - 60.3, 195.6 ];
+		const parts = [ [ FS, WS, WK, [ - 61, 210.8 ] ], [ [ - 61, 210.8 ], WK, WN, FN ] ];
+		let gMax = - Infinity, gMin = Infinity;
+		for ( const q of parts.flat() ) {
 
-			const d = ( x - corner[ 0 ] ) / north.dx;
-			return [ corner[ 0 ] + north.dx * d + n[ 0 ] * ( width / 2 + off ), corner[ 1 ] + north.dz * d + n[ 1 ] * ( width / 2 + off ) ];
+			const g = T.heightAt( q[ 0 ], q[ 1 ] );
+			gMax = Math.max( gMax, g );
+			gMin = Math.min( gMin, g );
 
-		};
-		// the terrace: from the gateway west to where the rising ground comes up to its floor; back to the building
-		const GATE_X = - 60, WEST_X = - 66.5, FACE_Z = 211.5;
-		const yaw = Math.atan2( - north.dz, north.dx );
-		const a = edge( GATE_X, 0.15 ), b = edge( WEST_X, 0.15 ); // the parapet's line
-		const depth = ( ( a[ 1 ] + b[ 1 ] ) / 2 - FACE_Z ) + 0.5;
-		// the terrace floor: level, about 1.3 m over the lane at the gateway (the ground rises to it westward)
-		let gMin = Infinity;
-		for ( let u = 0; u <= 1; u += 0.1 ) for ( let v = 0; v <= 1; v += 0.25 ) gMin = Math.min( gMin, T.heightAt( a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * u + n[ 0 ] * depth * v, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * u + n[ 1 ] * depth * v ) );
-		const yT = T.heightAt( a[ 0 ], a[ 1 ] ) + 1.3, bottom = gMin - 0.6;
-		const len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
-		const c = [ ( a[ 0 ] + b[ 0 ] ) / 2 + n[ 0 ] * depth / 2, ( a[ 1 ] + b[ 1 ] ) / 2 + n[ 1 ] * depth / 2 ];
+		}
+
+		const yT = gMax + 0.1, bottom = gMin - 0.8;
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 1.06, 1.05, 1.02 ];
-		kit.box( c[ 0 ], ( yT + bottom ) / 2, c[ 1 ], len, yT - bottom, depth, yaw, 'bottom' );
-		this.colliders.addBox( new Vector3( c[ 0 ], ( yT + bottom ) / 2, c[ 1 ] ), new Vector3( len / 2, ( yT - bottom ) / 2, depth / 2 ), yaw, { walkable: true, tag: 'terrace' } );
+		for ( const poly of parts ) {
 
-		// the short flight: from the gateway down eastward beside the lane, until it meets the ground
-		const SW = 1.3, run = 0.3;
+			// the floor (the wall hides its sides), and a collider for it
+			kit.quadFacing( ...poly.map( ( q ) => [ q[ 0 ], yT, q[ 1 ] ] ), [ 0, 1, 0 ] );
+			const o = orientedBox( poly );
+			this.colliders.addBox( new Vector3( o.cx, ( yT + bottom ) / 2, o.cz ), new Vector3( o.hx, ( yT - bottom ) / 2, o.hz ), o.yaw, { walkable: true, tag: 'terrace' } );
+
+		}
+
+		// the short flight: up westward along the lane's town edge, to a landing that turns north through
+		// the terrace's south wall
+		const { corner, north, width } = L;
+		const n = [ - north.dz, north.dx ], t = [ - north.dx, - north.dz ]; // toward the building; eastward
+		const yaw = Math.atan2( - north.dz, north.dx );
+		const SW = 1.3, run = 0.3, TOP_X = - 58.6;
+		const d0 = ( TOP_X - corner[ 0 ] ) / north.dx;
+		const top = [ corner[ 0 ] + north.dx * d0 + n[ 0 ] * ( width / 2 + SW / 2 + 0.02 ), corner[ 1 ] + north.dz * d0 + n[ 1 ] * ( width / 2 + SW / 2 + 0.02 ) ];
 		const steps = [];
 		let y = yT;
 		for ( let d = run / 2; d < 10; d += run ) {
 
-			const e = edge( GATE_X, SW / 2 + 0.02 );
-			const p = [ e[ 0 ] + t[ 0 ] * d, e[ 1 ] + t[ 1 ] * d ];
+			const p = [ top[ 0 ] + t[ 0 ] * d, top[ 1 ] + t[ 1 ] * d ];
 			y -= 0.16;
 			const g = T.heightAt( p[ 0 ], p[ 1 ] );
 			if ( y < g + 0.05 ) break;
@@ -347,30 +352,48 @@ export class Walls {
 
 		}
 
+		// the landing, from the top step to the terrace (its south wall runs FS -> WS)
+		const sz = FS[ 1 ] + ( WS[ 1 ] - FS[ 1 ] ) * ( TOP_X - FS[ 0 ] ) / ( WS[ 0 ] - FS[ 0 ] ); // that wall at TOP_X
+		const lz0 = sz - 0.2, lz1 = top[ 1 ] + SW / 2;
+		const land = [ TOP_X - 0.15, ( lz0 + lz1 ) / 2 ];
+		const lb = T.heightAt( land[ 0 ], land[ 1 ] ) - 0.6;
+		kit.box( land[ 0 ], ( yT + lb ) / 2, land[ 1 ], SW, yT - lb, lz1 - lz0, 0, 'bottom' );
+		this.colliders.addBox( new Vector3( land[ 0 ], ( yT + lb ) / 2, land[ 1 ] ), new Vector3( SW / 2, ( yT - lb ) / 2, ( lz1 - lz0 ) / 2 ), 0, { walkable: true, tag: 'terrace' } );
+
 		// its handrail, on the lane side: a post at each end, a bar 0.9 m over the nosings
 		kit.color = [ 0.07, 0.07, 0.07 ];
 		if ( steps.length ) {
 
 			const rail = ( st, k ) => [ st.x - n[ 0 ] * ( SW / 2 - 0.08 ) + t[ 0 ] * k, st.y + 0.9, st.z - n[ 1 ] * ( SW / 2 - 0.08 ) + t[ 1 ] * k ];
-			const top = rail( { x: steps[ 0 ].x, z: steps[ 0 ].z, y: yT }, - run ), foot = rail( steps.at( - 1 ), 0 );
-			for ( const p of [ top, foot ] ) kit.box( p[ 0 ], p[ 1 ] - 0.45, p[ 2 ], 0.05, 0.9, 0.05, 0, 'bottom' );
-			this._bar( top, foot, 0.025 );
+			const a = rail( { x: top[ 0 ], z: top[ 1 ], y: yT }, - SW / 2 ), b = rail( steps.at( - 1 ), 0 );
+			for ( const p of [ a, b ] ) kit.box( p[ 0 ], p[ 1 ] - 0.45, p[ 2 ], 0.05, 0.9, 0.05, 0, 'bottom' );
+			this._bar( a, b, 0.025 );
 
 		}
 
-		// the gateway: two blue piers, on the lane side and the building side of the top step
+		// the wall along the street (with the gateway left open in its south side), for Town; the blue
+		// pilasters every 4 m or so, at its corners and either side of the gateway
+		const gx0 = TOP_X - SW / 2 - 0.15, gx1 = TOP_X + SW / 2 - 0.15;
+		const onSouth = ( x ) => [ x, FS[ 1 ] + ( WS[ 1 ] - FS[ 1 ] ) * ( x - FS[ 0 ] ) / ( WS[ 0 ] - FS[ 0 ] ) ];
+		const lines = [ [ FS, onSouth( gx0 ) ], [ onSouth( gx1 ), WS, WK, WN, FN ] ];
+		const piers = [ onSouth( gx0 - 0.25 ), onSouth( gx1 + 0.25 ), WS, WK, WN ];
+		for ( const [ p, q ] of [ [ WS, WK ], [ WK, WN ] ] ) {
+
+			const len = Math.hypot( q[ 0 ] - p[ 0 ], q[ 1 ] - p[ 1 ] ), k = Math.round( len / 4 );
+			for ( let i = 1; i < k; i ++ ) piers.push( [ p[ 0 ] + ( q[ 0 ] - p[ 0 ] ) * i / k, p[ 1 ] + ( q[ 1 ] - p[ 1 ] ) * i / k ] );
+
+		}
+
 		kit.color = [ 0.13, 0.27, 0.62 ]; // Óbidos blue
-		for ( const off of [ - 0.2, SW + 0.25 ] ) {
+		for ( const p of piers ) {
 
-			const p = edge( GATE_X + 0.25, off );
-			const g = T.heightAt( p[ 0 ], p[ 1 ] ) - 0.6;
-			kit.box( p[ 0 ], ( g + yT + 1.3 ) / 2, p[ 1 ], 0.45, yT + 1.3 - g, 0.45, yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( p[ 0 ], ( g + yT + 1.3 ) / 2, p[ 1 ] ), new Vector3( 0.23, ( yT + 1.3 - g ) / 2, 0.23 ), yaw, { walkable: false, tag: 'pier' } );
+			const g = T.heightAt( p[ 0 ], p[ 1 ] ) - 0.6, h = yT + 1.15 - g;
+			kit.box( p[ 0 ], g + h / 2, p[ 1 ], 0.5, h, 0.5, 0, 'bottom' );
+			this.colliders.addBox( new Vector3( p[ 0 ], g + h / 2, p[ 1 ] ), new Vector3( 0.25, h / 2, 0.25 ), 0, { walkable: false, tag: 'pier' } );
 
 		}
 
-		// the parapet's line along the lane, for Town
-		this.casaTerrace = { pts: [ a, b ], top: yT + 0.9, floor: yT, thick: 0.25 };
+		this.casaTerrace = { lines, top: yT + 0.9, floor: yT, thick: 0.3 };
 
 	}
 

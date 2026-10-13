@@ -19,9 +19,9 @@ const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
 // the Oratório inside Porta da Vila: the gate tower is open to the sky in the game
 const SKIP_ID = new Set( [ 1276312776 ] );
-// the Auditório (Casa da Música) without its north-east wing, where the steps by Porta da Vila are built,
-// and set back behind its terrace (Walls._casaDaMusicaTerrace)
-const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 73.2, 211.5 ], [ - 60.9, 211.5 ], [ - 64.4, 195.6 ] ] };
+// the Auditório (Casa da Música) without its south wing, where the steps by Porta da Vila are built (its
+// terrace along Rua Direita: Walls._casaDaMusicaTerrace)
+const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };
 // as in the photos: the Casa da Música is white with strong blue trim, two storeys
 const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ] };
 const STOREYS = { 298902328: 2 };
@@ -165,7 +165,7 @@ export class Town {
 		}
 
 		for ( const f of list ) this._building( f, rand );
-		if ( walls?.casaTerrace ) this._parapet( walls.casaTerrace, PAINT[ 298902328 ] );
+		if ( walls?.casaTerrace ) for ( const pts of walls.casaTerrace.lines ) this._parapet( { ...walls.casaTerrace, pts }, PAINT[ 298902328 ] );
 		this.edges = list;
 		this._lanterns( materials, rand );
 
@@ -278,8 +278,8 @@ export class Town {
 
 	}
 
-	// a whitewashed parapet wall along pts (the Casa da Música's terrace), with a painted base band on its
-	// outer (street) side, from below the ground up to `top`
+	// a whitewashed wall along pts (the Casa da Música's terrace), with a painted base band, from below the
+	// ground up to `top`
 	_parapet( { pts, top, thick }, paint ) {
 
 		const T = this.terrain, kit = this.walls;
