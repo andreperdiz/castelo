@@ -94,6 +94,7 @@ export class Walls {
 		this._portaDaVilaStairs();
 		this._portaDaVilaLane();
 		this._casaDaMusicaTerrace();
+		this._cemiterioWall();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -685,6 +686,44 @@ export class Walls {
 		}
 
 		this.casaTerrace = { lines, top: yT + 0.9, floor: yT, thick: 0.3 };
+
+	}
+
+	// The retaining wall between Rua Porta da Vila and Rua do Cemitério above it, south of the square outside
+	// the gate (TerrainData shapes the two streets; the wall stands on its line): rubble stone, 0.8 m thick,
+	// in metre pieces from below the lower street to a 0.5 m parapet over the upper one.
+	_cemiterioWall() {
+
+		const line = this.terrain.cemiterioWall;
+		if ( ! line ) return;
+		const kit = this.kit, T = this.terrain;
+		kit.vdata = [ 0.61, 0.6, 0, 0 ];
+		kit.color = [ 1.02, 0.86, 0.62 ];
+		for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+			const a = line[ i ], b = line[ i + 1 ];
+			const len = Math.hypot( b.x - a.x, b.z - a.z ), n = Math.max( 1, Math.round( len ) );
+			const yaw = Math.atan2( - ( b.z - a.z ), b.x - a.x );
+			// set half a metre toward the lower street, over the ground's step from one level to the other
+			let ox = - ( b.z - a.z ) / len, oz = ( b.x - a.x ) / len;
+			const mx = ( a.x + b.x ) / 2, mz = ( a.z + b.z ) / 2;
+			if ( T.heightAt( mx + ox * 2, mz + oz * 2 ) > T.heightAt( mx - ox * 2, mz - oz * 2 ) ) {
+
+				ox = - ox;
+				oz = - oz;
+
+			}
+
+			for ( let k = 0; k < n; k ++ ) {
+
+				const t = ( k + 0.5 ) / n, x = a.x + ( b.x - a.x ) * t + ox * 0.5, z = a.z + ( b.z - a.z ) * t + oz * 0.5;
+				const top = a.top + ( b.top - a.top ) * t, bottom = Math.min( a.low, T.heightAt( x, z ) ) - 0.8;
+				kit.box( x, ( top + bottom ) / 2, z, len / n + 0.02, top - bottom, 0.8, yaw );
+				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / n / 2 + 0.01, ( top - bottom ) / 2, 0.4 ), yaw, { walkable: false, tag: 'wall' } );
+
+			}
+
+		}
 
 	}
 
