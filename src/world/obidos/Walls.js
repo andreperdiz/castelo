@@ -23,7 +23,7 @@ const STEP_RISE = 0.18;
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end, inner arch, corner, curtain
 const PORTA_DA_VILA = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ];
-const PV_EAST = 11.3; // Porta da Vila's east side: its walk this high over the street at the inner arch
+const PV_EAST = 12; // Porta da Vila's east side: its walk this high over the tower's floor
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const lin = ( c ) => c.map( ( v ) => ( v <= 0.04045 ? v / 12.92 : ( ( v + 0.055 ) / 1.055 ) ** 2.4 ) );
 
@@ -59,7 +59,9 @@ export class Walls {
 
 		}
 
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37 );
+		// its corners round Porta da Vila's east side are sharp: the profile's normals, smoothed over a few
+		// metres, twist the faces there and open holes into the tower
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 225, - 43, 236.5 ] } );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		if ( portaDaVila ) this._passoPortal( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
@@ -166,11 +168,11 @@ export class Walls {
 		const along = ( x, z ) => ( x - at.x ) * tx + ( z - at.z ) * tz;
 		const uL = along( - 49, 226.15 ), uR = along( - 49, 234.25 ), D = 2.3, END = 0.25;
 		const uc = ( uL + uR ) / 2, half = ( uR - uL ) / 2 - END;
-		// heights: the floor a little above the inner arch's head, the roof's back 0.7 m under the wall's top
-		const yB = gate.y + 4.6, yS = yB + 1.8, yR = gate.y + PV_EAST - 0.7;
+		// heights: the floor a little above the inner arch's head
+		const yB = gate.y + 4.6, yS = yB + 1.8;
 		const rise = 2.6, r = ( half * half + rise * rise ) / ( 2 * rise ), cy = yS + rise - r; // the arch: a segment
 		const th = Math.atan2( yS - cy, half );
-		const yF = yS + rise + 0.6, yE = yF + 0.32, y0 = yB - 0.3; // the cornice, the eaves, the floor's underside
+		const yF = yS + rise + 0.6, yE = yF + 0.32, yR = yE + 0.65, y0 = yB - 0.3; // the cornice, the eaves, the roof's back, the floor's underside
 		const plaster = new MeshKit(), roof = new MeshKit(), lamps = new MeshKit();
 		const WHITE = [ 6, 1, 0.53, 0 ], TILES = [ yB, yS, 0.53, 2 ], VAULT = [ 0, 0, 0.53, 3 ], PAINT = [ 0, 0, 0.53, 4 ];
 		const GREY = lin( [ 0.58, 0.6, 0.61 ] ), STONE = lin( [ 0.88, 0.84, 0.74 ] );
@@ -719,7 +721,7 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
@@ -742,6 +744,19 @@ export class Walls {
 		}
 
 		const n = samples.length;
+		// in the box `sharp` ([ x0, z0, x1, z1 ]), normals square to the line itself, so corners are mitred
+		if ( sharp ) samples.forEach( ( p, i ) => {
+
+			if ( p.x < sharp[ 0 ] || p.x > sharp[ 2 ] || p.z < sharp[ 1 ] || p.z > sharp[ 3 ] ) return;
+			const a = samples[ Math.max( 0, i - 1 ) ], b = samples[ Math.min( n - 1, i + 1 ) ];
+			const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot( dx, dz ) || 1;
+			const f = - dz * p.nx + dx * p.nz >= 0 ? 1 : - 1;
+			p.nx = - dz / L * f;
+			p.nz = dx / L * f;
+			p.tx = - p.nz * profile.outward;
+			p.tz = p.nx * profile.outward;
+
+		} );
 		// level treads
 		for ( const p of samples ) p.y = Math.round( p.top / STEP_RISE ) * STEP_RISE;
 		// cross-sections at the piece boundaries (mid-points between samples)
