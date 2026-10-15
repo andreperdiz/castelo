@@ -23,6 +23,7 @@ const STEP_RISE = 0.18;
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end, inner arch, corner, curtain
 const PORTA_DA_VILA = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ];
+const PV_EAST = 11.3; // Porta da Vila's east side: its walk this high over the street at the inner arch
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const lin = ( c ) => c.map( ( v ) => ( v <= 0.04045 ? v / 12.92 : ( ( v + 0.055 ) / 1.055 ) ** 2.4 ) );
 
@@ -47,8 +48,18 @@ export class Walls {
 		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		// and is pointed (photo references/...-portadavila)
 		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, pointed: 1.6 } );
-		// the curtain round the town
-		this.curtain = this._wallLine( terrain.wall, terrain.gates, 0.37 );
+		// the curtain round the town; on Porta da Vila's east side it stands a little above the oratory's
+		// roof (photo references/...-entreportas4), coming down to the curtain's walk either way
+		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
+		const east = wall.pts.filter( ( p ) => p.x > - 49.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
+		if ( east.length ) {
+
+			const top = terrain.heightAt( - 51.1, 225 ) + PV_EAST, s0 = Math.min( ...east.map( ( p ) => p.s ) ), s1 = Math.max( ...east.map( ( p ) => p.s ) );
+			for ( const p of wall.pts ) p.top = Math.max( p.top, top - Math.max( 0, s0 - p.s, p.s - s1 ) / 2.5 );
+
+		}
+
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37 );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		if ( portaDaVila ) this._passoPortal( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
@@ -122,10 +133,12 @@ export class Walls {
 	}
 
 	// The oratory in Porta da Vila's tower, on the east wall, to the right as you come in through the
-	// outer arch (photo references/...-debaixodaportadavila): a bay hung on the wall a little above the
-	// inner arch's head, whitewashed, with a grey band round its round arch and a lean-to of tiles over it;
-	// inside, a balcony with an iron railing, a little altar with a crucifix in a niche, azulejos on the
-	// walls and a painted vault. Below it the wall is bare stone.
+	// outer arch (photos references/...-debaixodaportadavila, -entreportas4): a bay hung on the wall from
+	// the inner arch's wall to the outer one, a little above the inner arch's head, on three corbels of
+	// pale stone. A broad, low arch of pale stone across its front, whitewashed spandrels with grey
+	// triangles, a cornice and a lean-to of tiles; inside, a balustrade of stone posts and iron, azulejos
+	// on the walls, a painted vault and an altarpiece with a crucifix in a niche. Lanterns on curled
+	// brackets either side of the arch and one lower down. Below it the wall is bare stone.
 	_oratorio( gate, materials ) {
 
 		const kit = this.kit;
@@ -135,7 +148,7 @@ export class Walls {
 		for ( const p of this.curtain.samples ) if ( ! at || near( p ) < near( at ) ) at = p;
 		const sg = at.nx < 0 ? 1 : - 1, nx = at.nx * sg, nz = at.nz * sg, tx = nz, tz = - nx;
 		const yaw = Math.atan2( - tz, tx );
-		// u along the wall from the bay's centre, v out from the wall's face into the tower
+		// u along the wall, v out from the wall's face into the tower
 		const P = ( u, v ) => [ at.x + tx * u + nx * ( W / 2 + v ), at.z + tz * u + nz * ( W / 2 + v ) ];
 		const V = ( u, y, v ) => {
 
@@ -149,131 +162,183 @@ export class Walls {
 			k.box( c[ 0 ], ( y0 + y1 ) / 2, c[ 1 ], u1 - u0, y1 - y0, v1 - v0, yaw, skip );
 
 		};
-		const uL = - 2.7, uR = 2.7, PIER = 0.6, D = 2.2; // the bay: its outer sides, piers and depth
-		const uc = ( uL + uR ) / 2, R = ( uR - uL ) / 2 - PIER, RO = R + 0.3; // the arch, pier to pier
-		// the balcony's floor a little above the inner arch's head; the roof's back just under the wall walk
-		let walk = Infinity;
-		for ( const p of this.curtain.samples ) if ( Math.abs( ( p.x - at.x ) * tx + ( p.z - at.z ) * tz ) < uR + 0.3 && Math.hypot( p.x - at.x, p.z - at.z ) < uR + 0.5 ) walk = Math.min( walk, p.y );
-		const yB = gate.y + 4.6, yS = yB + 1.4, yF = yS + R + 0.35, yR = Math.max( yF + 0.3, walk - 0.05 ); // floor, springing, front's top, roof's back
-		const y0 = yB - 0.35; // the underside of the floor
+		// from the inner arch's wall (north) to the outer one (south): their faces, a little into each
+		const along = ( x, z ) => ( x - at.x ) * tx + ( z - at.z ) * tz;
+		const uL = along( - 49, 226.15 ), uR = along( - 49, 234.25 ), D = 2.3, END = 0.25;
+		const uc = ( uL + uR ) / 2, half = ( uR - uL ) / 2 - END;
+		// heights: the floor a little above the inner arch's head, the roof's back 0.7 m under the wall's top
+		const yB = gate.y + 4.6, yS = yB + 1.8, yR = gate.y + PV_EAST - 0.7;
+		const rise = 2.6, r = ( half * half + rise * rise ) / ( 2 * rise ), cy = yS + rise - r; // the arch: a segment
+		const th = Math.atan2( yS - cy, half );
+		const yF = yS + rise + 0.6, yE = yF + 0.32, y0 = yB - 0.3; // the cornice, the eaves, the floor's underside
 		const plaster = new MeshKit(), roof = new MeshKit(), lamps = new MeshKit();
 		const WHITE = [ 6, 1, 0.53, 0 ], TILES = [ yB, yS, 0.53, 2 ], VAULT = [ 0, 0, 0.53, 3 ], PAINT = [ 0, 0, 0.53, 4 ];
-		const GREY = lin( [ 0.6, 0.62, 0.63 ] ), CREAM = lin( [ 0.9, 0.86, 0.76 ] );
-		const out = [ nx, 0, nz ], N = 16;
-		const arc = ( r, k ) => {
+		const GREY = lin( [ 0.58, 0.6, 0.61 ] ), STONE = lin( [ 0.88, 0.84, 0.74 ] );
+		const out = [ nx, 0, nz ], N = 20;
+		const arc = ( rr, k ) => {
 
-			const a = Math.PI * ( 1 - k / N );
-			return [ uc + r * Math.cos( a ), yS + r * Math.sin( a ) ];
+			const a = Math.PI - th - ( Math.PI - 2 * th ) * k / N;
+			return [ uc + rr * Math.cos( a ), cy + rr * Math.sin( a ), a ];
 
 		};
 		// the whole bay is out of reach, but solid, so nothing walks into it from the wall walk
 		const cb = P( uc, D / 2 );
 		this.colliders.addBox( new Vector3( cb[ 0 ], ( y0 + yR ) / 2, cb[ 1 ] ), new Vector3( ( uR - uL ) / 2, ( yR - y0 ) / 2, D / 2 + 0.15 ), yaw, { walkable: false, tag: 'oratorio' } );
 
-		// the floor, on three grey corbels
+		// the floor, its front a moulding of pale stone, on three corbels
 		plaster.vdata = WHITE;
-		box( plaster, uL, uR, 0, D + 0.08, y0, yB );
+		box( plaster, uL, uR, 0, D, y0, yB );
 		plaster.vdata = PAINT;
-		plaster.color = GREY;
-		for ( const u of [ uL + 0.4, uc, uR - 0.4 ] ) box( plaster, u - 0.15, u + 0.15, 0, D - 0.2, y0 - 0.45, y0, 'bottom' );
+		plaster.color = STONE;
+		box( plaster, uL, uR, D - 0.05, D + 0.12, y0 - 0.05, yB );
+		for ( const u of [ uc - 2.4, uc, uc + 2.4 ] ) {
 
-		// the piers, whitewashed, to the springing; azulejos on their inner faces, the grey band on their fronts
-		for ( const [ u0, u1, inner ] of [ [ uL, uL + PIER, uL + PIER ], [ uR - PIER, uR, uR - PIER ] ] ) {
-
-			plaster.vdata = WHITE;
-			box( plaster, u0, u1, 0, D, yB, yS, 'bottom' );
-			const s = inner === u1 ? 1 : - 1;
-			plaster.vdata = TILES;
-			box( plaster, Math.min( inner, inner + s * 0.02 ), Math.max( inner, inner + s * 0.02 ), 0, D, yB, yS, 'bottom' );
-			plaster.vdata = PAINT;
-			plaster.color = GREY;
-			box( plaster, Math.min( inner, inner - s * 0.3 ), Math.max( inner, inner - s * 0.3 ), D, D + 0.03, y0, yS, 'bottom' );
+			box( plaster, u - 0.2, u + 0.2, 0, D - 0.1, y0 - 0.3, y0, 'bottom' );
+			box( plaster, u - 0.15, u + 0.15, 0, D - 0.45, y0 - 0.75, y0 - 0.3, 'bottom' );
 
 		}
 
-		// the front above the springing: its outer sides up to the roof, the spandrels, the grey band round the arch
+		// the ends: azulejos on the walls either side, up to the springing, and short piers of stone in front
+		for ( const [ u, s ] of [ [ uL, 1 ], [ uR, - 1 ] ] ) {
+
+			plaster.vdata = TILES;
+			box( plaster, Math.min( u, u + s * 0.02 ), Math.max( u, u + s * 0.02 ), 0, D, yB, yS, 'bottom' );
+			plaster.vdata = PAINT;
+			plaster.color = STONE;
+			box( plaster, Math.min( u, u + s * ( END + 0.12 ) ), Math.max( u, u + s * ( END + 0.12 ) ), D - 0.1, D + 0.05, yB, yS + 0.08, 'bottom' );
+
+		}
+
+		// the front above the springing: whitewashed spandrels and the band of pale stone round the arch
+		const RO = r + 0.22, [ eL, fL ] = arc( RO, 0 ), [ eR, fR ] = arc( RO, N );
 		plaster.vdata = WHITE;
-		for ( const [ u, f ] of [ [ uL, - 1 ], [ uR, 1 ] ] ) plaster.quadFacing( V( u, yS, 0 ), V( u, yS, D ), V( u, yF, D ), V( u, yR, 0 ), [ tx * f, 0, tz * f ] );
-		plaster.quadFacing( V( uL, yS, D ), V( uc - RO, yS, D ), V( uc - RO, yF, D ), V( uL, yF, D ), out );
-		plaster.quadFacing( V( uc + RO, yS, D ), V( uR, yS, D ), V( uR, yF, D ), V( uc + RO, yF, D ), out );
+		plaster.quadFacing( V( uL, yS, D ), V( eL, yS, D ), V( eL, yF, D ), V( uL, yF, D ), out );
+		plaster.quadFacing( V( eR, yS, D ), V( uR, yS, D ), V( uR, yF, D ), V( eR, yF, D ), out );
 		for ( let k = 0; k < N; k ++ ) {
 
 			const [ ua, ya ] = arc( RO, k ), [ ub, yb ] = arc( RO, k + 1 );
 			plaster.vdata = WHITE;
 			plaster.quadFacing( V( ua, ya, D ), V( ub, yb, D ), V( ub, yF, D ), V( ua, yF, D ), out, [ [ ua, ya ], [ ub, yb ], [ ub, yF ], [ ua, yF ] ] );
-			const [ ia, ja ] = arc( R, k ), [ ib, jb ] = arc( R, k + 1 );
+			const [ ia, ja ] = arc( r, k ), [ ib, jb, m ] = arc( r, k + 0.5 ), [ ic, jc ] = arc( r, k + 1 );
 			plaster.vdata = PAINT;
-			plaster.color = GREY;
-			plaster.quadFacing( V( ia, ja, D + 0.03 ), V( ib, jb, D + 0.03 ), V( ub, yb, D + 0.03 ), V( ua, ya, D + 0.03 ), out );
+			plaster.color = STONE;
+			plaster.quadFacing( V( ia, ja, D + 0.05 ), V( ic, jc, D + 0.05 ), V( ub, yb, D + 0.05 ), V( ua, ya, D + 0.05 ), out );
+			plaster.quadFacing( V( ia, ja, D - 0.15 ), V( ic, jc, D - 0.15 ), V( ic, jc, D + 0.05 ), V( ia, ja, D + 0.05 ), [ - Math.cos( m ) * tx, - Math.sin( m ), - Math.cos( m ) * tz ] );
 			// the vault, painted, and the lunette of azulejos under it on the wall
-			const m = Math.PI * ( 1 - ( k + 0.5 ) / N );
 			plaster.vdata = VAULT;
-			plaster.quadFacing( V( ia, ja, 0 ), V( ib, jb, 0 ), V( ib, jb, D ), V( ia, ja, D ), [ - Math.cos( m ) * tx, - Math.sin( m ), - Math.cos( m ) * tz ],
-				[ [ R * k * Math.PI / N, 0 ], [ R * ( k + 1 ) * Math.PI / N, 0 ], [ R * ( k + 1 ) * Math.PI / N, D ], [ R * k * Math.PI / N, D ] ] );
+			plaster.quadFacing( V( ia, ja, 0 ), V( ic, jc, 0 ), V( ic, jc, D - 0.15 ), V( ia, ja, D - 0.15 ), [ - Math.cos( m ) * tx, - Math.sin( m ), - Math.cos( m ) * tz ],
+				[ [ r * k / N * 3, 0 ], [ r * ( k + 1 ) / N * 3, 0 ], [ r * ( k + 1 ) / N * 3, D ], [ r * k / N * 3, D ] ] );
 			plaster.vdata = TILES;
-			plaster.quadFacing( V( ia, yS, 0.02 ), V( ib, yS, 0.02 ), V( ib, jb, 0.02 ), V( ia, ja, 0.02 ), out, [ [ ia, yS ], [ ib, yS ], [ ib, jb ], [ ia, ja ] ] );
+			plaster.quadFacing( V( ia, yS, 0.02 ), V( ic, yS, 0.02 ), V( ic, jc, 0.02 ), V( ia, ja, 0.02 ), out, [ [ ia, yS ], [ ic, yS ], [ ic, jc ], [ ia, ja ] ] );
 
 		}
 
-		// azulejos on the wall behind the balcony, a cornice, and the lean-to of tiles back to the wall
-		plaster.vdata = TILES;
-		box( plaster, uL + PIER, uR - PIER, 0, 0.02, yB, yS );
+		// the gaps between the ring's ends and the springing, the keystone, grey triangles in the spandrels
 		plaster.vdata = PAINT;
+		plaster.color = STONE;
+		box( plaster, uL, eL + 0.05, D - 0.1, D + 0.05, yS, fL, 'bottom' );
+		box( plaster, eR - 0.05, uR, D - 0.1, D + 0.05, yS, fR, 'bottom' );
+		box( plaster, uc - 0.2, uc + 0.2, D - 0.05, D + 0.12, yS + rise - 0.15, yS + rise + 0.45 );
 		plaster.color = GREY;
-		box( plaster, uL - 0.1, uR + 0.1, D - 0.2, D + 0.15, yF - 0.05, yF + 0.12 );
-		const yE = yF + 0.14, vE = D + 0.3;
+		for ( const s of [ - 1, 1 ] ) {
+
+			const u0 = s < 0 ? uL + 0.3 : uR - 0.3, u1 = u0 - s * 1.3, ya = yF - 0.18;
+			plaster.quadFacing( V( u0, ya, D + 0.01 ), V( u1, ya, D + 0.01 ), V( u0, ya - 0.9, D + 0.01 ), V( u0, ya - 0.9, D + 0.01 ), out );
+
+		}
+
+		// azulejos on the wall behind the balcony, the cornice, and the lean-to of tiles back to the wall
+		plaster.vdata = TILES;
+		box( plaster, uL, uR, 0, 0.02, yB, yS );
+		plaster.vdata = PAINT;
+		plaster.color = STONE;
+		box( plaster, uL, uR, D - 0.1, D + 0.12, yF - 0.08, yF + 0.1 );
+		box( plaster, uL, uR, D - 0.1, D + 0.28, yF + 0.1, yE );
+		const vE = D + 0.45;
 		roof.vdata = [ 0.71, 0.6, 0, 0 ];
 		roof.color = [ 1, 1, 1 ];
 		const slope = Math.hypot( vE, yR - yE );
-		roof.quadFacing( V( uL - 0.15, yR, 0 ), V( uR + 0.15, yR, 0 ), V( uR + 0.15, yE, vE ), V( uL - 0.15, yE, vE ), [ 0, 1, 0 ],
-			[ [ 0, 0 ], [ uR - uL + 0.3, 0 ], [ uR - uL + 0.3, slope ], [ 0, slope ] ] );
+		roof.quadFacing( V( uL, yR, 0 ), V( uR, yR, 0 ), V( uR, yE, vE ), V( uL, yE, vE ), [ 0, 1, 0 ],
+			[ [ 0, 0 ], [ uR - uL, 0 ], [ uR - uL, slope ], [ 0, slope ] ] );
 		plaster.vdata = WHITE;
-		plaster.quadFacing( V( uL - 0.15, yR - 0.08, 0 ), V( uR + 0.15, yR - 0.08, 0 ), V( uR + 0.15, yE - 0.08, vE ), V( uL - 0.15, yE - 0.08, vE ), [ 0, - 1, 0 ] );
-		plaster.quadFacing( V( uL - 0.15, yE - 0.08, vE ), V( uR + 0.15, yE - 0.08, vE ), V( uR + 0.15, yE, vE ), V( uL - 0.15, yE, vE ), out );
+		plaster.quadFacing( V( uL, yE - 0.06, D + 0.28 ), V( uR, yE - 0.06, D + 0.28 ), V( uR, yE - 0.06, vE ), V( uL, yE - 0.06, vE ), [ 0, - 1, 0 ] );
+		plaster.quadFacing( V( uL, yE - 0.06, vE ), V( uR, yE - 0.06, vE ), V( uR, yE, vE ), V( uL, yE, vE ), out );
+		// the roof's sides, against the two walls (in case of a gap)
+		for ( const [ u, f ] of [ [ uL, - 1 ], [ uR, 1 ] ] ) plaster.quadFacing( V( u, yF, 0 ), V( u, yE, vE ), V( u, yR, 0 ), V( u, yR, 0 ), [ tx * f, 0, tz * f ] );
 
-		// the iron railing across the front, pier to pier
-		kit.vdata = [ 0.29, 0.2, 0, 0 ];
-		kit.color = [ 0.07, 0.07, 0.07 ];
-		const bL = uL + PIER, bR = uR - PIER, rail = D - 0.12, rh = 0.95;
-		box( kit, bL, bR, rail - 0.025, rail + 0.025, yB + rh - 0.04, yB + rh );
-		box( kit, bL, bR, rail - 0.015, rail + 0.015, yB + 0.1, yB + 0.14 );
-		for ( let u = bL + 0.08; u < bR; u += 0.13 ) box( kit, u - 0.012, u + 0.012, rail - 0.012, rail + 0.012, yB, yB + rh - 0.04 );
-
-		// the altar: a white table, a niche in a cream frame with a round head, the crucifix in it
-		plaster.vdata = WHITE;
-		box( plaster, uc - 0.6, uc + 0.6, 0.02, 0.5, yB, yB + 0.9 );
+		// the balustrade along the front: posts of pale stone, iron between them, a stone rail on top
+		const rail = D - 0.2, rh = 1.0, bL = uL + END + 0.12, bR = uR - END - 0.12;
+		const posts = 6;
 		plaster.vdata = PAINT;
-		plaster.color = CREAM;
-		box( plaster, uc - 0.95, uc + 0.95, 0.02, 0.1, yB + 0.9, yB + 2.5 );
-		[ [ 1.65, 0.15 ], [ 1.35, 0.15 ], [ 0.85, 0.12 ] ].reduce( ( y, [ w, h ] ) => ( box( plaster, uc - w / 2, uc + w / 2, 0.02, 0.1, y, y + h ), y + h ), yB + 2.5 );
-		kit.vdata = [ 0.29, 0, 0, 0 ];
-		kit.color = [ 0.1, 0.12, 0.2 ]; // the niche's dark blue hollow
-		box( kit, uc - 0.65, uc + 0.65, 0.1, 0.11, yB + 1.0, yB + 2.5 );
-		[ [ 1.1, 0.15 ], [ 0.65, 0.12 ] ].reduce( ( y, [ w, h ] ) => ( box( kit, uc - w / 2, uc + w / 2, 0.1, 0.11, y, y + h ), y + h ), yB + 2.5 );
-		kit.color = [ 0.25, 0.16, 0.1 ]; // the cross, dark wood
-		box( kit, uc - 0.04, uc + 0.04, 0.18, 0.24, yB + 0.9, yB + 2.4 );
-		box( kit, uc - 0.38, uc + 0.38, 0.18, 0.24, yB + 1.95, yB + 2.03 );
-		kit.color = [ 1.3, 1.2, 1.0 ]; // the figure
-		box( kit, uc - 0.06, uc + 0.06, 0.24, 0.3, yB + 1.4, yB + 1.95 );
-		box( kit, uc - 0.32, uc + 0.32, 0.24, 0.28, yB + 1.89, yB + 1.95 );
-		kit.color = [ 1.4, 0.5, 0.6 ]; // flowers on the altar
-		for ( const u of [ uc - 0.4, uc + 0.4 ] ) box( kit, u - 0.08, u + 0.08, 0.2, 0.36, yB + 0.9, yB + 1.15 );
+		plaster.color = STONE;
+		for ( let i = 0; i <= posts; i ++ ) {
 
-		// a lantern on each pier's front, lit from dusk
-		const warm = new Color( 1.0, 0.66, 0.36 );
-		for ( const u of [ uL + PIER / 2, uR - PIER / 2 ] ) {
-
-			const ly = yB + 0.9;
-			const [ lx, lz ] = P( u, D + 0.32 ), [ bx, bz ] = P( u, D + 0.17 );
-			lamps.vdata = [ 0, 0, 0, 0 ];
-			lamps.box( bx, ly + 0.28, bz, 0.34, 0.04, 0.04, yaw + Math.PI / 2 );
-			lamps.box( lx, ly + 0.2, lz, 0.26, 0.05, 0.26, yaw );
-			lamps.box( lx, ly - 0.2, lz, 0.2, 0.05, 0.2, yaw );
-			lamps.vdata = [ 1, 0, 0, 0 ];
-			lamps.box( lx, ly, lz, 0.2, 0.36, 0.2, yaw, 'top bottom' );
-			this.lights.push( { position: new Vector3( lx + nx * 0.25, ly - 0.05, lz + nz * 0.25 ), color: warm, intensity: 7, range: 13, kind: 'lantern', flicker: 0.05 } );
+			const u = bL + 0.1 + ( bR - bL - 0.2 ) * i / posts;
+			box( plaster, u - 0.1, u + 0.1, rail - 0.1, rail + 0.1, yB, yB + rh - 0.06, 'bottom' );
 
 		}
+
+		box( plaster, bL, bR, rail - 0.11, rail + 0.11, yB + rh - 0.06, yB + rh, 'bottom' );
+		kit.vdata = [ 0.29, 0.2, 0, 0 ];
+		kit.color = [ 0.07, 0.07, 0.07 ]; // iron
+		box( kit, bL, bR, rail - 0.015, rail + 0.015, yB + 0.1, yB + 0.14 );
+		box( kit, bL, bR, rail - 0.015, rail + 0.015, yB + rh - 0.2, yB + rh - 0.16 );
+		for ( let u = bL + 0.08; u < bR; u += 0.11 ) box( kit, u - 0.01, u + 0.01, rail - 0.01, rail + 0.01, yB, yB + rh - 0.06 );
+
+		// the altarpiece: a table, two columns on pedestals, an entablature and a pediment with a cross,
+		// the niche between the columns (dark, round-headed) with the crucifix
+		plaster.vdata = PAINT;
+		plaster.color = STONE;
+		box( plaster, uc - 0.75, uc + 0.75, 0.02, 0.6, yB, yB + 0.95 );
+		for ( const s of [ - 1, 1 ] ) {
+
+			box( plaster, uc + s * 0.72 - 0.16, uc + s * 0.72 + 0.16, 0.02, 0.32, yB + 0.95, yB + 1.3 );
+			box( plaster, uc + s * 0.72 - 0.1, uc + s * 0.72 + 0.1, 0.06, 0.26, yB + 1.3, yB + 2.75 );
+
+		}
+
+		box( plaster, uc - 0.6, uc + 0.6, 0.02, 0.12, yB + 0.95, yB + 2.75 ); // the niche's frame
+		box( plaster, uc - 1.0, uc + 1.0, 0.02, 0.34, yB + 2.75, yB + 3.0 );
+		[ [ 1.6, 0.14 ], [ 1.1, 0.14 ], [ 0.6, 0.12 ] ].reduce( ( y, [ w, h ] ) => ( box( plaster, uc - w / 2, uc + w / 2, 0.02, 0.22, y, y + h ), y + h ), yB + 3.0 );
+		box( plaster, uc - 0.04, uc + 0.04, 0.1, 0.18, yB + 3.4, yB + 3.75 ); // the cross on the pediment
+		box( plaster, uc - 0.13, uc + 0.13, 0.1, 0.18, yB + 3.56, yB + 3.63 );
+		kit.vdata = [ 0.29, 0, 0, 0 ];
+		kit.color = [ 0.32, 0.22, 0.14 ]; // the niche's warm, shadowed hollow
+		box( kit, uc - 0.42, uc + 0.42, 0.12, 0.13, yB + 1.05, yB + 2.3 );
+		[ [ 0.7, 0.14 ], [ 0.42, 0.12 ] ].reduce( ( y, [ w, h ] ) => ( box( kit, uc - w / 2, uc + w / 2, 0.12, 0.13, y, y + h ), y + h ), yB + 2.3 );
+		kit.color = [ 0.12, 0.08, 0.05 ]; // the cross, dark wood
+		box( kit, uc - 0.03, uc + 0.03, 0.18, 0.23, yB + 1.05, yB + 2.2 );
+		box( kit, uc - 0.26, uc + 0.26, 0.18, 0.23, yB + 1.86, yB + 1.92 );
+		kit.color = [ 1.3, 1.2, 1.0 ]; // the figure
+		box( kit, uc - 0.05, uc + 0.05, 0.23, 0.28, yB + 1.4, yB + 1.86 );
+		box( kit, uc - 0.22, uc + 0.22, 0.23, 0.26, yB + 1.8, yB + 1.85 );
+		kit.color = [ 1.4, 0.5, 0.7 ]; // flowers on the altar
+		for ( const u of [ uc - 0.45, uc, uc + 0.45 ] ) box( kit, u - 0.1, u + 0.1, 0.25, 0.45, yB + 0.95, yB + 1.2 );
+
+		// lanterns: on curled iron brackets either side of the arch, and one lower on the outer arch's wall
+		const warm = new Color( 1.0, 0.66, 0.36 );
+		const lantern = ( lx, ly, lz, ax, az, len ) => {
+
+			lamps.vdata = [ 0, 0, 0, 0 ];
+			lamps.box( lx - ax * len / 2, ly + 0.36, lz - az * len / 2, len, 0.04, 0.04, Math.atan2( - az, ax ) );
+			lamps.box( lx - ax * len * 0.6, ly + 0.2, lz - az * len * 0.6, 0.04, 0.32, 0.04, Math.atan2( - az, ax ) );
+			lamps.box( lx, ly + 0.27, lz, 0.34, 0.07, 0.34, yaw );
+			lamps.box( lx, ly + 0.36, lz, 0.14, 0.12, 0.14, yaw );
+			lamps.box( lx, ly - 0.27, lz, 0.24, 0.06, 0.24, yaw );
+			lamps.vdata = [ 1, 0, 0, 0 ];
+			lamps.box( lx, ly, lz, 0.28, 0.48, 0.28, yaw, 'top bottom' );
+			this.lights.push( { position: new Vector3( lx, ly - 0.05, lz ), color: warm, intensity: 8, range: 14, kind: 'lantern', flicker: 0.05 } );
+
+		};
+		for ( const [ u, s ] of [ [ uL, 1 ], [ uR, - 1 ] ] ) {
+
+			const [ x, z ] = P( u + s * 0.55, D + 0.55 );
+			lantern( x, yS - 0.15, z, nx, nz, 0.7 );
+
+		}
+
+		const [ lx, lz ] = P( uR - 0.45, 0.7 );
+		lantern( lx, yB - 1.6, lz, - tx, - tz, 0.45 );
 
 		for ( const [ k, mat, name, shadow ] of [ [ plaster, materials.plaster, 'oratorio', true ], [ roof, materials.roof, 'oratorio-roof', true ], [ lamps, materials.lantern, 'oratorio-lanterns', false ] ] ) {
 
