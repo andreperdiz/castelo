@@ -28,6 +28,8 @@ const UNPAVED = new Set( [ 'earth', 'dirt', 'ground', 'grass', 'unpaved', 'compa
 // the square outside Porta da Vila, between the gate and the houses south of it
 // the inside of Porta da Vila's tower, and the passages through its two arches: a level floor of setts
 export const PORTA_DA_VILA_TOWER = [ [ - 60.9, 224.9 ], [ - 52.9, 225.4 ], [ - 52.9, 223 ], [ - 49.3, 223 ], [ - 49.3, 226.2 ], [ - 48.4, 226.2 ], [ - 48.6, 234.8 ], [ - 56.7, 234.8 ], [ - 56.7, 236.6 ], [ - 60.3, 236.6 ], [ - 60.3, 234.8 ], [ - 60.9, 234.8 ], [ - 60.9, 224.9 ] ];
+// the retaining wall between Rua Porta da Vila and Rua do Cemitério, above it on the right going south
+export const CEMITERIO_WALL = [ [ - 57, 249 ], [ - 56.7, 268.2 ], [ - 59.5, 277.9 ], [ - 60.7, 286.7 ], [ - 60.9, 291.8 ], [ - 62.6, 307.1 ], [ - 67.6, 328.9 ], [ - 69.6, 334.9 ], [ - 75.4, 348.4 ], [ - 80.4, 360 ], [ - 83.4, 366.9 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
 
 export class TerrainData {
@@ -380,7 +382,8 @@ export class TerrainData {
 
 	// Porta da Vila's tower: its floor level, and the street beyond the inner arch eased up to it over ~14 m.
 	// Outside, the square is level with the gate, and so is Rua Porta da Vila for its ~150 m south to the
-	// road (it only comes up to the far end's ground); Rua do Cemitério climbs away from it on the right.
+	// road (it only comes up to the far end's ground); Rua do Cemitério climbs away from it on the right
+	// and runs on above it, behind a retaining wall.
 	_portaDaVilaFloor() {
 
 		const F = this.pvFloor;
@@ -411,33 +414,6 @@ export class TerrainData {
 			heights[ k ] = lerp( F, heights[ k ], smoothstep( 0, EASE, d ) );
 
 		}
-		// Rua do Cemitério: a ramp up from the square, coming to its own ground over ~45 m
-		const cem = OSM.streets.find( ( st ) => st.name === 'Rua do Cemitério' );
-		if ( cem ) {
-
-			// from the square's end of it
-			const pts = Math.hypot( cem.pts[ 0 ][ 0 ] + 57, cem.pts[ 0 ][ 1 ] - 247 ) < Math.hypot( cem.pts[ cem.pts.length - 1 ][ 0 ] + 57, cem.pts[ cem.pts.length - 1 ][ 1 ] - 247 ) ? cem.pts : cem.pts.slice().reverse();
-			let s0 = 0;
-			const w = new Float32Array( heights.length ), sAt = new Float32Array( heights.length );
-			for ( let i = 0; i + 1 < pts.length && s0 < 60; i ++ ) {
-
-				const a = pts[ i ], b = pts[ i + 1 ], len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
-				this._stroke( [ a, b ], 4, 14, ( k, t ) => {
-
-					if ( t <= w[ k ] ) return;
-					const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
-					w[ k ] = t;
-					sAt[ k ] = s0 + segmentDistance( x, z, a, b )[ 1 ] * len;
-
-				} );
-				s0 += len;
-
-			}
-
-			for ( let k = 0; k < heights.length; k ++ ) if ( w[ k ] > 0 && ! this.inside[ k ] ) heights[ k ] = lerp( heights[ k ], lerp( F, heights[ k ], smoothstep( 0, 45, sAt[ k ] ) ), w[ k ] );
-
-		}
-
 		// the street from the gate: its pieces joined end to end, then a level band along it
 		const pieces = OSM.streets.filter( ( st ) => st.name === 'Rua Porta da Vila' && st.highway === 'residential' ).map( ( st ) => st.pts );
 		const road = [ [ - 58, 235 ] ];
@@ -471,6 +447,52 @@ export class TerrainData {
 
 			} );
 			for ( let k = 0; k < heights.length; k ++ ) if ( weight[ k ] > 0 && ! this.inside[ k ] ) heights[ k ] = lerp( heights[ k ], target[ k ], weight[ k ] );
+
+			// Rua do Cemitério runs beside it on the right, higher, behind a retaining wall: from the fork it
+			// ramps up to 2.5 m over the street, then the wall rises slowly to 3.3 m at the far end
+			const near = ( line, cl, x, z ) => {
+
+				let best = null;
+				for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, line[ i ], line[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, u, i, s: cl[ i ] + u * ( cl[ i + 1 ] - cl[ i ] ) };
+
+				}
+
+				return best;
+
+			};
+			const streetY = ( x, z ) => lerp( F, yEnd, smoothstep( 0, 1, near( road, cum, x, z ).s / L ) );
+			const W = CEMITERIO_WALL, cw = [ 0 ];
+			for ( let i = 1; i < W.length; i ++ ) cw.push( cw[ i - 1 ] + Math.hypot( W[ i ][ 0 ] - W[ i - 1 ][ 0 ], W[ i ][ 1 ] - W[ i - 1 ][ 1 ] ) );
+			const LW = cw[ cw.length - 1 ], RAMP = 21;
+			const rise = ( sw ) => sw < RAMP ? 2.5 * sw / RAMP : lerp( 2.5, 3.3, ( sw - RAMP ) / ( LW - RAMP ) );
+			// which side is the upper street: the side of Rua do Cemitério
+			const sideOf = ( i, x, z ) => Math.sign( ( W[ i + 1 ][ 0 ] - W[ i ][ 0 ] ) * ( z - W[ i ][ 1 ] ) - ( W[ i + 1 ][ 1 ] - W[ i ][ 1 ] ) * ( x - W[ i ][ 0 ] ) );
+			const up = sideOf( near( W, cw, - 64, 290 ).i, - 64, 290 );
+			const xs = W.map( ( q ) => q[ 0 ] ), zs = W.map( ( q ) => q[ 1 ] ), M = 16;
+			for ( let j = Math.floor( ( Math.min( ...zs ) - M - origin ) / texel ); j <= Math.ceil( ( Math.max( ...zs ) + M - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( Math.min( ...xs ) - M - origin ) / texel ); i <= Math.ceil( ( Math.max( ...xs ) + M - origin ) / texel ); i ++ ) {
+
+				const k = j * res + i;
+				if ( this.inside[ k ] ) continue;
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const p = near( W, cw, x, z );
+				if ( ( p.i === 0 && p.u <= 0 ) || ( p.i === W.length - 2 && p.u >= 1 ) ) continue; // beyond its ends
+				const sd = p.d * ( sideOf( p.i, x, z ) === up ? 1 : - 1 );
+				const wx = lerp( W[ p.i ][ 0 ], W[ p.i + 1 ][ 0 ], p.u ), wz = lerp( W[ p.i ][ 1 ], W[ p.i + 1 ][ 1 ], p.u );
+				if ( sd > 0 ) heights[ k ] = lerp( heights[ k ], streetY( wx, wz ) + rise( p.s ), 1 - smoothstep( 8, M, sd ) );
+				else if ( sd > - 2.5 ) heights[ k ] = streetY( x, z );
+
+			}
+
+			// for Walls: the wall's line, the street's level at its foot and its top (a 0.5 m parapet)
+			this.cemiterioWall = W.map( ( q, i ) => {
+
+				const y = streetY( q[ 0 ], q[ 1 ] );
+				return { x: q[ 0 ], z: q[ 1 ], low: y, top: y + rise( cw[ i ] ) + 0.5 };
+
+			} );
 
 		}
 		const R = 14, gx = - 51.1, gz = 223.5;
