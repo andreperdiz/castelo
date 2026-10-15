@@ -142,7 +142,7 @@ export class App {
 		if ( this.sky.background ) this.sceneRenderer.background = this.sky.background;
 		// lanterns, lit windows and the flashlight (L): nearest few packed into one small uniform array each frame
 		this.localLights = new LocalLights();
-		for ( const l of this.town.lights ) this.localLights.add( l );
+		for ( const l of [ ...this.town.lights, ...this.walls.lights ] ) this.localLights.add( l );
 		this.terrain.mesh.material.localLightsCheap = true;
 
 		// dust, pollen, seed fluff and gnats drifting around the camera
