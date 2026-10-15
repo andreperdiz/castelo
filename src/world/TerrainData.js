@@ -350,8 +350,7 @@ export class TerrainData {
 		const i0 = Math.max( 0, Math.floor( ( b.x0 - R - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( b.x1 + R - origin ) / texel ) );
 		const j0 = Math.max( 0, Math.floor( ( b.z0 - R - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( b.z1 + R - origin ) / texel ) );
 		const nz = this.noise2;
-		// the square outside Porta da Vila: nearly level from the gate (rising 6 cm a metre), back to the
-		// natural ground 16-28 m out
+		// the square outside Porta da Vila: level with the gate, back to the natural ground 16-28 m out
 		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
@@ -371,7 +370,7 @@ export class TerrainData {
 			if ( pv ) {
 
 				const d = Math.hypot( pv.x - x, pv.z - z );
-				if ( d < 28 ) heights[ k ] = lerp( pv.y + 0.06 * d, heights[ k ], smoothstep( 16, 28, d ) );
+				if ( d < 28 ) heights[ k ] = lerp( pv.y, heights[ k ], smoothstep( 16, 28, d ) );
 
 			}
 
@@ -379,17 +378,101 @@ export class TerrainData {
 
 	}
 
-	// Porta da Vila's tower: its floor level, and the street beyond the inner arch eased up to it over ~14 m
+	// Porta da Vila's tower: its floor level, and the street beyond the inner arch eased up to it over ~14 m.
+	// Outside, the square is level with the gate, and so is Rua Porta da Vila for its ~150 m south to the
+	// road (it only comes up to the far end's ground); Rua do Cemitério climbs away from it on the right.
 	_portaDaVilaFloor() {
 
 		const F = this.pvFloor;
 		if ( F === undefined ) return;
 		const { res, texel, origin, heights } = this;
-		this._fill( PORTA_DA_VILA_TOWER, ( k ) => {
+		const level = ( k ) => {
 
 			heights[ k ] = F;
 
-		} );
+		};
+		this._fill( PORTA_DA_VILA_TOWER, level );
+		// the square: level, eased back to the ground around it over 14 m
+		const SQ = PORTA_DA_VILA_SQUARE, EASE = 14;
+		const xs = SQ.map( ( q ) => q[ 0 ] ), zs = SQ.map( ( q ) => q[ 1 ] );
+		for ( let j = Math.floor( ( Math.min( ...zs ) - EASE - origin ) / texel ); j <= Math.ceil( ( Math.max( ...zs ) + EASE - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( Math.min( ...xs ) - EASE - origin ) / texel ); i <= Math.ceil( ( Math.max( ...xs ) + EASE - origin ) / texel ); i ++ ) {
+
+			const k = j * res + i;
+			if ( this.inside[ k ] ) continue;
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			let d = 0;
+			if ( ! pointInPolygon( x, z, SQ ) ) {
+
+				d = Infinity;
+				for ( let e = 0; e + 1 < SQ.length; e ++ ) d = Math.min( d, segmentDistance( x, z, SQ[ e ], SQ[ e + 1 ] )[ 0 ] );
+
+			}
+
+			heights[ k ] = lerp( F, heights[ k ], smoothstep( 0, EASE, d ) );
+
+		}
+		// Rua do Cemitério: a ramp up from the square, coming to its own ground over ~45 m
+		const cem = OSM.streets.find( ( st ) => st.name === 'Rua do Cemitério' );
+		if ( cem ) {
+
+			// from the square's end of it
+			const pts = Math.hypot( cem.pts[ 0 ][ 0 ] + 57, cem.pts[ 0 ][ 1 ] - 247 ) < Math.hypot( cem.pts[ cem.pts.length - 1 ][ 0 ] + 57, cem.pts[ cem.pts.length - 1 ][ 1 ] - 247 ) ? cem.pts : cem.pts.slice().reverse();
+			let s0 = 0;
+			const w = new Float32Array( heights.length ), sAt = new Float32Array( heights.length );
+			for ( let i = 0; i + 1 < pts.length && s0 < 60; i ++ ) {
+
+				const a = pts[ i ], b = pts[ i + 1 ], len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+				this._stroke( [ a, b ], 4, 14, ( k, t ) => {
+
+					if ( t <= w[ k ] ) return;
+					const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+					w[ k ] = t;
+					sAt[ k ] = s0 + segmentDistance( x, z, a, b )[ 1 ] * len;
+
+				} );
+				s0 += len;
+
+			}
+
+			for ( let k = 0; k < heights.length; k ++ ) if ( w[ k ] > 0 && ! this.inside[ k ] ) heights[ k ] = lerp( heights[ k ], lerp( F, heights[ k ], smoothstep( 0, 45, sAt[ k ] ) ), w[ k ] );
+
+		}
+
+		// the street from the gate: its pieces joined end to end, then a level band along it
+		const pieces = OSM.streets.filter( ( st ) => st.name === 'Rua Porta da Vila' && st.highway === 'residential' ).map( ( st ) => st.pts );
+		const road = [ [ - 58, 235 ] ];
+		for ( let guard = 0; guard < 8 && pieces.length; guard ++ ) {
+
+			const end = road[ road.length - 1 ];
+			const i = pieces.findIndex( ( q ) => Math.hypot( q[ 0 ][ 0 ] - end[ 0 ], q[ 0 ][ 1 ] - end[ 1 ] ) < 2 || Math.hypot( q[ q.length - 1 ][ 0 ] - end[ 0 ], q[ q.length - 1 ][ 1 ] - end[ 1 ] ) < 2 );
+			if ( i < 0 ) break;
+			const q = pieces.splice( i, 1 )[ 0 ];
+			const pts = Math.hypot( q[ 0 ][ 0 ] - end[ 0 ], q[ 0 ][ 1 ] - end[ 1 ] ) < 2 ? q : q.slice().reverse();
+			road.push( ...pts.slice( 1 ) );
+
+		}
+
+		if ( road.length > 2 ) {
+
+			const cum = [ 0 ];
+			for ( let i = 1; i < road.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( road[ i ][ 0 ] - road[ i - 1 ][ 0 ], road[ i ][ 1 ] - road[ i - 1 ][ 1 ] ) );
+			const L = cum[ cum.length - 1 ], far = road[ road.length - 1 ];
+			const yEnd = this.heightAt( far[ 0 ], far[ 1 ] );
+			const HALF = 4, SOFT = 7;
+			const target = new Float32Array( heights.length ).fill( NaN ), weight = new Float32Array( heights.length );
+			for ( let i = 0; i + 1 < road.length; i ++ ) this._stroke( [ road[ i ], road[ i + 1 ] ], HALF, SOFT, ( k, t ) => {
+
+				if ( t <= weight[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const [ , u ] = segmentDistance( x, z, road[ i ], road[ i + 1 ] );
+				const s = cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] );
+				weight[ k ] = t;
+				target[ k ] = lerp( F, yEnd, smoothstep( 0, 1, s / L ) );
+
+			} );
+			for ( let k = 0; k < heights.length; k ++ ) if ( weight[ k ] > 0 && ! this.inside[ k ] ) heights[ k ] = lerp( heights[ k ], target[ k ], weight[ k ] );
+
+		}
 		const R = 14, gx = - 51.1, gz = 223.5;
 		for ( let j = Math.floor( ( gz - R - origin ) / texel ); j <= Math.ceil( ( gz - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( gx - R - origin ) / texel ); i <= Math.ceil( ( gx + R - origin ) / texel ); i ++ ) {
 
