@@ -95,6 +95,7 @@ export class Walls {
 		this._portaDaVilaLane();
 		this._casaDaMusicaTerrace();
 		this._cemiterioWall();
+		this._praceta();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -727,6 +728,89 @@ export class Walls {
 
 	}
 
+	// The small square just inside Porta da Vila, between Rua Direita and the lane going down on the right
+	// (TerrainData levels it 0.6 m over the street): two high steps up from Rua Direita, a low parapet
+	// round its front and its east side, which stands as a tall wall over the lane, and a small round
+	// column of pale stone in the middle.
+	_praceta() {
+
+		const pr = this.terrain.praceta;
+		if ( ! pr ) return;
+		const T = this.terrain, kit = this.kit, { poly, y } = pr;
+		const STEPS = [ 3, 4 ], WALLS = [ 1, 2 ]; // which edges (from poly[ i ] to poly[ i + 1 ]); 0 is the house's
+		// a band along edge i from d0 to d1 out of the square (negative: in), in metre pieces
+		const band = ( i, d0, d1, top, bottomOf, opts ) => {
+
+			const a = poly[ i ], b = poly[ i + 1 ];
+			const len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), n = Math.max( 1, Math.round( len ) );
+			let ox = - ( b[ 1 ] - a[ 1 ] ) / len, oz = ( b[ 0 ] - a[ 0 ] ) / len;
+			const mx = ( a[ 0 ] + b[ 0 ] ) / 2, mz = ( a[ 1 ] + b[ 1 ] ) / 2;
+			if ( pointInPolygon( mx + ox * 0.5, mz + oz * 0.5, poly ) ) {
+
+				ox = - ox;
+				oz = - oz;
+
+			}
+
+			const yaw = Math.atan2( - ( b[ 1 ] - a[ 1 ] ), b[ 0 ] - a[ 0 ] ), dm = ( d0 + d1 ) / 2;
+			for ( let k = 0; k < n; k ++ ) {
+
+				const t = ( k + 0.5 ) / n;
+				const x = a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t + ox * dm, z = a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t + oz * dm;
+				const bottom = bottomOf( x + ox * ( d1 - dm ), z + oz * ( d1 - dm ) );
+				kit.box( x, ( top + bottom ) / 2, z, len / n + 0.02, top - bottom, d1 - d0, yaw );
+				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / n / 2 + 0.01, ( top - bottom ) / 2, ( d1 - d0 ) / 2 ), yaw, opts );
+
+			}
+
+		};
+		const below = ( x, z ) => Math.min( y, T.heightAt( x, z ) ) - 0.6;
+		kit.vdata = [ 0.43, 0.5, 0, 0 ];
+		kit.color = [ 0.95, 0.9, 0.8 ]; // worn limestone
+		for ( const i of STEPS ) {
+
+			band( i, 0, 0.45, y - 0.3, below, { walkable: true, tag: 'stair' } );
+			band( i, - 0.6, 0, y, below, { walkable: true, tag: 'stair' } ); // the platform's edge, over the ground's step
+
+		}
+
+		kit.color = [ 1.02, 0.86, 0.62 ];
+		kit.vdata = [ 0.47, 0.6, 0, 0 ];
+		for ( const i of WALLS ) band( i, - 0.15, 0.75, y + 0.6, below, { walkable: false, tag: 'wall' } );
+
+		// the column: a square base in two courses, a round shaft, a moulded cap
+		let cx = 0, cz = 0;
+		for ( const q of poly.slice( 0, - 1 ) ) {
+
+			cx += q[ 0 ] / ( poly.length - 1 );
+			cz += q[ 1 ] / ( poly.length - 1 );
+
+		}
+
+		kit.color = [ 1.05, 1.02, 0.94 ];
+		kit.vdata = [ 0.53, 0.2, 0, 0 ];
+		kit.box( cx, y + 0.12, cz, 1.4, 0.24, 1.4, 0 );
+		kit.box( cx, y + 0.34, cz, 1.0, 0.2, 1.0, 0 );
+		const round = ( r, y0, y1, N = 16 ) => {
+
+			for ( let k = 0; k < N; k ++ ) {
+
+				const a0 = k / N * Math.PI * 2, a1 = ( k + 1 ) / N * Math.PI * 2, am = ( a0 + a1 ) / 2;
+				const p0 = [ cx + Math.cos( a0 ) * r, cz + Math.sin( a0 ) * r ], p1 = [ cx + Math.cos( a1 ) * r, cz + Math.sin( a1 ) * r ];
+				kit.quadFacing( [ p0[ 0 ], y0, p0[ 1 ] ], [ p1[ 0 ], y0, p1[ 1 ] ], [ p1[ 0 ], y1, p1[ 1 ] ], [ p0[ 0 ], y1, p0[ 1 ] ], [ Math.cos( am ), 0, Math.sin( am ) ],
+					[ [ a0 * r, y0 ], [ a1 * r, y0 ], [ a1 * r, y1 ], [ a0 * r, y1 ] ] );
+				kit.quadFacing( [ cx, y1, cz ], [ p0[ 0 ], y1, p0[ 1 ] ], [ p1[ 0 ], y1, p1[ 1 ] ], [ p1[ 0 ], y1, p1[ 1 ] ], [ 0, 1, 0 ] );
+
+			}
+
+		};
+		round( 0.32, y + 0.44, y + 1.8 );
+		round( 0.42, y + 1.8, y + 1.95 );
+		round( 0.3, y + 1.95, y + 2.1 );
+		this.colliders.addBox( new Vector3( cx, y + 1.05, cz ), new Vector3( 0.7, 1.05, 0.7 ), 0, { walkable: false, tag: 'column' } );
+
+	}
+
 	// a thin square bar from p to q (iron work), half thickness r
 	_bar( p, q, r ) {
 
@@ -1141,6 +1225,8 @@ export class Walls {
 
 			const p = S[ i ];
 			if ( p.gate ) continue;
+			// not in or by Porta da Vila's tower: its way up is the L-shaped flight, beside the stepped lane
+			if ( Math.hypot( p.x + 54.5, p.z - 230 ) < 20 ) continue;
 			const fx = p.x - p.nx * 2.0, fz = p.z - p.nz * 2.0; // the stair's line, just inside
 			const rise = p.y - T.heightAt( fx, fz );
 			if ( rise < 1.6 || rise > 6.5 ) continue;

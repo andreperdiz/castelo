@@ -30,6 +30,11 @@ const UNPAVED = new Set( [ 'earth', 'dirt', 'ground', 'grass', 'unpaved', 'compa
 export const PORTA_DA_VILA_TOWER = [ [ - 60.9, 224.9 ], [ - 52.9, 225.4 ], [ - 52.9, 223 ], [ - 49.3, 223 ], [ - 49.3, 226.2 ], [ - 48.4, 226.2 ], [ - 48.6, 234.8 ], [ - 56.7, 234.8 ], [ - 56.7, 236.6 ], [ - 60.3, 236.6 ], [ - 60.3, 234.8 ], [ - 60.9, 234.8 ], [ - 60.9, 224.9 ] ];
 // the retaining wall between Rua Porta da Vila and Rua do Cemitério, above it on the right going south
 export const CEMITERIO_WALL = [ [ - 57, 249 ], [ - 56.7, 268.2 ], [ - 59.5, 277.9 ], [ - 60.7, 286.7 ], [ - 60.9, 291.8 ], [ - 62.6, 307.1 ], [ - 67.6, 328.9 ], [ - 69.6, 334.9 ], [ - 75.4, 348.4 ], [ - 80.4, 360 ], [ - 83.4, 366.9 ] ];
+// the small square just inside Porta da Vila, between Rua Direita (west) and the lane going down to the
+// right (east), in front of the house where they part: its corners, the house's side first
+export const PV_PRACETA = [ [ - 55, 196.2 ], [ - 47.4, 195.7 ], [ - 48.2, 213.8 ], [ - 51.4, 213.8 ], [ - 53.1, 210 ], [ - 55, 196.2 ] ];
+// from the inner arch to the small square's front, where Rua Direita and the lane part
+export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 48.4, 223.2 ], [ - 46.6, 214.6 ], [ - 47.9, 213.4 ], [ - 52.6, 213.4 ], [ - 53.6, 223.2 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
 
 export class TerrainData {
@@ -300,10 +305,10 @@ export class TerrainData {
 	_wallProfile() {
 
 		this._gates();
-		// the floor of Porta da Vila's tower is level (photo references/...-entreportas4), halfway between
-		// the ground at its two arches; the outer arch (and the square before it) comes down to it
+		// the floor of Porta da Vila's tower is level (photo references/...-entreportas4) with Rua Direita
+		// inside its inner arch; the outer arch (and the square before it) comes down to it
 		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
-		if ( pv ) this.pvFloor = pv.y = ( pv.y + this.heightAt( - 51.1, 225 ) ) / 2;
+		if ( pv ) this.pvFloor = pv.y = this.heightAt( - 51.1, 225 );
 		// at Porta da Vila the curtain comes down to the gate tower's height, so the steps inside reach it
 		const caps = pv ? [ { x: pv.x, z: pv.z, r: 7, y: pv.y + 8 } ] : [];
 		this.wall = this.profile( this.wallInfo.line, this.wallInfo.outward, { gates: this.gates, caps } );
@@ -380,7 +385,8 @@ export class TerrainData {
 
 	}
 
-	// Porta da Vila's tower: its floor level, and the street beyond the inner arch eased up to it over ~14 m.
+	// Porta da Vila's tower: its floor level with Rua Direita inside. Just inside, between Rua Direita and the
+	// lane going down on the right, a small square stands two high steps above the street.
 	// Outside, the square is level with the gate, and so is Rua Porta da Vila for its ~150 m south to the
 	// road (it only comes up to the far end's ground); Rua do Cemitério climbs away from it on the right
 	// and runs on above it, behind a retaining wall.
@@ -495,17 +501,32 @@ export class TerrainData {
 			} );
 
 		}
-		const R = 14, gx = - 51.1, gz = 223.5;
-		for ( let j = Math.floor( ( gz - R - origin ) / texel ); j <= Math.ceil( ( gz - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( gx - R - origin ) / texel ); i <= Math.ceil( ( gx + R - origin ) / texel ); i ++ ) {
 
-			const k = j * res + i;
-			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
-			if ( ! this.inside[ k ] || z > gz || pointInPolygon( x, z, PORTA_DA_VILA_TOWER ) ) continue;
-			// up Rua Direita, not across to the Casa da Música and its terrace (west of the lane)
-			const w = ( 1 - smoothstep( 1, R, Math.hypot( x - gx, z - gz ) ) ) * smoothstep( - 58, - 53.5, x );
-			heights[ k ] = lerp( heights[ k ], F, w );
+		// inside the inner arch, level with it as far as the small square's front; the lane on the right
+		// goes down from there, past the square, to its own ground ~11 m on
+		this._fill( PV_FORK, level );
+		const lane = [ [ - 47.6, 213.6 ], [ - 46.3, 211 ], [ - 45.8, 206.9 ], [ - 45.4, 200 ] ], lc = [ 0 ];
+		for ( let i = 1; i < lane.length; i ++ ) lc.push( lc[ i - 1 ] + Math.hypot( lane[ i ][ 0 ] - lane[ i - 1 ][ 0 ], lane[ i ][ 1 ] - lane[ i - 1 ][ 1 ] ) );
+		const lw = new Float32Array( heights.length );
+		for ( let i = 0; i + 1 < lane.length; i ++ ) this._stroke( [ lane[ i ], lane[ i + 1 ] ], 2.2, 2.5, ( k, t ) => {
 
-		}
+			if ( t <= lw[ k ] || pointInPolygon( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, PV_PRACETA ) ) return;
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const sl = lc[ i ] + segmentDistance( x, z, lane[ i ], lane[ i + 1 ] )[ 1 ] * ( lc[ i + 1 ] - lc[ i ] );
+			lw[ k ] = t;
+			heights[ k ] = lerp( heights[ k ], lerp( F, heights[ k ], smoothstep( 0, 11, sl ) ), t );
+
+		} );
+
+		// the small square inside the inner arch: level, 0.6 m over the street (Walls builds its steps,
+		// its walls and the stone column on it)
+		const y = F + 0.6;
+		this._fill( PV_PRACETA, ( k ) => {
+
+			heights[ k ] = y;
+
+		} );
+		this.praceta = { poly: PV_PRACETA, y };
 
 	}
 
@@ -583,8 +604,8 @@ export class TerrainData {
 
 		}
 
-		// the square outside Porta da Vila and the floor of its tower: setts (town ground + paved), as in the photos
-		for ( const poly of [ PORTA_DA_VILA_SQUARE, PORTA_DA_VILA_TOWER ] ) this._fill( poly, ( k ) => {
+		// the square outside Porta da Vila, the floor of its tower and the small square inside: setts (town ground + paved), as in the photos
+		for ( const poly of [ PORTA_DA_VILA_SQUARE, PORTA_DA_VILA_TOWER, PV_FORK, PV_PRACETA ] ) this._fill( poly, ( k ) => {
 
 			path[ k ] = 255;
 			this.scarp[ k ] = 255;
