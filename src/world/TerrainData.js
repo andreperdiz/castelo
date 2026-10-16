@@ -32,9 +32,10 @@ export const PORTA_DA_VILA_TOWER = [ [ - 60.9, 224.9 ], [ - 52.9, 225.4 ], [ - 5
 export const CEMITERIO_WALL = [ [ - 57, 249 ], [ - 56.7, 268.2 ], [ - 59.5, 277.9 ], [ - 60.7, 286.7 ], [ - 60.9, 291.8 ], [ - 62.6, 307.1 ], [ - 67.6, 328.9 ], [ - 69.6, 334.9 ], [ - 75.4, 348.4 ], [ - 80.4, 360 ], [ - 83.4, 366.9 ] ];
 // the small square just inside Porta da Vila, between Rua Direita (west) and the lane going down to the
 // right (east), in front of the house where they part: its corners, the house's side first
-export const PV_PRACETA = [ [ - 55, 196.2 ], [ - 47.4, 195.7 ], [ - 48.2, 213.8 ], [ - 51.4, 213.8 ], [ - 53.1, 210 ], [ - 55, 196.2 ] ];
-// from the inner arch to the small square's front, where Rua Direita and the lane part
-export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 48.4, 223.2 ], [ - 46.6, 214.6 ], [ - 47.9, 213.4 ], [ - 52.6, 213.4 ], [ - 53.6, 223.2 ] ];
+export const PV_PRACETA = [ [ - 55, 196.2 ], [ - 47.6, 195.7 ], [ - 49.5, 213.8 ], [ - 51.4, 213.8 ], [ - 53.1, 210 ], [ - 55, 196.2 ] ];
+// from the inner arch to the small square's front, where Rua Direita and the lane part, across to the
+// house on the right
+export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 47.8, 223.6 ], [ - 43.4, 215.4 ], [ - 45, 213.4 ], [ - 52.6, 213.4 ], [ - 53.6, 223.2 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
 
 export class TerrainData {

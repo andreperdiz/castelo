@@ -738,11 +738,15 @@ export class Walls {
 		if ( ! pr ) return;
 		const T = this.terrain, kit = this.kit, { poly, y } = pr;
 		const STEPS = [ 3, 4 ], WALLS = [ 1, 2 ]; // which edges (from poly[ i ] to poly[ i + 1 ]); 0 is the house's
-		// a band along edge i from d0 to d1 out of the square (negative: in), in metre pieces
-		const band = ( i, d0, d1, top, bottomOf, opts ) => {
+		// a band along edge i from d0 to d1 out of the square (negative: in), in metre pieces, run on past
+		// the edge's start by e0
+		const band = ( i, d0, d1, top, bottomOf, opts, e0 = 0 ) => {
 
-			const a = poly[ i ], b = poly[ i + 1 ];
-			const len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), n = Math.max( 1, Math.round( len ) );
+			let a = poly[ i ];
+			const b = poly[ i + 1 ];
+			const l0 = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			a = [ a[ 0 ] - ( b[ 0 ] - a[ 0 ] ) / l0 * e0, a[ 1 ] - ( b[ 1 ] - a[ 1 ] ) / l0 * e0 ];
+			const len = l0 + e0, n = Math.max( 1, Math.round( len ) );
 			let ox = - ( b[ 1 ] - a[ 1 ] ) / len, oz = ( b[ 0 ] - a[ 0 ] ) / len;
 			const mx = ( a[ 0 ] + b[ 0 ] ) / 2, mz = ( a[ 1 ] + b[ 1 ] ) / 2;
 			if ( pointInPolygon( mx + ox * 0.5, mz + oz * 0.5, poly ) ) {
@@ -769,7 +773,9 @@ export class Walls {
 		kit.color = [ 0.95, 0.9, 0.8 ]; // worn limestone
 		for ( const i of STEPS ) {
 
-			band( i, 0, 0.45, y - 0.3, below, { walkable: true, tag: 'stair' } );
+			// the lower step deep enough to cover the ground's slope off the square (1 m texels), and run
+			// on past the front corner
+			band( i, 0, 0.9, y - 0.3, below, { walkable: true, tag: 'stair' }, i === STEPS[ 0 ] ? 0.9 : 0 );
 			band( i, - 0.6, 0, y, below, { walkable: true, tag: 'stair' } ); // the platform's edge, over the ground's step
 
 		}
