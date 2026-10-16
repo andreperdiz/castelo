@@ -729,7 +729,8 @@ export class Walls {
 	}
 
 	// The small square just inside Porta da Vila, between Rua Direita and the lane going down on the right
-	// (TerrainData levels it 0.6 m over the street): two high steps up from Rua Direita, a low parapet
+	// (0.6 m over the street; TerrainData leaves the ground under it): a level stone floor, two high
+	// steps up from Rua Direita, a low parapet
 	// round its front and its east side, which stands as a tall wall over the lane, and a small round
 	// column of pale stone in the middle.
 	_praceta() {
@@ -738,15 +739,11 @@ export class Walls {
 		if ( ! pr ) return;
 		const T = this.terrain, kit = this.kit, { poly, y } = pr;
 		const STEPS = [ 3, 4 ], WALLS = [ 1, 2 ]; // which edges (from poly[ i ] to poly[ i + 1 ]); 0 is the house's
-		// a band along edge i from d0 to d1 out of the square (negative: in), in metre pieces, run on past
-		// the edge's start by e0
-		const band = ( i, d0, d1, top, bottomOf, opts, e0 = 0 ) => {
+		// a band along edge i from d0 to d1 out of the square (negative: in), in metre pieces
+		const band = ( i, d0, d1, top, bottomOf, opts ) => {
 
-			let a = poly[ i ];
-			const b = poly[ i + 1 ];
-			const l0 = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
-			a = [ a[ 0 ] - ( b[ 0 ] - a[ 0 ] ) / l0 * e0, a[ 1 ] - ( b[ 1 ] - a[ 1 ] ) / l0 * e0 ];
-			const len = l0 + e0, n = Math.max( 1, Math.round( len ) );
+			const a = poly[ i ], b = poly[ i + 1 ];
+			const len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), n = Math.max( 1, Math.round( len ) );
 			let ox = - ( b[ 1 ] - a[ 1 ] ) / len, oz = ( b[ 0 ] - a[ 0 ] ) / len;
 			const mx = ( a[ 0 ] + b[ 0 ] ) / 2, mz = ( a[ 1 ] + b[ 1 ] ) / 2;
 			if ( pointInPolygon( mx + ox * 0.5, mz + oz * 0.5, poly ) ) {
@@ -773,10 +770,46 @@ export class Walls {
 		kit.color = [ 0.95, 0.9, 0.8 ]; // worn limestone
 		for ( const i of STEPS ) {
 
-			// the lower step deep enough to cover the ground's slope off the square (1 m texels), and run
-			// on past the front corner
-			band( i, 0, 0.9, y - 0.3, below, { walkable: true, tag: 'stair' }, i === STEPS[ 0 ] ? 0.9 : 0 );
-			band( i, - 0.6, 0, y, below, { walkable: true, tag: 'stair' } ); // the platform's edge, over the ground's step
+			band( i, 0, 0.5, y - 0.3, below, { walkable: true, tag: 'stair' } );
+			band( i, - 0.4, 0, y, below, { walkable: true, tag: 'stair' } ); // the floor's edge
+
+		}
+
+		// the floor: a level paving of stone over the whole square (the ground under it is left as it was),
+		// walked on as strips a metre deep across it
+		const ring = poly.slice( 0, - 1 );
+		let fx = 0, fz = 0;
+		for ( const q of ring ) {
+
+			fx += q[ 0 ] / ring.length;
+			fz += q[ 1 ] / ring.length;
+
+		}
+
+		kit.color = [ 0.92, 0.88, 0.8 ];
+		kit.vdata = [ 0.71, 0.3, 0, 0 ];
+		ring.forEach( ( q, i ) => {
+
+			const r = ring[ ( i + 1 ) % ring.length ];
+			kit.quadFacing( [ fx, y, fz ], [ q[ 0 ], y, q[ 1 ] ], [ r[ 0 ], y, r[ 1 ] ], [ r[ 0 ], y, r[ 1 ] ], [ 0, 1, 0 ],
+				[ [ fx, fz ], [ q[ 0 ], q[ 1 ] ], [ r[ 0 ], r[ 1 ] ], [ r[ 0 ], r[ 1 ] ] ] );
+
+		} );
+		const zs = ring.map( ( q ) => q[ 1 ] );
+		for ( let z = Math.min( ...zs ); z < Math.max( ...zs ); z += 1 ) {
+
+			// the square's width across this strip
+			let x0 = Infinity, x1 = - Infinity;
+			for ( const zz of [ z, Math.min( z + 1, Math.max( ...zs ) ) ] ) ring.forEach( ( q, i ) => {
+
+				const r = ring[ ( i + 1 ) % ring.length ];
+				if ( ( q[ 1 ] - zz ) * ( r[ 1 ] - zz ) > 0 || q[ 1 ] === r[ 1 ] ) return;
+				const x = q[ 0 ] + ( r[ 0 ] - q[ 0 ] ) * ( zz - q[ 1 ] ) / ( r[ 1 ] - q[ 1 ] );
+				x0 = Math.min( x0, x );
+				x1 = Math.max( x1, x );
+
+			} );
+			if ( x1 > x0 ) this.colliders.addBox( new Vector3( ( x0 + x1 ) / 2, y - 0.2, z + 0.5 ), new Vector3( ( x1 - x0 ) / 2, 0.2, 0.5 ), 0, { walkable: true, tag: 'praceta' } );
 
 		}
 
