@@ -95,7 +95,8 @@ check( climbed === W.stairs.length, `climbed ${ climbed } / ${ W.stairs.length }
 const pv = W.stairs.at( - 1 ).steps[ 0 ];
 P.placeAt( pv.x, pv.y + 0.1, pv.z );
 ok = walkTo( - 61.7, 232, 5, 0.4 ) && walkTo( - 61.7, 234.3, 5, 0.4 ) && walkTo( - 68, 234.2, 10, 0.5 );
-check( ok && P.position.y > pv.y, `from the steps by Porta da Vila onto the curtain walk (y ${ P.position.y.toFixed( 1 ) })` );
+// (the tower stands higher than the curtain: the walk comes down from it, but stays well over the ground)
+check( ok && P.position.y > T.heightAt( - 68, 234.2 ) + 4, `from the steps by Porta da Vila onto the curtain walk (y ${ P.position.y.toFixed( 1 ) })` );
 
 // up the stepped lane, through the gateway beside it and along the Casa da Música's terrace
 const ct = W.casaTerrace;
