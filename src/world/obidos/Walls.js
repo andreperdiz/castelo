@@ -23,7 +23,7 @@ const STEP_RISE = 0.18;
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end, inner arch, corner, curtain
 const PORTA_DA_VILA = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ];
-const PV_EAST = 12; // Porta da Vila's east side: its walk this high over the tower's floor
+const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high over its floor
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const lin = ( c ) => c.map( ( v ) => ( v <= 0.04045 ? v / 12.92 : ( ( v + 0.055 ) / 1.055 ) ** 2.4 ) );
 
@@ -48,13 +48,13 @@ export class Walls {
 		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		// and is pointed (photo references/...-portadavila)
 		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, pointed: 1.6 } );
-		// the curtain round the town; on Porta da Vila's east side it stands a little above the oratory's
-		// roof (photo references/...-entreportas4), coming down to the curtain's walk either way
+		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
+		// as the tower's town wall, coming down to the curtain's walk either way
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
-		const east = wall.pts.filter( ( p ) => p.x > - 49.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
-		if ( east.length ) {
+		const tower = wall.pts.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
+		if ( tower.length ) {
 
-			const top = terrain.heightAt( - 51.1, 225 ) + PV_EAST, s0 = Math.min( ...east.map( ( p ) => p.s ) ), s1 = Math.max( ...east.map( ( p ) => p.s ) );
+			const top = terrain.heightAt( - 51.1, 225 ) + PV_TOWER, s0 = Math.min( ...tower.map( ( p ) => p.s ) ), s1 = Math.max( ...tower.map( ( p ) => p.s ) );
 			for ( const p of wall.pts ) p.top = Math.max( p.top, top - Math.max( 0, s0 - p.s, p.s - s1 ) / 2.5 );
 
 		}
@@ -125,12 +125,10 @@ export class Walls {
 		// the west wall rises to meet the curtain's walk where it joins it, as a flight of the walk would
 		const end = this._nearestWalk( pts[ 3 ][ 0 ], pts[ 3 ][ 1 ] + 1, 4 );
 		if ( end ) for ( const p of prof.pts ) p.top = Math.max( p.top, end.p.y - ( prof.length - p.s ) / 2.5 );
-		// the tower stands well above the curtain (photo references/...-debaixodaportadavila): its town wall
-		// about 13 m over the street at the inner arch, from the curtain's line to the corner, and the west
-		// wall coming down from there to the curtain's walk
-		const sC = Math.hypot( pts[ 1 ][ 0 ] - pts[ 0 ][ 0 ], pts[ 1 ][ 1 ] - pts[ 0 ][ 1 ] ) + Math.hypot( pts[ 2 ][ 0 ] - pts[ 1 ][ 0 ], pts[ 2 ][ 1 ] - pts[ 1 ][ 1 ] );
-		const high = inner.y + 13.2, low = end ? end.p.y : high;
-		for ( const p of prof.pts ) if ( p.s > 3.5 ) p.top = Math.max( p.top, p.s <= sC ? high : high - ( high - low ) * ( p.s - sC ) / ( prof.length - sC ) );
+		// the tower stands well above the curtain (photo references/...-debaixodaportadavila): its town and
+		// west walls, like its other two (the curtain's), about 13 m over its floor, from the curtain's line
+		const high = inner.y + PV_TOWER;
+		for ( const p of prof.pts ) if ( p.s > 3.5 ) p.top = Math.max( p.top, high );
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37 );
 		this.portaDaVila.gates = [ outerGate, inner ];
 
@@ -405,8 +403,9 @@ export class Walls {
 
 	// The L-shaped flight at Porta da Vila (OSM way 314791407): from the street just through the inner
 	// arch, up along the tower's town wall to a landing at the corner, then along its west wall to the
-	// wall walk. Built from the top down, against the outer faces of the two walls, in even steps from the
-	// walk to the street: broad, steep and dark with wear, as in the photo.
+	// wall walk. Built from the top down, against the outer faces of the two walls: the first flight from
+	// the street comes to half the wall's height at the landing, the second goes on up to the walk; broad,
+	// steep and dark with wear, as in the photo.
 	_portaDaVilaStairs() {
 
 		const wl = this.portaDaVila;
@@ -450,7 +449,10 @@ export class Walls {
 		const gEnd = T.heightAt( corner[ 0 ] - north.dx * dEnd, corner[ 1 ] - north.dz * dEnd );
 		const lenW = tk - width / 2, lenN = dEnd - width / 2;
 		const nW = Math.max( 1, Math.round( lenW / run ) ), nN = Math.max( 1, Math.round( lenN / run ) );
-		const rise = ( walkY - gEnd - 0.15 ) / ( nW + nN );
+		// the first flight (the north leg, from the street) comes to half the wall's height at the landing,
+		// the second (the west leg) on up to the walk
+		const yMid = ( walkY + gEnd ) / 2;
+		let rise = ( walkY - yMid ) / nW;
 		const steps = [];
 		let y = walkY;
 		const put = ( x, z, dx, dz, len ) => {
@@ -467,6 +469,7 @@ export class Walls {
 
 		}
 
+		rise = ( yMid - gEnd - 0.15 ) / nN;
 		put( corner[ 0 ], corner[ 1 ], north.dx, north.dz, width );
 		for ( let i = 0; i < nN; i ++ ) {
 
