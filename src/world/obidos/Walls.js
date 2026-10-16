@@ -560,6 +560,35 @@ export class Walls {
 		put( turn, curtain, width, [ 0, 0.06 ] );
 		slope( at( turn, curtain, width / 2 ), curtain, 5 );
 
+		// a landing level with the Casa da Música's terrace where you step onto it, part way up the first
+		// leg: the steps it covers become one, the steps below climb to it in even rises, those above ease back
+		const casa = this.casaOutline = this._casaOutline( { corner, north, width } );
+		const yT = casa.yT, nLeg = steps.findIndex( ( st ) => st.x < corner[ 0 ] + width / 2 );
+		let g = - 1;
+		steps.forEach( ( st, i ) => {
+
+			if ( i < nLeg && st.x < - 57.6 && st.x > - 59.9 && ( g < 0 || Math.abs( st.y - yT + 0.15 ) < Math.abs( steps[ g ].y - yT + 0.15 ) ) ) g = i;
+
+		} );
+		if ( g > 0 ) {
+
+			const LAND = 0.85, gx = steps[ g ].x;
+			let a = g, b = g;
+			while ( a > 1 && Math.abs( steps[ a - 1 ].x - gx ) < LAND ) a --;
+			while ( b + 1 < nLeg && Math.abs( steps[ b + 1 ].x - gx ) < LAND ) b ++;
+			// from the first step's lower end to the last one's upper end (going up is westward, - x)
+			const x0 = steps[ a ].x - north.dx * steps[ a ].len / 2, x1 = steps[ b ].x + north.dx * steps[ b ].len / 2;
+			const y0 = steps[ 0 ].y;
+			for ( let i = 1; i < a; i ++ ) steps[ i ].y = y0 + ( yT - y0 ) * i / a;
+			const delta = yT - steps[ b ].y;
+			for ( let i = b + 1, j = 1; i < steps.length; i ++, j ++ ) steps[ i ].y += delta * Math.max( 0, 1 - j / 10 );
+			const lx = ( x0 + x1 ) / 2, d = ( lx - corner[ 0 ] ) / north.dx;
+			const landing = { x: lx, z: corner[ 1 ] + north.dz * d, y: yT, g: Math.min( ...steps.slice( a, b + 1 ).map( ( st ) => st.g ) ), yaw: steps[ a ].yaw, len: Math.abs( x1 - x0 ) };
+			steps.splice( a, b - a + 1, landing );
+			this.laneGate = landing;
+
+		}
+
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 1.06, 1.05, 1.02 ]; // pale limestone
 		steps.forEach( ( st ) => {
@@ -577,16 +606,11 @@ export class Walls {
 
 	}
 
-	// The Casa da Música (the Auditório), as in the photos (references/...-duasescadas, -apossaidadaporta2):
-	// a terrace runs the length of its east front, a level above Rua Direita, behind a whitewashed wall with
-	// a blue band and blue pilasters along the street. Its south side runs right against the stepped lane,
-	// and you step onto it from the lane, part way up, through a gateway of two blue piers. The wall is
-	// plaster, built with the houses (Town reads this.casaTerrace).
-	_casaDaMusicaTerrace() {
+	// The Casa da Música's terrace (see _casaDaMusicaTerrace): its outline and level, which the lane needs
+	// first for its landing. L is the lane's first leg ({ corner, north, width }).
+	_casaOutline( L ) {
 
-		const L = this.laneNorth;
-		if ( ! L ) return;
-		const T = this.terrain, kit = this.kit;
+		const T = this.terrain;
 		// the building's east front (Town.OUTLINE), the wall 2.6 m off Rua Direita's centre line, and its
 		// south side right against the lane's edge
 		const { corner, north, width } = L;
@@ -608,7 +632,20 @@ export class Walls {
 
 		}
 
-		const yT = gMax + 0.1, bottom = gMin - 0.8;
+		return { FS, WS, WK, WN, FN, parts, yT: gMax + 0.1, bottom: gMin - 0.8 };
+
+	}
+
+	// The Casa da Música (the Auditório), as in the photos (references/...-duasescadas, -apossaidadaporta2):
+	// a terrace runs the length of its east front, a level above Rua Direita, behind a whitewashed wall with
+	// a blue band and blue pilasters along the street. Its south side runs right against the stepped lane,
+	// and you step onto it from the lane, part way up, through a gateway of two blue piers. The wall is
+	// plaster, built with the houses (Town reads this.casaTerrace).
+	_casaDaMusicaTerrace() {
+
+		if ( ! this.casaOutline ) return;
+		const T = this.terrain, kit = this.kit;
+		const { FS, WS, WK, WN, FN, parts, yT, bottom } = this.casaOutline;
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 1.06, 1.05, 1.02 ];
 		for ( const poly of parts ) {
@@ -620,9 +657,8 @@ export class Walls {
 
 		}
 
-		// the way in: from the lane, through a gateway in the south wall, off the step about level with it
-		const lane = this.lane.filter( ( st ) => st.x < - 57.6 && st.x > - 59.9 );
-		const gate = lane.reduce( ( b, st ) => ( ! b || Math.abs( st.y - yT + 0.15 ) < Math.abs( b.y - yT + 0.15 ) ? st : b ), null );
+		// the way in: from the lane's landing, level with the terrace, through a gateway in the south wall
+		const gate = this.laneGate;
 		const GW = 1.2, gx0 = gate.x - GW / 2, gx1 = gate.x + GW / 2;
 
 		// the wall along the lane (with the gateway) and the street, for Town; the blue pilasters every 4 m
