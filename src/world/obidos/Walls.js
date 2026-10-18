@@ -22,8 +22,9 @@ const MERLON_PITCH = 1.85;
 const PIECE = 0.6;
 const STEP_RISE = 0.18;
 const FOOT = 2.0; // the faces go this far below the ground
-// Porta da Vila's town and west walls (after OSM way 475653576): east end, inner arch, corner, curtain
-const PORTA_DA_VILA = [ [ - 44, 225.7 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ];
+// Porta da Vila's town and west walls (after OSM way 475653576): east end (at the curtain), inner arch,
+// corner, curtain
+const PORTA_DA_VILA = [ [ - 46.95, 225.42 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ], [ - 61.8, 233.3 ] ]; // from the curtain's corner
 const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high over its floor
 const PV_EAST_FACE = - 48.6; // the tower's east side (the curtain): its face on the void
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
@@ -53,6 +54,7 @@ export class Walls {
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
 		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
+		this._pvCurtainCorner( wall );
 		const tower = wall.pts.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
 		if ( tower.length ) {
 
@@ -84,8 +86,8 @@ export class Walls {
 		// its corners round Porta da Vila's east side are sharp: the profile's normals, smoothed over a few
 		// metres, twist the faces there and open holes into the tower
 		// on the tower its town side, round the void inside, has a crenellated parapet too, with low merlons
-		const onTower = ( p ) => p.x > - 61.5 && p.x < - 47 && p.z > 226 && p.z < 236.5 ? 'void' : null;
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 225, - 43, 236.5 ], adjust: westOfTower, town: onTower } );
+		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226 && p.z < 236.5 ? 'void' : null;
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 223.5, - 40, 236.5 ], adjust: westOfTower, town: onTower } );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		if ( portaDaVila ) this._passoPortal( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
@@ -149,11 +151,10 @@ export class Walls {
 		// the tower stands well above the curtain (photo references/...-debaixodaportadavila): its town and
 		// west walls, like its other two (the curtain's), about 13 m over its floor, from the curtain's line
 		const high = inner.y + PV_TOWER;
-		for ( const p of prof.pts ) if ( p.s > 3.5 ) p.top = Math.max( p.top, high );
+		for ( const p of prof.pts ) p.top = Math.max( p.top, high );
 		// a sharp corner between the town and west walls, so the L-shaped flight fits against both
 		// and a low guard wall along their town side (the void's side has the crenellated parapet)
-		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: ( p ) => p.s > 3.5 ? 'low' : null, lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE } );
-		this._pvCorner();
+		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: () => 'low', lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE, capStart: false } ); // (its east end runs into the curtain's corner)
 		this.portaDaVila.gates = [ outerGate, inner ];
 
 	}
@@ -379,22 +380,33 @@ export class Walls {
 
 	}
 
-	// The tower's north-east corner: the curtain's walk on its east side turns away a couple of metres short
-	// of the town wall, so a block of walk carries it on to the town wall (whose own parapet stops there),
-	// with the low parapet and a merlon on its edge over the void.
-	_pvCorner() {
+	// The tower's north-east corner, after the views: the curtain along the tower's east side runs on north
+	// to the town wall's line, and from there straight on east to meet its own line again, where the OSM
+	// way bulges south (profile points 519-522, kept apart by their positions here). The profile is
+	// edited in place: the bulge's points out, the corner and the straight run in, arc lengths again.
+	_pvCurtainCorner( wall ) {
 
-		const T = this.terrain, kit = this.kit, y = Math.round( this.pvTop / STEP_RISE ) * STEP_RISE;
-		const x0 = PV_EAST_FACE, x1 = - 45.9, z0 = 225.9, z1 = 228.2, zf = 226.65; // zf: the town wall's face on the void
-		const bottom = T.heightAt( ( x0 + x1 ) / 2, ( z0 + z1 ) / 2 ) - FOOT;
-		kit.vdata = [ 0.37, 0.8, 0, 0 ];
-		kit.color = [ 1.05 * 0.96, 0.84 * 0.96, 0.56 * 0.96 ];
-		kit.box( ( x0 + x1 ) / 2, ( y + bottom ) / 2, ( z0 + z1 ) / 2, x1 - x0, y - bottom, z1 - z0, 0, 'bottom' );
-		this.colliders.addBox( new Vector3( ( x0 + x1 ) / 2, ( y + bottom ) / 2, ( z0 + z1 ) / 2 ), new Vector3( ( x1 - x0 ) / 2, ( y - bottom ) / 2, ( z1 - z0 ) / 2 ), 0, { walkable: true, tag: 'wall' } );
-		const px = x0 + ( W / 2 - PARAPET_IN ) / 2, pw = W / 2 - PARAPET_IN;
-		kit.box( px, y + PARAPET_H / 2, ( zf + z1 ) / 2, pw, PARAPET_H, z1 - zf, 0, 'bottom' );
-		kit.box( px, y + PARAPET_H + MERLON_H * LOW_MERLON / 2, ( zf + z1 ) / 2, pw, MERLON_H * LOW_MERLON, MERLON_W, 0, 'bottom' );
-		this.colliders.addBox( new Vector3( px, y + ( PARAPET_H + MERLON_H ) / 2, ( zf + z1 ) / 2 ), new Vector3( pw / 2, ( PARAPET_H + MERLON_H ) / 2, ( z1 - zf ) / 2 ), 0, { walkable: false, tag: 'parapet' } );
+		const P = wall.pts;
+		const near = ( x, z ) => P.findIndex( ( p ) => Math.hypot( p.x - x, p.z - z ) < 0.5 );
+		const i0 = near( - 47.13, 227.67 ), i1 = near( - 41, 224.86 ); // the bulge's first point, its way out
+		if ( i0 < 0 || i1 < 0 || i1 <= i0 ) return;
+		const run = [ [ - 46.95, 225.42 ], [ - 44.97, 225.23 ], [ - 42.98, 225.05 ] ];
+		const a = P[ i0 - 1 ], b = P[ i1 ];
+		const pts = run.map( ( [ x, z ], k ) => ( { ...a, x, z, top: a.top + ( b.top - a.top ) * ( k + 1 ) / ( run.length + 1 ) } ) );
+		P.splice( i0, i1 - i0, ...pts );
+		// arc lengths, and the normals along the new stretch (outward, as the profile's)
+		for ( let i = 1; i < P.length; i ++ ) P[ i ].s = P[ i - 1 ].s + Math.hypot( P[ i ].x - P[ i - 1 ].x, P[ i ].z - P[ i - 1 ].z );
+		for ( let i = i0 - 1; i <= i0 + run.length; i ++ ) {
+
+			const p = P[ i ], q = P[ i - 1 ], r = P[ i + 1 ];
+			let dx = r.x - q.x, dz = r.z - q.z;
+			const L = Math.hypot( dx, dz ) || 1;
+			dx /= L; dz /= L;
+			Object.assign( p, { dx, dz, nx: dz * wall.outward, nz: - dx * wall.outward } );
+
+		}
+
+		wall.length = P[ P.length - 1 ].s;
 
 	}
 
@@ -973,7 +985,7 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false, bare = null } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false, bare = null, capStart = true } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
@@ -1180,7 +1192,7 @@ export class Walls {
 			// risers to the next tread (or the end caps)
 			const next = samples[ i + 1 ];
 			const prev = samples[ i - 1 ];
-			if ( ! prev ) this._cap( A, gIn, y, inner, outer, [ - p.tx, 0, - p.tz ] );
+			if ( ! prev && capStart ) this._cap( A, gIn, y, inner, outer, [ - p.tx, 0, - p.tz ] );
 			if ( ! next ) this._cap( B, gIn, y, inner, outer, [ p.tx, 0, p.tz ] );
 			else if ( next.y !== y ) {
 
