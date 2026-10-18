@@ -17,6 +17,7 @@ const PARAPET_IN = 0.75; // parapet inner face
 const PARAPET_H = 0.95;
 const MERLON_H = 0.8;
 const MERLON_W = 1.1;
+const LOW_MERLON = 0.5; // the merlons round Porta da Vila's void, lower than the curtain's
 const MERLON_PITCH = 1.85;
 const PIECE = 0.6;
 const STEP_RISE = 0.18;
@@ -81,8 +82,8 @@ export class Walls {
 		};
 		// its corners round Porta da Vila's east side are sharp: the profile's normals, smoothed over a few
 		// metres, twist the faces there and open holes into the tower
-		// on the tower its town side, round the void inside, has a crenellated parapet too
-		const onTower = ( p ) => p.x > - 61.5 && p.x < - 47 && p.z > 226 && p.z < 236.5 ? 'high' : null;
+		// on the tower its town side, round the void inside, has a crenellated parapet too, with low merlons
+		const onTower = ( p ) => p.x > - 61.5 && p.x < - 47 && p.z > 226 && p.z < 236.5 ? 'void' : null;
 		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 225, - 43, 236.5 ], adjust: westOfTower, town: onTower } );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		if ( portaDaVila ) this._passoPortal( portaDaVila );
@@ -150,7 +151,7 @@ export class Walls {
 		for ( const p of prof.pts ) if ( p.s > 3.5 ) p.top = Math.max( p.top, high );
 		// a sharp corner between the town and west walls, so the L-shaped flight fits against both
 		// and a low guard wall along their town side (the void's side has the crenellated parapet)
-		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: ( p ) => p.s > 3.5 ? 'low' : null } );
+		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: ( p ) => p.s > 3.5 ? 'low' : null, lowOuter: true } );
 		this.portaDaVila.gates = [ outerGate, inner ];
 
 	}
@@ -951,7 +952,7 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
@@ -1063,7 +1064,8 @@ export class Walls {
 		for ( let i = 0; i < n; i ++ ) {
 
 			const p = samples[ i ];
-			// the town side: open, or a parapet too ('high', with merlons, or 'low', a plain guard wall)
+			// the town side: open, or a parapet too ('high', with merlons; 'void', with low merlons, round
+			// Porta da Vila's void; 'low', a plain guard wall). lowOuter: the outer merlons are low ones
 			const ts = parapetBoth ? 'high' : town ? town( p ) : null;
 			const pIn = ts ? - PARAPET_IN : inner;
 			const A = edge[ i ], B = edge[ i + 1 ];
@@ -1172,12 +1174,12 @@ export class Walls {
 				if ( sc < p.s - PIECE / 2 || sc >= p.s + PIECE / 2 ) continue;
 				const yaw = Math.atan2( - p.tz, p.tx );
 				const c = off( p, ( PARAPET_IN + outer ) / 2 );
-				const mh = MERLON_H * ( 0.95 + 0.1 * Math.sin( m * 12.9 ) );
-				kit.box( c[ 0 ] + p.tx * ( sc - p.s ), yp + mh / 2, c[ 1 ] + p.tz * ( sc - p.s ), MERLON_W, mh, outer - PARAPET_IN, yaw, 'bottom' );
-				if ( ts === 'high' ) {
+				const mh = MERLON_H * ( 0.95 + 0.1 * Math.sin( m * 12.9 ) ), mo = lowOuter ? mh * LOW_MERLON : mh;
+				kit.box( c[ 0 ] + p.tx * ( sc - p.s ), yp + mo / 2, c[ 1 ] + p.tz * ( sc - p.s ), MERLON_W, mo, outer - PARAPET_IN, yaw, 'bottom' );
+				if ( ts === 'high' || ts === 'void' ) {
 
-					const c2 = off( p, - ( PARAPET_IN + outer ) / 2 );
-					kit.box( c2[ 0 ] + p.tx * ( sc - p.s ), yp + mh / 2, c2[ 1 ] + p.tz * ( sc - p.s ), MERLON_W, mh, outer - PARAPET_IN, yaw, 'bottom' );
+					const c2 = off( p, - ( PARAPET_IN + outer ) / 2 ), mi = ts === 'void' ? mh * LOW_MERLON : mh;
+					kit.box( c2[ 0 ] + p.tx * ( sc - p.s ), yp + mi / 2, c2[ 1 ] + p.tz * ( sc - p.s ), MERLON_W, mi, outer - PARAPET_IN, yaw, 'bottom' );
 
 				}
 
@@ -1194,7 +1196,7 @@ export class Walls {
 			this.colliders.addBox( new Vector3( pc[ 0 ], ( ptop + bottom ) / 2, pc[ 1 ] ), new Vector3( PIECE / 2 + 0.02, ( ptop - bottom ) / 2, ( outer - PARAPET_IN ) / 2 ), yaw, { walkable: false, tag: 'parapet' } );
 			if ( ts ) {
 
-				const qc = off( p, ( inner + pIn ) / 2 ), qtop = ts === 'high' ? ptop : y + PARAPET_H + 0.1;
+				const qc = off( p, ( inner + pIn ) / 2 ), qtop = ts === 'low' ? y + PARAPET_H + 0.1 : ptop;
 				this.colliders.addBox( new Vector3( qc[ 0 ], ( qtop + bottom ) / 2, qc[ 1 ] ), new Vector3( PIECE / 2 + 0.02, ( qtop - bottom ) / 2, ( pIn - inner ) / 2 ), yaw, { walkable: false, tag: 'parapet' } );
 
 			}
