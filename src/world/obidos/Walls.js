@@ -83,14 +83,14 @@ export class Walls {
 			}
 
 		};
-		// its corners round Porta da Vila's east side are sharp: the profile's normals, smoothed over a few
-		// metres, twist the faces there and open holes into the tower
+		// its corners round Porta da Vila's east side, and on along the stretch north-east of it, are sharp:
+		// the profile's normals, smoothed over a few metres, twist the faces there and open holes
 		// on the tower its town side, round the void inside, has a crenellated parapet too, with low merlons
 		// and on from the tower's north-east corner, as far as the house leaning on it inside ends, a low
 		// guard wall on its town side, the walk a ramp (no steps) and the walls sloping with it
 		const NE = ( p ) => p.x > - 46.6 && p.x < - 20.5 && p.z > 193 && p.z < 226.5;
-		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226 && p.z < 236.5 ? 'void' : NE( p ) ? 'low' : null;
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 223.5, - 40, 236.5 ], adjust: westOfTower, town: onTower, ramp: NE } );
+		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226.7 && p.z < 236.5 ? 'void' : NE( p ) ? 'low' : null; // (the void from the town wall's face)
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 190, - 18, 236.5 ], adjust: westOfTower, town: onTower, ramp: NE } );
 		// houses keep off that stretch of the curtain (the house leaning on it overlapped its town half): its
 		// line run backwards, so the town is on the left
 		const ne = this.curtain.samples.filter( NE ).sort( ( a, b ) => b.s - a.s );
@@ -1051,7 +1051,16 @@ export class Walls {
 
 		};
 		// cross-sections at the piece boundaries (mid-points between samples)
-		const off = ( p, d ) => [ p.x + p.nx * d, p.z + p.nz * d ];
+		// (near a sharp corner an offset point that would cross the corner's bisector is held at the mitre
+		// point instead, so the pieces on the inside of the turn don't fold over each other)
+		const off = ( p, d ) => {
+
+			const q = [ p.x + p.nx * d, p.z + p.nz * d ], c = p.mitre;
+			if ( ! c ) return q;
+			const side = ( x, z ) => ( x - c.x ) * - c.bz + ( z - c.z ) * c.bx;
+			return Math.sign( side( q[ 0 ], q[ 1 ] ) ) === Math.sign( side( p.x, p.z ) ) ? q : [ c.x + c.bx * d / c.cos, c.z + c.bz * d / c.cos ];
+
+		};
 		const edge = [];
 		for ( let k = 0; k <= n; k ++ ) {
 
@@ -1062,6 +1071,18 @@ export class Walls {
 			edge.push( m );
 
 		}
+
+		samples.forEach( ( p, i ) => {
+
+			if ( ! p.corner || i < 1 || i > n - 2 ) return;
+			const a = samples[ i - 1 ], b = samples[ i + 1 ];
+			let bx = a.nx + b.nx, bz = a.nz + b.nz;
+			const l = Math.hypot( bx, bz ) || 1;
+			bx /= l; bz /= l;
+			const c = { x: p.x, z: p.z, bx, bz, cos: Math.max( 0.3, bx * a.nx + bz * a.nz ) };
+			for ( let k = Math.max( 0, i - 3 ); k <= Math.min( n, i + 4 ); k ++ ) edge[ k ].mitre = c;
+
+		} );
 
 		// gate passages: the pieces over a gate
 		for ( const p of samples ) {
@@ -1261,6 +1282,22 @@ export class Walls {
 			u += len;
 
 		}
+
+		// sharp corners: a block of walk on the turn itself, across the walk, so its pieces close there
+		samples.forEach( ( p, i ) => {
+
+			if ( ! p.corner || i < 1 || i > n - 2 || p.gate ) return;
+			const a = samples[ i - 1 ], b = samples[ i + 1 ];
+			let bx = a.nx + b.nx, bz = a.nz + b.nz;
+			const l = Math.hypot( bx, bz ) || 1;
+			bx /= l; bz /= l;
+			const cos = Math.max( 0.5, bx * a.nx + bz * a.nz ), d0 = inner / cos, d1 = PARAPET_IN / cos;
+			const cx = p.x + bx * ( d0 + d1 ) / 2, cz = p.z + bz * ( d0 + d1 ) / 2, yaw = Math.atan2( bx, bz );
+			const bottom = T.heightAt( cx, cz ) - FOOT, top = Math.min( a.y, p.y, b.y ) - 0.25; // (under the walk beside it, a ramp too)
+			kit.color = [ 1.05 * 0.96, 0.84 * 0.96, 0.56 * 0.96 ];
+			kit.box( cx, ( top + bottom ) / 2, cz, 1.0, top - bottom, d1 - d0, yaw, 'bottom' );
+
+		} );
 
 		const wl = { samples, outward: profile.outward, parapetBoth };
 		this.walkLines.push( wl );
