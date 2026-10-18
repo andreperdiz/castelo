@@ -87,10 +87,10 @@ export class Walls {
 		// metres, twist the faces there and open holes into the tower
 		// on the tower its town side, round the void inside, has a crenellated parapet too, with low merlons
 		// and on from the tower's north-east corner, as far as the house leaning on it inside ends, a low
-		// guard wall on its town side
+		// guard wall on its town side, the walk a ramp (no steps) and the walls sloping with it
 		const NE = ( p ) => p.x > - 46.6 && p.x < - 20.5 && p.z > 193 && p.z < 226.5;
 		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226 && p.z < 236.5 ? 'void' : NE( p ) ? 'low' : null;
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 223.5, - 40, 236.5 ], adjust: westOfTower, town: onTower } );
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 223.5, - 40, 236.5 ], adjust: westOfTower, town: onTower, ramp: NE } );
 		// houses keep off that stretch of the curtain (the house leaning on it overlapped its town half): its
 		// line run backwards, so the town is on the left
 		const ne = this.curtain.samples.filter( NE ).sort( ( a, b ) => b.s - a.s );
@@ -992,7 +992,7 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false, bare = null, capStart = true } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false, bare = null, capStart = true, ramp = null } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
@@ -1041,6 +1041,15 @@ export class Walls {
 		// level treads
 		if ( adjust ) adjust( samples ); // a caller's last word on the tops
 		for ( const p of samples ) p.y = Math.round( p.top / STEP_RISE ) * STEP_RISE;
+		// ramp( p ): a sloping walk here instead of treads, its parapets sloping with it; each piece's ends
+		// meet its neighbours' (a tread's own height where a ramp meets one)
+		if ( ramp ) for ( const p of samples ) if ( ( p.ramp = ramp( p ) ) ) p.y = p.top;
+		const endY = ( k ) => {
+
+			const a = samples[ Math.max( 0, k - 1 ) ], b = samples[ Math.min( n - 1, k ) ];
+			return a.ramp && b.ramp ? ( a.y + b.y ) / 2 : a.ramp ? b.y : a.y;
+
+		};
 		// cross-sections at the piece boundaries (mid-points between samples)
 		const off = ( p, d ) => [ p.x + p.nx * d, p.z + p.nz * d ];
 		const edge = [];
@@ -1111,7 +1120,7 @@ export class Walls {
 			// bare( p ): no parapet on the outer side here either (where another walk runs on from it)
 			const open = bare ? bare( p ) : false, PO = open ? outer : PARAPET_IN;
 			const A = edge[ i ], B = edge[ i + 1 ];
-			const y = p.y;
+			const y = p.y, yA = p.ramp ? endY( i ) : y, yB = p.ramp ? endY( i + 1 ) : y;
 			const len = Math.hypot( B.x - A.x, B.z - A.z );
 			if ( len < 1e-3 ) continue;
 			const up = [ 0, 1, 0 ];
@@ -1146,34 +1155,35 @@ export class Walls {
 
 			// walk
 			const WA = open ? OA : PA, WB = open ? OB : PB;
-			kit.quadFacing( [ IA[ 0 ], y, IA[ 1 ] ], [ IB[ 0 ], y, IB[ 1 ] ], [ WB[ 0 ], y, WB[ 1 ] ], [ WA[ 0 ], y, WA[ 1 ] ], up,
+			kit.quadFacing( [ IA[ 0 ], yA, IA[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], [ WB[ 0 ], yB, WB[ 1 ] ], [ WA[ 0 ], yA, WA[ 1 ] ], up,
 				[ [ u, 0 ], [ u + len, 0 ], [ u + len, W / 2 + PO ], [ u, W / 2 + PO ] ] );
 			// inner face
 			const gIn = Math.min( ground( IA ), ground( IB ) ) - FOOT;
 			if ( gate ) archFace( inner, y, inN, u );
-			else kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ IB[ 0 ], gIn, IB[ 1 ] ], [ IB[ 0 ], y, IB[ 1 ] ], [ IA[ 0 ], y, IA[ 1 ] ], inN,
-				[ [ u, gIn ], [ u + len, gIn ], [ u + len, y ], [ u, y ] ] );
+			else kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ IB[ 0 ], gIn, IB[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], [ IA[ 0 ], yA, IA[ 1 ] ], inN,
+				[ [ u, gIn ], [ u + len, gIn ], [ u + len, yB ], [ u, yA ] ] );
 			// parapet: inner face, top, outer face (down to the ground outside)
-			const yp = open ? y : y + PARAPET_H;
+			const ph = open ? 0 : PARAPET_H, yp = y + ph, ypA = yA + ph, ypB = yB + ph;
 			if ( ! open ) {
 
-				kit.quadFacing( [ PA[ 0 ], y, PA[ 1 ] ], [ PB[ 0 ], y, PB[ 1 ] ], [ PB[ 0 ], yp, PB[ 1 ] ], [ PA[ 0 ], yp, PA[ 1 ] ], inN,
-					[ [ u, y ], [ u + len, y ], [ u + len, yp ], [ u, yp ] ] );
-				kit.quadFacing( [ PA[ 0 ], yp, PA[ 1 ] ], [ PB[ 0 ], yp, PB[ 1 ] ], [ OB[ 0 ], yp, OB[ 1 ] ], [ OA[ 0 ], yp, OA[ 1 ] ], up,
+				kit.quadFacing( [ PA[ 0 ], yA, PA[ 1 ] ], [ PB[ 0 ], yB, PB[ 1 ] ], [ PB[ 0 ], ypB, PB[ 1 ] ], [ PA[ 0 ], ypA, PA[ 1 ] ], inN,
+					[ [ u, yA ], [ u + len, yB ], [ u + len, ypB ], [ u, ypA ] ] );
+				kit.quadFacing( [ PA[ 0 ], ypA, PA[ 1 ] ], [ PB[ 0 ], ypB, PB[ 1 ] ], [ OB[ 0 ], ypB, OB[ 1 ] ], [ OA[ 0 ], ypA, OA[ 1 ] ], up,
 					[ [ u, 0 ], [ u + len, 0 ], [ u + len, 0.65 ], [ u, 0.65 ] ] );
 
 			}
 			const gOut = Math.min( ground( OA ), ground( OB ) ) - FOOT;
 			if ( gate ) archFace( outer, yp, outN, u );
-			else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], yp, OB[ 1 ] ], [ OA[ 0 ], yp, OA[ 1 ] ], outN,
-				[ [ u, gOut ], [ u + len, gOut ], [ u + len, yp ], [ u, yp ] ] );
+			else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], ypB, OB[ 1 ] ], [ OA[ 0 ], ypA, OA[ 1 ] ], outN,
+				[ [ u, gOut ], [ u + len, gOut ], [ u + len, ypB ], [ u, ypA ] ] );
 			if ( ts ) {
 
 				// a free-standing stretch, or a guarded one: a parapet on the town side too
 				const QA = off( A, pIn ), QB = off( B, pIn );
-				kit.quadFacing( [ QA[ 0 ], y, QA[ 1 ] ], [ QB[ 0 ], y, QB[ 1 ] ], [ QB[ 0 ], yp, QB[ 1 ] ], [ QA[ 0 ], yp, QA[ 1 ] ], outN );
-				kit.quadFacing( [ IA[ 0 ], yp, IA[ 1 ] ], [ IB[ 0 ], yp, IB[ 1 ] ], [ QB[ 0 ], yp, QB[ 1 ] ], [ QA[ 0 ], yp, QA[ 1 ] ], up );
-				kit.quadFacing( [ IA[ 0 ], y, IA[ 1 ] ], [ IB[ 0 ], y, IB[ 1 ] ], [ IB[ 0 ], yp, IB[ 1 ] ], [ IA[ 0 ], yp, IA[ 1 ] ], inN );
+				const qA = yA + PARAPET_H, qB = yB + PARAPET_H;
+				kit.quadFacing( [ QA[ 0 ], yA, QA[ 1 ] ], [ QB[ 0 ], yB, QB[ 1 ] ], [ QB[ 0 ], qB, QB[ 1 ] ], [ QA[ 0 ], qA, QA[ 1 ] ], outN );
+				kit.quadFacing( [ IA[ 0 ], qA, IA[ 1 ] ], [ IB[ 0 ], qB, IB[ 1 ] ], [ QB[ 0 ], qB, QB[ 1 ] ], [ QA[ 0 ], qA, QA[ 1 ] ], up );
+				kit.quadFacing( [ IA[ 0 ], yA, IA[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], [ IB[ 0 ], qB, IB[ 1 ] ], [ IA[ 0 ], qA, IA[ 1 ] ], inN );
 
 			}
 
@@ -1201,7 +1211,7 @@ export class Walls {
 			const prev = samples[ i - 1 ];
 			if ( ! prev && capStart ) this._cap( A, gIn, y, inner, outer, [ - p.tx, 0, - p.tz ] );
 			if ( ! next ) this._cap( B, gIn, y, inner, outer, [ p.tx, 0, p.tz ] );
-			else if ( next.y !== y ) {
+			else if ( next.y !== y && ! p.ramp && ! next.ramp ) {
 
 				const lo = Math.min( y, next.y ), hi = Math.max( y, next.y );
 				const face = next.y > y ? [ - p.tx, 0, - p.tz ] : [ p.tx, 0, p.tz ];
