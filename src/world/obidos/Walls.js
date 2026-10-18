@@ -54,24 +54,34 @@ export class Walls {
 		const tower = wall.pts.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
 		if ( tower.length ) {
 
-			const top = terrain.heightAt( - 51.1, 225 ) + PV_TOWER, s0 = Math.min( ...tower.map( ( p ) => p.s ) ), s1 = Math.max( ...tower.map( ( p ) => p.s ) );
-			// east of it (on along the curtain) it comes down to the walk; west of it it goes on from the
-			// tower's height, rising gently until it meets the curtain's own rise
-			for ( const p of wall.pts ) if ( p.s >= s0 ) p.top = Math.max( p.top, top - Math.max( 0, p.s - s1 ) / 2.5 );
-			const west = wall.pts.filter( ( p ) => p.s < s0 ).sort( ( a, b ) => b.s - a.s );
-			for ( const p of west ) {
+			const top = terrain.heightAt( - 51.1, 225 ) + PV_TOWER, s1 = Math.max( ...tower.map( ( p ) => p.s ) );
+			this.pvTop = top;
+			// east of it (on along the curtain) it comes down to the walk
+			for ( const p of wall.pts ) if ( p.s >= Math.min( ...tower.map( ( q ) => q.s ) ) ) p.top = Math.max( p.top, top - Math.max( 0, p.s - s1 ) / 2.5 );
 
-				const y = top + ( s0 - p.s ) * 0.15;
+		}
+
+		// west of it the walk goes on level with the tower past the head of the L-shaped flight (its landing
+		// joins them), then climbs in big steps (36 cm every 2.4 m) until it meets the curtain's own rise
+		const westOfTower = ( samples ) => {
+
+			if ( this.pvTop === undefined ) return;
+			const on = samples.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
+			for ( const p of on ) p.top = Math.max( p.top, this.pvTop ); // (the profile's points are sparse by the gate)
+			const s0 = Math.min( ...on.map( ( p ) => p.s ) );
+			const LEVEL = 4.4, RISE = 0.36, RUN = 2.4;
+			for ( const p of samples.filter( ( q ) => q.s < s0 ).sort( ( a, b ) => b.s - a.s ) ) {
+
+				const d = s0 - p.s, y = this.pvTop + ( d < LEVEL ? 0 : RISE * Math.ceil( ( d - LEVEL ) / RUN ) );
 				if ( p.top >= y ) break;
 				p.top = y;
 
 			}
 
-		}
-
+		};
 		// its corners round Porta da Vila's east side are sharp: the profile's normals, smoothed over a few
 		// metres, twist the faces there and open holes into the tower
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 225, - 43, 236.5 ] } );
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 225, - 43, 236.5 ], adjust: westOfTower } );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		if ( portaDaVila ) this._passoPortal( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
@@ -132,9 +142,6 @@ export class Walls {
 		// outward + 1: into the tower, so the parapet guards the drop into it and the town side is open
 		// to the steps below
 		const prof = T.profile( pts, 1, { gates: [ inner, outerGate ], aboveIn: 3, aboveOut: 3 } );
-		// the west wall rises to meet the curtain's walk where it joins it, as a flight of the walk would
-		const end = this._nearestWalk( pts[ 3 ][ 0 ], pts[ 3 ][ 1 ] + 1, 4 );
-		if ( end ) for ( const p of prof.pts ) p.top = Math.max( p.top, end.p.y - ( prof.length - p.s ) / 2.5 );
 		// the tower stands well above the curtain (photo references/...-debaixodaportadavila): its town and
 		// west walls, like its other two (the curtain's), about 13 m over its floor, from the curtain's line
 		const high = inner.y + PV_TOWER;
@@ -495,6 +502,24 @@ export class Walls {
 			const bottom = st.g - 0.6, h = st.y - bottom;
 			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, width, st.yaw, 'bottom' );
 			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, width / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+
+		}
+
+		// at the head, a landing on to the curtain's town face, level with the walks (the tower's and the
+		// curtain's beside it), closing the gap between the flight and the curtain
+		const cw = this._nearestWalk( top[ 0 ], top[ 1 ] + 2, 4 );
+		if ( cw ) {
+
+			const p = cw.p, face = [ p.x - p.nx * W / 2, p.z - p.nz * W / 2 ];
+			const d1 = ( face[ 0 ] - top[ 0 ] ) * west.dx + ( face[ 1 ] - top[ 1 ] ) * west.dz + 0.3, d0 = run / 2 - 0.02;
+			if ( d1 > d0 ) {
+
+				const c = [ top[ 0 ] + west.dx * ( d0 + d1 ) / 2, top[ 1 ] + west.dz * ( d0 + d1 ) / 2 ];
+				const bottom = T.heightAt( c[ 0 ], c[ 1 ] ) - 0.6, yaw = Math.atan2( - west.dz, west.dx );
+				kit.box( c[ 0 ], ( walkY + bottom ) / 2, c[ 1 ], d1 - d0, walkY - bottom, width, yaw, 'bottom' );
+				this.colliders.addBox( new Vector3( c[ 0 ], ( walkY + bottom ) / 2, c[ 1 ] ), new Vector3( ( d1 - d0 ) / 2, ( walkY - bottom ) / 2, width / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+			}
 
 		}
 
@@ -892,7 +917,7 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
@@ -929,6 +954,7 @@ export class Walls {
 
 		} );
 		// level treads
+		if ( adjust ) adjust( samples ); // a caller's last word on the tops
 		for ( const p of samples ) p.y = Math.round( p.top / STEP_RISE ) * STEP_RISE;
 		// cross-sections at the piece boundaries (mid-points between samples)
 		const off = ( p, d ) => [ p.x + p.nx * d, p.z + p.nz * d ];
