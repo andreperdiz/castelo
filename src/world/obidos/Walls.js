@@ -49,13 +49,23 @@ export class Walls {
 		// and is pointed (photo references/...-portadavila)
 		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, pointed: 1.6 } );
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
-		// as the tower's town wall, coming down to the curtain's walk either way
+		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
 		const tower = wall.pts.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
 		if ( tower.length ) {
 
 			const top = terrain.heightAt( - 51.1, 225 ) + PV_TOWER, s0 = Math.min( ...tower.map( ( p ) => p.s ) ), s1 = Math.max( ...tower.map( ( p ) => p.s ) );
-			for ( const p of wall.pts ) p.top = Math.max( p.top, top - Math.max( 0, s0 - p.s, p.s - s1 ) / 2.5 );
+			// east of it (on along the curtain) it comes down to the walk; west of it it goes on from the
+			// tower's height, rising gently until it meets the curtain's own rise
+			for ( const p of wall.pts ) if ( p.s >= s0 ) p.top = Math.max( p.top, top - Math.max( 0, p.s - s1 ) / 2.5 );
+			const west = wall.pts.filter( ( p ) => p.s < s0 ).sort( ( a, b ) => b.s - a.s );
+			for ( const p of west ) {
+
+				const y = top + ( s0 - p.s ) * 0.15;
+				if ( p.top >= y ) break;
+				p.top = y;
+
+			}
 
 		}
 
