@@ -146,7 +146,8 @@ export class Walls {
 		// west walls, like its other two (the curtain's), about 13 m over its floor, from the curtain's line
 		const high = inner.y + PV_TOWER;
 		for ( const p of prof.pts ) if ( p.s > 3.5 ) p.top = Math.max( p.top, high );
-		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37 );
+		// a sharp corner between the town and west walls, so the L-shaped flight fits against both
+		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts } );
 		this.portaDaVila.gates = [ outerGate, inner ];
 
 	}
@@ -850,6 +851,36 @@ export class Walls {
 		kit.color = [ 1.02, 0.86, 0.62 ];
 		kit.vdata = [ 0.47, 0.6, 0, 0 ];
 		for ( const i of WALLS ) band( i, - 0.15, 0.75, y + 0.6, below, { walkable: false, tag: 'wall' } );
+		// the corner where the two walls meet, rounded on the outside: a quarter round about their inner corner
+		{
+
+			const out = ( i ) => {
+
+				const a = poly[ i ], b = poly[ i + 1 ], len = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+				const o = [ - ( b[ 1 ] - a[ 1 ] ) / len, ( b[ 0 ] - a[ 0 ] ) / len ];
+				return pointInPolygon( ( a[ 0 ] + b[ 0 ] ) / 2 + o[ 0 ] * 0.5, ( a[ 1 ] + b[ 1 ] ) / 2 + o[ 1 ] * 0.5, poly ) ? [ - o[ 0 ], - o[ 1 ] ] : o;
+
+			};
+			const [ i1, i2 ] = WALLS, v = poly[ i2 ], n1 = out( i1 ), n2 = out( i2 );
+			const c = [ v[ 0 ] - 0.15 * ( n1[ 0 ] + n2[ 0 ] ), v[ 1 ] - 0.15 * ( n1[ 1 ] + n2[ 1 ] ) ], R = 0.9, N = 8;
+			const a1 = Math.atan2( n1[ 1 ], n1[ 0 ] );
+			let da = Math.atan2( n2[ 1 ], n2[ 0 ] ) - a1;
+			da = Math.atan2( Math.sin( da ), Math.cos( da ) );
+			const top = y + 0.6, bottom = below( v[ 0 ] + ( n1[ 0 ] + n2[ 0 ] ) * 0.5, v[ 1 ] + ( n1[ 1 ] + n2[ 1 ] ) * 0.5 );
+			for ( let k = 0; k < N; k ++ ) {
+
+				const t0 = a1 + da * k / N, t1 = a1 + da * ( k + 1 ) / N, tm = ( t0 + t1 ) / 2;
+				const p0 = [ c[ 0 ] + Math.cos( t0 ) * R, c[ 1 ] + Math.sin( t0 ) * R ], p1 = [ c[ 0 ] + Math.cos( t1 ) * R, c[ 1 ] + Math.sin( t1 ) * R ];
+				kit.quadFacing( [ p0[ 0 ], bottom, p0[ 1 ] ], [ p1[ 0 ], bottom, p1[ 1 ] ], [ p1[ 0 ], top, p1[ 1 ] ], [ p0[ 0 ], top, p0[ 1 ] ], [ Math.cos( tm ), 0, Math.sin( tm ) ],
+					[ [ t0 * R, bottom ], [ t1 * R, bottom ], [ t1 * R, top ], [ t0 * R, top ] ] );
+				kit.quadFacing( [ c[ 0 ], top, c[ 1 ] ], [ p0[ 0 ], top, p0[ 1 ] ], [ p1[ 0 ], top, p1[ 1 ] ], [ p1[ 0 ], top, p1[ 1 ] ], [ 0, 1, 0 ] );
+
+			}
+
+			const m = [ c[ 0 ] + Math.cos( a1 + da / 2 ) * R * 0.5, c[ 1 ] + Math.sin( a1 + da / 2 ) * R * 0.5 ];
+			this.colliders.addBox( new Vector3( m[ 0 ], ( top + bottom ) / 2, m[ 1 ] ), new Vector3( R * 0.5, ( top - bottom ) / 2, R * 0.5 ), - ( a1 + da / 2 ), { walkable: false, tag: 'wall' } );
+
+		}
 
 		// the column: a square base in two courses, a round shaft, a moulded cap
 		let cx = 0, cz = 0;
@@ -917,12 +948,19 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
 		// resample positions at PIECE; interpolate top and normal from the 2 m profile by arc length
-		const line = resample( P.map( ( p ) => [ p.x, p.z ] ), PIECE );
+		// (the profile's 2 m points cut corners; `exact`, the wall's own polyline, keeps them, each side
+		// resampled on its own)
+		const line = exact ? exact.slice( 0, - 1 ).flatMap( ( a, i ) => {
+
+			const b = exact[ i + 1 ], k = Math.max( 1, Math.round( Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) / PIECE ) );
+			return Array.from( { length: k + ( i === exact.length - 2 ? 1 : 0 ) }, ( _, j ) => [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * j / k, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * j / k ] );
+
+		} ) : resample( P.map( ( p ) => [ p.x, p.z ] ), PIECE );
 		const samples = [];
 		let j = 0, s = 0;
 		for ( let i = 0; i < line.length; i ++ ) {
