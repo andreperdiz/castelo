@@ -86,8 +86,15 @@ export class Walls {
 		// its corners round Porta da Vila's east side are sharp: the profile's normals, smoothed over a few
 		// metres, twist the faces there and open holes into the tower
 		// on the tower its town side, round the void inside, has a crenellated parapet too, with low merlons
-		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226 && p.z < 236.5 ? 'void' : null;
+		// and on from the tower's north-east corner, as far as the house leaning on it inside ends, a low
+		// guard wall on its town side
+		const NE = ( p ) => p.x > - 46.6 && p.x < - 20.5 && p.z > 193 && p.z < 226.5;
+		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226 && p.z < 236.5 ? 'void' : NE( p ) ? 'low' : null;
 		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 223.5, - 40, 236.5 ], adjust: westOfTower, town: onTower } );
+		// houses keep off that stretch of the curtain (the house leaning on it overlapped its town half): its
+		// line run backwards, so the town is on the left
+		const ne = this.curtain.samples.filter( NE ).sort( ( a, b ) => b.s - a.s );
+		if ( ne.length > 1 ) this.clearLines.push( { pts: ne.map( ( p ) => [ p.x, p.z ] ), clear: W / 2 + 0.15 } );
 		if ( portaDaVila ) this._portaDaVila( portaDaVila );
 		if ( portaDaVila ) this._passoPortal( portaDaVila );
 		// the castle enclosure (Paço dos Alcaides): its own closed loop
