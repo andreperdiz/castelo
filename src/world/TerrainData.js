@@ -39,6 +39,10 @@ export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 47.8, 223.6 ], [ - 43.4, 215.4 ]
 // the lane on the right of the small square, from its wall to the houses' fronts, down to the crossing
 export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ], [ - 42.5, 208.7 ], [ - 41, 197.9 ], [ - 40.4, 191 ], [ - 47.3, 191 ], [ - 47.2, 195.8 ], [ - 49.3, 213.6 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
+// Rua Dom João de Ornelas, going down from the square outside the gate toward the walls' east side
+// (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
+// holding the square up on its left
+export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], [ - 35.7, 234.9 ], [ - 31.4, 221.8 ] ];
 
 export class TerrainData {
 
@@ -516,10 +520,60 @@ export class TerrainData {
 
 		} );
 
+		this._ornelas();
+
 		// the small square inside the inner arch: level, 0.6 m over the street. Walls builds its floor,
 		// steps and walls and the stone column; the ground under it is left as it is
 		const y = F + 0.6;
 		this.praceta = { poly: PV_PRACETA, y };
+
+	}
+
+	// Rua Dom João de Ornelas (ORNELAS): level with the square to the steps, which go down six 0.2 m risers,
+	// then an even slope to where it meets the ground again. this.ornelas tells Walls where its steps and wall go.
+	_ornelas() {
+
+		const F = this.pvFloor, { res, texel, origin, heights } = this;
+		const R = ORNELAS, cum = [ 0 ];
+		for ( let i = 1; i < R.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( R[ i ][ 0 ] - R[ i - 1 ][ 0 ], R[ i ][ 1 ] - R[ i - 1 ][ 1 ] ) );
+		const L = cum[ cum.length - 1 ], end = R[ R.length - 1 ], yEnd = this.heightAt( end[ 0 ], end[ 1 ] );
+		const HALF = 2.4, RISE = 0.2, RISERS = 6, TREAD = 0.9, S_TOP = 1, S_FOOT = S_TOP + ( RISERS - 1 ) * TREAD;
+		const yFoot = F - RISE * RISERS;
+		const roadY = ( s ) => s <= S_TOP ? F : s < S_FOOT ? lerp( F, yFoot, ( s - S_TOP ) / ( S_FOOT - S_TOP ) ) - 0.3 : lerp( yFoot, yEnd, smoothstep( 0, 1, ( s - S_FOOT ) / ( L - S_FOOT ) ) * 0.4 + 0.6 * ( s - S_FOOT ) / ( L - S_FOOT ) );
+		// position, direction (going down) and the left (the square's side) at s along the line
+		const at = ( s ) => {
+
+			let i = 0;
+			while ( i < R.length - 2 && cum[ i + 1 ] < s ) i ++;
+			const a = R[ i ], b = R[ i + 1 ], l = cum[ i + 1 ] - cum[ i ], t = ( s - cum[ i ] ) / l;
+			const dx = ( b[ 0 ] - a[ 0 ] ) / l, dz = ( b[ 1 ] - a[ 1 ] ) / l;
+			return { x: a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, z: a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t, dx, dz, lx: dz, lz: - dx };
+
+		};
+		// the wall's road face, a little off the road's left edge, from the steps' top to the house
+		const WALL_OFF = HALF + 0.2, WALL_END = 24.8;
+		const SOFT = 4;
+		this._stroke( R, HALF, SOFT, ( k, t ) => {
+
+			if ( this.inside[ k ] ) return;
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < R.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, R[ i ], R[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, s: cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] ) };
+
+			}
+
+			const p = at( best.s ), side = ( x - p.x ) * p.lx + ( z - p.z ) * p.lz;
+			// the square, behind the wall (the road's level reaches a metre under it, so the ground doesn't
+			// slope out of its face; Walls paves over the dip behind it)
+			if ( side > WALL_OFF + 1 && best.s < WALL_END ) return;
+			if ( best.s > L - 0.5 ) t *= clamp( ( L + 3 - best.s ) / 3.5, 0, 1 );
+			heights[ k ] = lerp( heights[ k ], roadY( best.s ), side > 0 && best.s < WALL_END ? 1 : t );
+
+		} );
+		this.ornelas = { at, roadY, F, RISE, RISERS, TREAD, S_TOP, HALF, WALL_OFF, WALL_END, length: L };
 
 	}
 
@@ -600,6 +654,13 @@ export class TerrainData {
 		// the square outside Porta da Vila, the floor of its tower and the small square inside: setts (town ground + paved), as in the photos
 		for ( const poly of [ PORTA_DA_VILA_SQUARE, PORTA_DA_VILA_TOWER, PV_FORK, PV_LANE ] ) this._fill( poly, ( k ) => {
 
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
+		this._stroke( ORNELAS, 2.6, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
 			path[ k ] = 255;
 			this.scarp[ k ] = 255;
 

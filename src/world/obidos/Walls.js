@@ -128,6 +128,7 @@ export class Walls {
 		this._portaDaVilaLane();
 		this._casaDaMusicaTerrace();
 		this._cemiterioWall();
+		this._ornelas();
 		this._praceta();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
@@ -802,6 +803,57 @@ export class Walls {
 				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / n / 2 + 0.01, ( top - bottom ) / 2, 0.4 ), yaw, { walkable: false, tag: 'wall' } );
 
 			}
+
+		}
+
+	}
+
+	// Rua Dom João de Ornelas, going down from the square outside the gate (TerrainData shapes it): cobbled
+	// steps off the square, and the wall holding the square up beside the road, from about 1 m high at the
+	// steps to over 4 m at the house, standing 0.9 m over the square as its parapet.
+	_ornelas() {
+
+		const o = this.terrain.ornelas;
+		if ( ! o ) return;
+		const kit = this.kit, T = this.terrain;
+		const across = ( p, d ) => [ p.x + p.lx * d, p.z + p.lz * d ];
+		// the steps: across the road, from its right edge to the wall
+		kit.vdata = [ 0.29, 0.6, 0, 0 ];
+		kit.color = [ 0.8, 0.78, 0.74 ]; // grey setts
+		const r0 = - o.HALF - 0.3, r1 = o.WALL_OFF, w = r1 - r0;
+		for ( let i = 0; i < o.RISERS - 1; i ++ ) {
+
+			const p = o.at( o.S_TOP + o.TREAD * ( i + 0.5 ) ), [ x, z ] = across( p, ( r0 + r1 ) / 2 );
+			const yaw = Math.atan2( - p.dz, p.dx ), top = o.F - o.RISE * ( i + 1 );
+			const bottom = Math.min( T.heightAt( x, z ), o.roadY( o.S_TOP + o.TREAD * ( i + 1 ) ) ) - 0.6;
+			kit.box( x, ( top + bottom ) / 2, z, o.TREAD + 0.02, top - bottom, w, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( o.TREAD / 2 + 0.01, ( top - bottom ) / 2, w / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+		}
+
+		// the wall, in metre pieces
+		kit.vdata = [ 0.61, 0.6, 0, 0 ];
+		kit.color = [ 1.02, 0.86, 0.62 ];
+		const n = Math.round( o.WALL_END - o.S_TOP ), len = ( o.WALL_END - o.S_TOP ) / n, top = o.F + 0.9;
+		for ( let i = 0; i < n; i ++ ) {
+
+			const s = o.S_TOP + len * ( i + 0.5 ), p = o.at( s ), [ x, z ] = across( p, o.WALL_OFF + 0.3 );
+			const yaw = Math.atan2( - p.dz, p.dx ), bottom = Math.min( o.roadY( s ), T.heightAt( x, z ) ) - 0.8;
+			kit.box( x, ( top + bottom ) / 2, z, len + 0.04, top - bottom, 0.6, yaw );
+			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / 2 + 0.02, ( top - bottom ) / 2, 0.3 ), yaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		// a strip of paving behind it, level with the square, over the ground's dip down to the road
+		kit.vdata = [ 0.29, 0.6, 0, 0 ];
+		kit.color = [ 0.8, 0.78, 0.74 ];
+		const y = o.F + 0.02;
+		for ( let i = 0; i < n; i ++ ) {
+
+			const s = o.S_TOP + len * ( i + 0.5 ), p = o.at( s ), [ x, z ] = across( p, o.WALL_OFF + 1.35 );
+			const yaw = Math.atan2( - p.dz, p.dx ), bottom = o.roadY( s ) - 0.5;
+			kit.box( x, ( y + bottom ) / 2, z, len + 0.04, y - bottom, 1.5, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( y + bottom ) / 2, z ), new Vector3( len / 2 + 0.02, ( y - bottom ) / 2, 0.75 ), yaw, { walkable: true, tag: 'praceta' } );
 
 		}
 
