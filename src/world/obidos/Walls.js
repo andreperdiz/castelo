@@ -1136,7 +1136,8 @@ export class Walls {
 			const p = samples[ i ];
 			// the town side: open, or a parapet too ('high', with merlons; 'void', with low merlons, round
 			// Porta da Vila's void; 'low', a plain guard wall). lowOuter: the outer merlons are low ones
-			const ts = parapetBoth ? 'high' : town ? town( p ) : null;
+			// (not on a sharp corner's turning piece: a square post closes the corner there, after the loop)
+			const ts = p.corner && sharp ? null : parapetBoth ? 'high' : town ? town( p ) : null;
 			const pIn = ts ? - PARAPET_IN : inner;
 			// bare( p ): no parapet on the outer side here either (where another walk runs on from it)
 			const open = bare ? bare( p ) : false, PO = open ? outer : PARAPET_IN;
@@ -1296,6 +1297,17 @@ export class Walls {
 			const bottom = T.heightAt( cx, cz ) - FOOT, top = Math.min( a.y, p.y, b.y ) - 0.25; // (under the walk beside it, a ramp too)
 			kit.color = [ 1.05 * 0.96, 0.84 * 0.96, 0.56 * 0.96 ];
 			kit.box( cx, ( top + bottom ) / 2, cz, 1.0, top - bottom, d1 - d0, yaw, 'bottom' );
+			// the town side's parapet, if its neighbours have one: a square post in the corner, where theirs meet
+			const ts = parapetBoth ? 'high' : town ? town( a ) || town( b ) : null;
+			if ( ts ) {
+
+				const w = W / 2 - PARAPET_IN, k = - ( W / 2 - w / 2 );
+				const px = p.x + ( a.nx + b.nx ) * k, pz = p.z + ( a.nz + b.nz ) * k; // in from both walls' town faces
+				const ph = p.y + PARAPET_H + ( ts === 'low' ? 0 : ( ts === 'void' ? LOW_MERLON : 1 ) * MERLON_H * 0.95 );
+				kit.box( px, ( ph + bottom ) / 2, pz, w, ph - bottom, w, Math.atan2( - a.nz, a.nx ) + Math.PI / 2, 'bottom' );
+				this.colliders.addBox( new Vector3( px, ( ph + bottom ) / 2, pz ), new Vector3( w / 2, ( ph - bottom ) / 2, w / 2 ), Math.atan2( - a.nz, a.nx ) + Math.PI / 2, { walkable: false, tag: 'parapet' } );
+
+			}
 
 		} );
 
