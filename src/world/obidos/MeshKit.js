@@ -56,7 +56,9 @@ export class MeshKit {
 	// uvs as in quad(): they follow the vertices
 	quadFacing( a, b, c, d, want, uvs = null ) {
 
-		const n = faceNormal( a, b, d );
+		// from the diagonals: the same as a side's for a flat quad, and still right when a side has
+		// shrunk to a point (a triangle, as at a mitred wall corner)
+		const n = faceNormal( [ 0, 0, 0 ], [ c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ], c[ 2 ] - a[ 2 ] ], [ d[ 0 ] - b[ 0 ], d[ 1 ] - b[ 1 ], d[ 2 ] - b[ 2 ] ] );
 		if ( n[ 0 ] * want[ 0 ] + n[ 1 ] * want[ 1 ] + n[ 2 ] * want[ 2 ] >= 0 ) return this.quad( a, b, c, d, uvs, n );
 		if ( ! uvs ) {
 
