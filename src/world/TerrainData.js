@@ -529,17 +529,17 @@ export class TerrainData {
 
 	}
 
-	// Rua Dom João de Ornelas (ORNELAS): level with the square to the steps, which go down six 0.2 m risers,
-	// then an even slope to where it meets the ground again. this.ornelas tells Walls where its steps and wall go.
+	// Rua Dom João de Ornelas (ORNELAS): a cars' slope from the square, 1.2 m down by the wall's start, then on
+	// down to where it meets the ground again; beside it on its left the square runs on level to a short
+	// flight of steps down to the wall's start. this.ornelas tells Walls where the steps and the wall go.
 	_ornelas() {
 
 		const F = this.pvFloor, { res, texel, origin, heights } = this;
 		const R = ORNELAS, cum = [ 0 ];
 		for ( let i = 1; i < R.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( R[ i ][ 0 ] - R[ i - 1 ][ 0 ], R[ i ][ 1 ] - R[ i - 1 ][ 1 ] ) );
 		const L = cum[ cum.length - 1 ], end = R[ R.length - 1 ], yEnd = this.heightAt( end[ 0 ], end[ 1 ] );
-		const HALF = 2.4, RISE = 0.2, RISERS = 6, TREAD = 0.9, S_TOP = 1, S_FOOT = S_TOP + ( RISERS - 1 ) * TREAD;
-		const yFoot = F - RISE * RISERS;
-		const roadY = ( s ) => s <= S_TOP ? F : s < S_FOOT ? lerp( F, yFoot, ( s - S_TOP ) / ( S_FOOT - S_TOP ) ) - 0.3 : lerp( yFoot, yEnd, smoothstep( 0, 1, ( s - S_FOOT ) / ( L - S_FOOT ) ) * 0.4 + 0.6 * ( s - S_FOOT ) / ( L - S_FOOT ) );
+		const HALF = 2.4, S0 = 0.5, S_W = 8, DROP = 1.2, yW = F - DROP, FLIGHT = 2.25;
+		const roadY = ( s ) => s <= S0 ? F : s < S_W ? lerp( F, yW, ( s - S0 ) / ( S_W - S0 ) ) : lerp( yW, yEnd, smoothstep( 0, 1, ( s - S_W ) / ( L - S_W ) ) * 0.4 + 0.6 * ( s - S_W ) / ( L - S_W ) );
 		// position, direction (going down) and the left (the square's side) at s along the line
 		const at = ( s ) => {
 
@@ -566,14 +566,22 @@ export class TerrainData {
 			}
 
 			const p = at( best.s ), side = ( x - p.x ) * p.lx + ( z - p.z ) * p.lz;
-			// the square, behind the wall (the road's level reaches a metre under it, so the ground doesn't
-			// slope out of its face; Walls paves over the dip behind it)
-			if ( side > WALL_OFF + 1 && best.s < WALL_END ) return;
+			// on the square's side: the street's level reaches a little under what stands at its edge (the
+			// square's kerb, the steps and their side wall, the wall), so the ground doesn't slope out of their
+			// faces; the square, level, beyond (Walls paves over the dip behind them)
+			if ( side > 0 && best.s < WALL_END ) {
+
+				const low = best.s < S_W - FLIGHT ? HALF + 1 : best.s < S_W ? HALF + 3 : WALL_OFF + 1;
+				heights[ k ] = side <= low ? roadY( best.s ) : F;
+				return;
+
+			}
+
 			if ( best.s > L - 0.5 ) t *= clamp( ( L + 3 - best.s ) / 3.5, 0, 1 );
-			heights[ k ] = lerp( heights[ k ], roadY( best.s ), side > 0 && best.s < WALL_END ? 1 : t );
+			heights[ k ] = lerp( heights[ k ], roadY( best.s ), side > 0 ? 1 : t );
 
 		} );
-		this.ornelas = { at, roadY, F, RISE, RISERS, TREAD, S_TOP, HALF, WALL_OFF, WALL_END, length: L };
+		this.ornelas = { at, roadY, F, S0, S_W, DROP, FLIGHT, HALF, WALL_OFF, WALL_END, length: L };
 
 	}
 

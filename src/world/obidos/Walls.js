@@ -128,7 +128,7 @@ export class Walls {
 		this._portaDaVilaLane();
 		this._casaDaMusicaTerrace();
 		this._cemiterioWall();
-		this._ornelas();
+		this._ornelas( materials );
 		this._praceta();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
@@ -808,52 +808,255 @@ export class Walls {
 
 	}
 
-	// Rua Dom João de Ornelas, going down from the square outside the gate (TerrainData shapes it): cobbled
-	// steps off the square, and the wall holding the square up beside the road, from about 1 m high at the
-	// steps to over 4 m at the house, standing 0.9 m over the square as its parapet.
-	_ornelas() {
+	// Rua Dom João de Ornelas, going down from the square outside the gate (TerrainData shapes it), as in the
+	// photo: a short flight of cobbled steps beside the slope, from the square to the start of the wall that
+	// holds the square up; the wall whitewashed, with a blue band along its foot that follows the street, a
+	// step up in its top where a two-armed street lamp stands, bougainvillea spilling over it by the house; a
+	// no-entry sign at its start and a pavement of limestone slabs along the street's far side.
+	_ornelas( materials ) {
 
 		const o = this.terrain.ornelas;
 		if ( ! o ) return;
 		const kit = this.kit, T = this.terrain;
-		const across = ( p, d ) => [ p.x + p.lx * d, p.z + p.lz * d ];
-		// the steps: across the road, from its right edge to the wall
+		const plaster = new MeshKit(), lamps = new MeshKit();
+		// a point d across the street (left, toward the square, positive) at s along it; round the line's
+		// bends the across direction is the mean of the two
+		const left = ( s ) => {
+
+			const a = o.at( Math.max( 0, s - 0.05 ) ), b = o.at( s + 0.05 );
+			const lx = a.lx + b.lx, lz = a.lz + b.lz, l = Math.hypot( lx, lz );
+			return [ lx / l, lz / l ];
+
+		};
+		const pt = ( s, d ) => {
+
+			const p = o.at( s ), [ lx, lz ] = left( s );
+			return [ p.x + lx * d, p.z + lz * d ];
+
+		};
+		const yawAt = ( s ) => {
+
+			const p = o.at( s );
+			return Math.atan2( - p.dz, p.dx );
+
+		};
+
+		// the square's edge over the slope, as far as the steps: a kerb of setts, its face standing over the street
+		const box = ( s0, s1, d0, d1, top, bottom, walkable, tag ) => {
+
+			const sm = ( s0 + s1 ) / 2, [ x, z ] = pt( sm, ( d0 + d1 ) / 2 ), yaw = yawAt( sm );
+			kit.box( x, ( top + bottom ) / 2, z, s1 - s0 + 0.02, top - bottom, d1 - d0, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( ( s1 - s0 ) / 2 + 0.01, ( top - bottom ) / 2, ( d1 - d0 ) / 2 ), yaw, { walkable, tag } );
+
+		};
+		const FL = o.S_W - o.FLIGHT, a0 = o.WALL_OFF, a1 = o.HALF + 1.8;
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 0.8, 0.78, 0.74 ]; // grey setts
-		const r0 = - o.HALF - 0.3, r1 = o.WALL_OFF, w = r1 - r0;
-		for ( let i = 0; i < o.RISERS - 1; i ++ ) {
+		for ( let sv = o.S0; sv < FL - 0.01; sv += 1 ) {
 
-			const p = o.at( o.S_TOP + o.TREAD * ( i + 0.5 ) ), [ x, z ] = across( p, ( r0 + r1 ) / 2 );
-			const yaw = Math.atan2( - p.dz, p.dx ), top = o.F - o.RISE * ( i + 1 );
-			const bottom = Math.min( T.heightAt( x, z ), o.roadY( o.S_TOP + o.TREAD * ( i + 1 ) ) ) - 0.6;
-			kit.box( x, ( top + bottom ) / 2, z, o.TREAD + 0.02, top - bottom, w, yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( o.TREAD / 2 + 0.01, ( top - bottom ) / 2, w / 2 ), yaw, { walkable: true, tag: 'stair' } );
+			const s1 = Math.min( FL, sv + 1 );
+			box( sv, s1, a0, o.HALF + 2.2, o.F + 0.01, o.roadY( s1 ) - 0.5, true, 'praceta' );
 
 		}
 
-		// the wall, in metre pieces
-		kit.vdata = [ 0.61, 0.6, 0, 0 ];
-		kit.color = [ 1.02, 0.86, 0.62 ];
-		const n = Math.round( o.WALL_END - o.S_TOP ), len = ( o.WALL_END - o.S_TOP ) / n, top = o.F + 0.9;
-		for ( let i = 0; i < n; i ++ ) {
+		// the steps: five, in line with the wall, down from the square to its foot, each with a nosing of
+		// pale stone; their sides stand over the street
+		const N = 5, tread = o.FLIGHT / N;
+		for ( let i = 0; i < N; i ++ ) {
 
-			const s = o.S_TOP + len * ( i + 0.5 ), p = o.at( s ), [ x, z ] = across( p, o.WALL_OFF + 0.3 );
-			const yaw = Math.atan2( - p.dz, p.dx ), bottom = Math.min( o.roadY( s ), T.heightAt( x, z ) ) - 0.8;
-			kit.box( x, ( top + bottom ) / 2, z, len + 0.04, top - bottom, 0.6, yaw );
-			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / 2 + 0.02, ( top - bottom ) / 2, 0.3 ), yaw, { walkable: false, tag: 'wall' } );
+			const s0 = FL + tread * i, top = o.F - o.DROP * ( i + 1 ) / N, yaw = yawAt( s0 + tread / 2 );
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.8, 0.78, 0.74 ];
+			box( s0, s0 + tread, a0, a1, top, o.roadY( s0 + tread ) - 0.5, true, 'stair' );
+			const [ nx, nz ] = pt( s0 + tread - 0.11, ( a0 + a1 ) / 2 );
+			kit.vdata = [ 0.43, 0.5, 0, 0 ];
+			kit.color = [ 0.95, 0.9, 0.8 ]; // worn limestone
+			kit.box( nx, top - 0.1 + 0.005, nz, 0.22, 0.2, a1 - a0 + 0.02, yaw );
 
 		}
 
-		// a strip of paving behind it, level with the square, over the ground's dip down to the road
+		// the square beside the steps: paved over the ground's dip down to them
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 0.8, 0.78, 0.74 ];
-		const y = o.F + 0.02;
-		for ( let i = 0; i < n; i ++ ) {
+		box( FL, o.S_W, a1 + 0.45, o.HALF + 4.2, o.F + 0.01, o.roadY( o.S_W ) - 0.5, true, 'praceta' );
 
-			const s = o.S_TOP + len * ( i + 0.5 ), p = o.at( s ), [ x, z ] = across( p, o.WALL_OFF + 1.35 );
-			const yaw = Math.atan2( - p.dz, p.dx ), bottom = o.roadY( s ) - 0.5;
+		// the wall, whitewashed: its faces built here so the blue band (the plaster's barra) runs along the
+		// street's slope, 1.25 m up, rather than level
+		const BLUE = lin( [ 0.1, 0.27, 0.78 ] );
+		const STEP_AT = o.S_W + 5, topAt = ( s ) => o.F + ( s < STEP_AT ? 1.1 : 1.45 ), TH = 0.6;
+		const BAR = 0.75; // v scale on the street side: the barra's 0.95 m becomes 1.25 m
+		plaster.color = BLUE;
+		plaster.vdata = [ 20, 0, 0.0722, 0 ];
+		const cuts = [ o.S_W ];
+		for ( let sv = o.S_W + 1; sv < o.WALL_END - 0.3; sv += 1 ) cuts.push( sv );
+		if ( ! cuts.includes( STEP_AT ) ) cuts.push( STEP_AT );
+		cuts.push( o.WALL_END );
+		cuts.sort( ( p, q ) => p - q );
+		const lowY = ( s ) => Math.min( o.roadY( s ), T.heightAt( ...pt( s, o.WALL_OFF ) ) ) - 0.5;
+		for ( let i = 0; i + 1 < cuts.length; i ++ ) {
+
+			const sa = cuts[ i ], sb = cuts[ i + 1 ], top = topAt( ( sa + sb ) / 2 );
+			const A = pt( sa, o.WALL_OFF ), B = pt( sb, o.WALL_OFF ), A2 = pt( sa, o.WALL_OFF + TH ), B2 = pt( sb, o.WALL_OFF + TH );
+			const ya = lowY( sa ), yb = lowY( sb ), ra = o.roadY( sa ), rb = o.roadY( sb );
+			const [ lx, lz ] = left( ( sa + sb ) / 2 );
+			// the street face, its band; the square's face (white: v well above the band); the top
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - lx, 0, - lz ],
+				[ [ sa, ( ya - ra ) * BAR ], [ sb, ( yb - rb ) * BAR ], [ sb, ( top - rb ) * BAR ], [ sa, ( top - ra ) * BAR ] ] );
+			plaster.quadFacing( [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ B2[ 0 ], o.F - 0.3, B2[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ lx, 0, lz ],
+				[ [ sa, 2 ], [ sb, 2 ], [ sb, top - o.F + 2.3 ], [ sa, top - o.F + 2.3 ] ] );
+			plaster.quadFacing( [ A[ 0 ], top, A[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ 0, 1, 0 ],
+				[ [ sa, 5 ], [ sb, 5 ], [ sb, 5.6 ], [ sa, 5.6 ] ] );
+			// its ends, and the step in its top
+			const p = o.at( sa ), q = o.at( sb );
+			if ( i === 0 ) plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ A2[ 0 ], ya, A2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - p.dx, 0, - p.dz ],
+				[ [ 0, ( ya - ra ) * BAR ], [ TH, ( ya - ra ) * BAR ], [ TH, ( top - ra ) * BAR ], [ 0, ( top - ra ) * BAR ] ] );
+			if ( i + 2 === cuts.length ) plaster.quadFacing( [ B[ 0 ], yb, B[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ q.dx, 0, q.dz ],
+				[ [ 0, ( yb - rb ) * BAR ], [ TH, ( yb - rb ) * BAR ], [ TH, ( top - rb ) * BAR ], [ 0, ( top - rb ) * BAR ] ] );
+			if ( sb === STEP_AT ) plaster.quadFacing( [ B[ 0 ], top, B[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ B2[ 0 ], topAt( sb + 0.1 ), B2[ 1 ] ], [ B[ 0 ], topAt( sb + 0.1 ), B[ 1 ] ], [ - q.dx, 0, - q.dz ],
+				[ [ 0, 5 ], [ TH, 5 ], [ TH, 5.4 ], [ 0, 5.4 ] ] );
+			const sm = ( sa + sb ) / 2, [ cx, cz ] = pt( sm, o.WALL_OFF + TH / 2 ), bottom = Math.min( ya, yb );
+			this.colliders.addBox( new Vector3( cx, ( top + bottom ) / 2, cz ), new Vector3( ( sb - sa ) / 2 + 0.02, ( top - bottom ) / 2, TH / 2 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
+
+		}
+
+		// the steps' side wall on the square's side, low, whitewashed, running into the wall's end
+		{
+
+			const top = o.F + 0.45, d0 = a1, d1 = a1 + 0.45;
+			for ( let k = 0; k < 2; k ++ ) {
+
+				const sa = FL + o.FLIGHT * k / 2, sb = FL + o.FLIGHT * ( k + 1 ) / 2;
+				const A = pt( sa, d0 ), B = pt( sb, d0 ), A2 = pt( sa, d1 ), B2 = pt( sb, d1 );
+				const ya = o.F - o.DROP * k / 2 - 0.3, yb = o.F - o.DROP * ( k + 1 ) / 2 - 0.3;
+				const [ lx, lz ] = left( ( sa + sb ) / 2 ), p = o.at( sa );
+				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - lx, 0, - lz ],
+					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
+				plaster.quadFacing( [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ B2[ 0 ], o.F - 0.3, B2[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ lx, 0, lz ],
+					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
+				plaster.quadFacing( [ A[ 0 ], top, A[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ 0, 1, 0 ],
+					[ [ sa, 5 ], [ sb, 5 ], [ sb, 5.5 ], [ sa, 5.5 ] ] );
+				if ( k === 0 ) plaster.quadFacing( [ A[ 0 ], o.F - 0.3, A[ 1 ] ], [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - p.dx, 0, - p.dz ],
+					[ [ 0, 2 ], [ 0.45, 2 ], [ 0.45, 3 ], [ 0, 3 ] ] );
+				const sm = ( sa + sb ) / 2, [ cx, cz ] = pt( sm, ( d0 + d1 ) / 2 );
+				this.colliders.addBox( new Vector3( cx, ( top + yb ) / 2, cz ), new Vector3( ( sb - sa ) / 2, ( top - yb ) / 2, 0.225 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
+
+			}
+
+		}
+
+		// a strip of paving behind it, level with the square, over the ground's dip down to the street
+		kit.vdata = [ 0.29, 0.6, 0, 0 ];
+		kit.color = [ 0.8, 0.78, 0.74 ];
+		for ( let i = 0; i + 1 < cuts.length; i ++ ) {
+
+			const sm = ( cuts[ i ] + cuts[ i + 1 ] ) / 2, len = cuts[ i + 1 ] - cuts[ i ], [ x, z ] = pt( sm, o.WALL_OFF + TH + 0.75 );
+			const y = o.F + 0.02, bottom = o.roadY( sm ) - 0.5, yaw = yawAt( sm );
 			kit.box( x, ( y + bottom ) / 2, z, len + 0.04, y - bottom, 1.5, yaw, 'bottom' );
 			this.colliders.addBox( new Vector3( x, ( y + bottom ) / 2, z ), new Vector3( len / 2 + 0.02, ( y - bottom ) / 2, 0.75 ), yaw, { walkable: true, tag: 'praceta' } );
+
+		}
+
+		// limestone slabs along the street's far side, a kerb's height over it
+		kit.vdata = [ 0.43, 0.5, 0, 0 ];
+		kit.color = [ 1.04, 1.02, 0.98 ];
+		for ( let sv = o.S_W; sv < o.WALL_END + 6; sv += 1 ) {
+
+			const sm = sv + 0.5, [ x, z ] = pt( sm, - o.HALF + 0.5 ), y = o.roadY( sm ) + 0.12, yaw = yawAt( sm );
+			kit.box( x, y - 0.4, z, 1.02, 0.8, 1.3, yaw );
+			this.colliders.addBox( new Vector3( x, y - 0.4, z ), new Vector3( 0.51, 0.4, 0.65 ), yaw, { walkable: true, tag: 'stair' } );
+
+		}
+
+		// the street lamp on the wall's step: a cast-iron post, two curled arms, two lanterns
+		const warm = new Color( 1.0, 0.66, 0.36 );
+		{
+
+			const [ x, z ] = pt( STEP_AT + 0.35, o.WALL_OFF + TH / 2 ), y0 = topAt( STEP_AT + 0.35 ), p = o.at( STEP_AT ), yaw = yawAt( STEP_AT );
+			lamps.vdata = [ 0, 0, 0, 0 ];
+			lamps.box( x, y0 + 0.25, z, 0.34, 0.5, 0.34, yaw ); // the base
+			lamps.box( x, y0 + 1.6, z, 0.14, 2.3, 0.14, yaw ); // the post
+			lamps.box( x, y0 + 2.8, z, 0.1, 0.12, 0.1, yaw );
+			lamps.box( x, y0 + 2.75, z, 1.5, 0.06, 0.06, yaw ); // the arms, along the wall
+			for ( const k of [ - 1, 1 ] ) {
+
+				const lx = x + p.dx * k * 0.75, lz = z + p.dz * k * 0.75;
+				lamps.box( x + p.dx * k * 0.45, y0 + 2.6, z + p.dz * k * 0.45, 0.05, 0.3, 0.05, yaw ); // the curl under the arm
+				lamps.vdata = [ 0, 0, 0, 0 ];
+				lamps.box( lx, y0 + 2.81, lz, 0.2, 0.06, 0.2, yaw );
+				lamps.box( lx, y0 + 3.36, lz, 0.4, 0.07, 0.4, yaw );
+				lamps.box( lx, y0 + 3.46, lz, 0.16, 0.14, 0.16, yaw );
+				lamps.vdata = [ 1, 0, 0, 0 ];
+				lamps.box( lx, y0 + 3.08, lz, 0.32, 0.5, 0.32, yaw, 'top bottom' );
+				this.lights.push( { position: new Vector3( lx, y0 + 3.05, lz ), color: warm, intensity: 10, range: 16, kind: 'lantern', flicker: 0.04 } );
+
+			}
+
+			this.colliders.addBox( new Vector3( x, y0 + 1.6, z ), new Vector3( 0.17, 1.6, 0.17 ), yaw, { walkable: false, tag: 'lamp' } );
+
+		}
+
+		// the no-entry sign at the wall's start, on the square's side, facing the way in; a blue
+		// keep-right sign under it
+		{
+
+			const s = o.S_W + 0.4, [ x, z ] = pt( s, o.WALL_OFF + TH + 0.35 ), y0 = o.F, p = o.at( s ), yaw = yawAt( s );
+			lamps.vdata = [ 0, 0, 0, 0 ];
+			lamps.box( x, y0 + 1.4, z, 0.07, 2.8, 0.07, yaw );
+			const disc = ( cy, r, color, fx = 0 ) => {
+
+				plaster.color = lin( color );
+				plaster.vdata = [ 0, 0, 0.53, 4 ];
+				const n = 6;
+				for ( let i = 0; i < n; i ++ ) {
+
+					const v0 = - r + 2 * r * i / n, v1 = v0 + 2 * r / n, vm = Math.max( Math.abs( v0 ), Math.abs( v1 ) ) * 0.85;
+					const w = 2 * Math.sqrt( Math.max( 0, r * r - vm * vm ) );
+					plaster.box( x - p.dx * ( 0.06 + fx ), cy + ( v0 + v1 ) / 2, z - p.dz * ( 0.06 + fx ), 0.03, v1 - v0, w, yaw );
+
+				}
+
+			};
+			disc( y0 + 2.45, 0.32, [ 0.78, 0.1, 0.08 ] );
+			plaster.color = lin( [ 0.95, 0.95, 0.93 ] );
+			plaster.box( x - p.dx * 0.08, y0 + 2.45, z - p.dz * 0.08, 0.02, 0.1, 0.42, yaw ); // its white bar
+			disc( y0 + 1.8, 0.24, [ 0.1, 0.3, 0.75 ] );
+			plaster.color = lin( [ 0.95, 0.95, 0.93 ] );
+			plaster.box( x - p.dx * 0.08, y0 + 1.8, z - p.dz * 0.08, 0.02, 0.06, 0.26, yaw - 0.7 ); // its arrow
+			this.colliders.addBox( new Vector3( x, y0 + 1.4, z ), new Vector3( 0.06, 1.4, 0.06 ), yaw, { walkable: false, tag: 'sign' } );
+
+		}
+
+		// bougainvillea over the wall by the house: a mound of magenta flowers and leaves, on the square's
+		// side, spilling over the top
+		{
+
+			let seed = 7;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			// a rounded mound, densest in the middle, a few sprays hanging down the street face
+			for ( let i = 0; i < 520; i ++ ) {
+
+				const t = rnd(), s = o.WALL_END - 7 + 6.5 * t, top = topAt( s ), h = 2.2 * Math.sin( Math.PI * t ) ** 0.7;
+				const hang = rnd() < 0.18;
+				const d = hang ? o.WALL_OFF - 0.08 : o.WALL_OFF + rnd() * 2.4;
+				const y = hang ? top - rnd() * 1.1 * Math.sin( Math.PI * t ) : top - 0.2 + h * Math.sqrt( rnd() ) * ( 1 - Math.max( 0, d - o.WALL_OFF - 1.4 ) / 1.5 );
+				const [ x, z ] = pt( s, d );
+				const leaf = rnd() < 0.35, sz = 0.12 + rnd() * 0.22;
+				plaster.color = lin( leaf ? [ 0.18 + rnd() * 0.08, 0.34 + rnd() * 0.08, 0.1 ] : [ 0.78 + rnd() * 0.1, 0.07 + rnd() * 0.08, 0.36 + rnd() * 0.12 ] );
+				plaster.box( x, y, z, sz, sz * 0.8, sz, rnd() * 3 );
+
+			}
+
+		}
+
+		for ( const [ k, mat, name, shadow ] of [ [ plaster, materials.plaster, 'ornelas', true ], [ lamps, materials.lantern, 'ornelas-lamps', false ] ] ) {
+
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = shadow;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
 
 		}
 
