@@ -1038,6 +1038,12 @@ export class Walls {
 			p.tz = p.nx * profile.outward;
 
 		} );
+		// no town-side merlons within a merlon's width of a sharp corner (they'd crowd its post)
+		if ( sharp ) samples.forEach( ( p, i ) => {
+
+			if ( p.corner ) for ( let k = Math.max( 0, i - 2 ); k <= Math.min( n - 1, i + 2 ); k ++ ) samples[ k ].nearCorner = true;
+
+		} );
 		// level treads
 		if ( adjust ) adjust( samples ); // a caller's last word on the tops
 		for ( const p of samples ) p.y = Math.round( p.top / STEP_RISE ) * STEP_RISE;
@@ -1255,7 +1261,7 @@ export class Walls {
 				const c = off( p, ( PARAPET_IN + outer ) / 2 );
 				const mh = MERLON_H * ( 0.95 + 0.1 * Math.sin( m * 12.9 ) ), mo = lowOuter ? mh * LOW_MERLON : mh;
 				kit.box( c[ 0 ] + p.tx * ( sc - p.s ), yp + mo / 2, c[ 1 ] + p.tz * ( sc - p.s ), MERLON_W, mo, outer - PARAPET_IN, yaw, 'bottom' );
-				if ( ts === 'high' || ts === 'void' ) {
+				if ( ( ts === 'high' || ts === 'void' ) && ! p.nearCorner ) {
 
 					const c2 = off( p, - ( PARAPET_IN + outer ) / 2 ), mi = ts === 'void' ? mh * LOW_MERLON : mh;
 					kit.box( c2[ 0 ] + p.tx * ( sc - p.s ), yp + mi / 2, c2[ 1 ] + p.tz * ( sc - p.s ), MERLON_W, mi, outer - PARAPET_IN, yaw, 'bottom' );
@@ -1303,7 +1309,7 @@ export class Walls {
 
 				const w = W / 2 - PARAPET_IN, k = - ( W / 2 - w / 2 );
 				const px = p.x + ( a.nx + b.nx ) * k, pz = p.z + ( a.nz + b.nz ) * k; // in from both walls' town faces
-				const ph = p.y + PARAPET_H + ( ts === 'low' ? 0 : ( ts === 'void' ? LOW_MERLON : 1 ) * MERLON_H * 0.95 );
+				const ph = p.y + PARAPET_H; // (no merlon on it: the corner is plain parapet)
 				kit.box( px, ( ph + bottom ) / 2, pz, w, ph - bottom, w, Math.atan2( - a.nz, a.nx ) + Math.PI / 2, 'bottom' );
 				this.colliders.addBox( new Vector3( px, ( ph + bottom ) / 2, pz ), new Vector3( w / 2, ( ph - bottom ) / 2, w / 2 ), Math.atan2( - a.nz, a.nx ) + Math.PI / 2, { walkable: false, tag: 'parapet' } );
 
