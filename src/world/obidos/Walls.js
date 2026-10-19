@@ -1087,6 +1087,9 @@ export class Walls {
 			bx /= l; bz /= l;
 			const c = { x: p.x, z: p.z, bx, bz, cos: Math.max( 0.3, bx * a.nx + bz * a.nz ) };
 			for ( let k = Math.max( 0, i - 3 ); k <= Math.min( n, i + 4 ); k ++ ) edge[ k ].mitre = c;
+			// the legs run right into the corner and meet there on its mitre, so it comes to a point: the
+			// turning piece shrinks to nothing (off() puts the corner's offsets on the mitre)
+			if ( ! p.gate ) edge[ i ] = edge[ i + 1 ] = { x: p.x, z: p.z, nx: bx, nz: bz, mitre: c };
 
 		} );
 
@@ -1298,13 +1301,21 @@ export class Walls {
 			let bx = a.nx + b.nx, bz = a.nz + b.nz;
 			const l = Math.hypot( bx, bz ) || 1;
 			bx /= l; bz /= l;
-			const cos = Math.max( 0.5, bx * a.nx + bz * a.nz ), d0 = inner / cos, d1 = PARAPET_IN / cos;
-			const cx = p.x + bx * ( d0 + d1 ) / 2, cz = p.z + bz * ( d0 + d1 ) / 2, yaw = Math.atan2( bx, bz );
-			const bottom = T.heightAt( cx, cz ) - FOOT, top = Math.min( a.y, p.y, b.y ) - 0.25; // (under the walk beside it, a ramp too)
-			kit.color = [ 1.05 * 0.96, 0.84 * 0.96, 0.56 * 0.96 ];
-			kit.box( cx, ( top + bottom ) / 2, cz, 1.0, top - bottom, d1 - d0, yaw, 'bottom' );
-			// the town side's parapet, if its neighbours have one: a square post in the corner, where theirs meet
+			const bottom = T.heightAt( p.x, p.z ) - FOOT;
+			// the turning piece has no colliders of its own: square ones in the corner, for the walk and the
+			// outer parapet
 			const ts = parapetBoth ? 'high' : town ? town( a ) || town( b ) : null;
+			const pIn = ts ? - PARAPET_IN : inner, ry = Math.atan2( - a.nz, a.nx ) + Math.PI / 2;
+			const square = ( d0, d1, top, walkable ) => {
+
+				const k = ( d0 + d1 ) / 2, h = ( d1 - d0 ) / 2;
+				this.colliders.addBox( new Vector3( p.x + ( a.nx + b.nx ) * k, ( top + bottom ) / 2, p.z + ( a.nz + b.nz ) * k ), new Vector3( h, ( top - bottom ) / 2, h ), ry, { walkable, tag: walkable ? 'wall' : 'parapet' } );
+
+			};
+
+			square( pIn, PARAPET_IN, p.y, true );
+			square( PARAPET_IN, outer, p.y + PARAPET_H + MERLON_H + 0.1, false );
+			// the town side's parapet, if its neighbours have one: a square post in the corner, where theirs meet
 			if ( ts ) {
 
 				const w = W / 2 - PARAPET_IN, k = - ( W / 2 - w / 2 );
