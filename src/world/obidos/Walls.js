@@ -1038,7 +1038,7 @@ export class Walls {
 			p.tz = p.nx * profile.outward;
 
 		} );
-		// no town-side merlons within a merlon's width of a sharp corner (they'd crowd its post)
+		// no other town-side merlons within a merlon's width of a sharp corner (its post has one)
 		if ( sharp ) samples.forEach( ( p, i ) => {
 
 			if ( p.corner ) for ( let k = Math.max( 0, i - 2 ); k <= Math.min( n - 1, i + 2 ); k ++ ) samples[ k ].nearCorner = true;
@@ -1309,7 +1309,8 @@ export class Walls {
 
 				const w = W / 2 - PARAPET_IN, k = - ( W / 2 - w / 2 );
 				const px = p.x + ( a.nx + b.nx ) * k, pz = p.z + ( a.nz + b.nz ) * k; // in from both walls' town faces
-				const ph = p.y + PARAPET_H; // (no merlon on it: the corner is plain parapet)
+				// parapet height, with a merlon on it as high as its neighbours' (none on a plain guard wall)
+				const ph = p.y + PARAPET_H + ( ts === 'low' ? 0 : ( ts === 'void' ? LOW_MERLON : 1 ) * MERLON_H );
 				kit.box( px, ( ph + bottom ) / 2, pz, w, ph - bottom, w, Math.atan2( - a.nz, a.nx ) + Math.PI / 2, 'bottom' );
 				this.colliders.addBox( new Vector3( px, ( ph + bottom ) / 2, pz ), new Vector3( w / 2, ( ph - bottom ) / 2, w / 2 ), Math.atan2( - a.nz, a.nx ) + Math.PI / 2, { walkable: false, tag: 'parapet' } );
 
