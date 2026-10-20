@@ -22,8 +22,8 @@ from the west wall. It runs on WebGPU and WGSL with a small rendering engine of 
 
 The town is built from real data:
 
-- **Terrain**: the Copernicus 30 m elevation model. A 2 km heightmap at 1 m resolution covers the town,
-  and a 48 km mesh carries the land out to the horizon: the Várzea, the hills, and the Atlantic and the
+- **Terrain**: around the town, the DGT's LiDAR terrain model (bare ground, 2 m); further out, the
+  Copernicus 30 m elevation model. A 2 km heightmap at 1 m resolution covers the town, and a 48 km mesh carries the land out to the horizon: the Várzea, the hills, and the Atlantic and the
   Lagoa de Óbidos to the west.
 - **Town**: OpenStreetMap supplies the wall circuit, towers, gates, streets, land use and about 900
   building footprints.
@@ -97,6 +97,10 @@ sh tools/geodata/fetch.sh          # OpenStreetMap (Overpass API) + Copernicus D
 node tools/geodata/build.mjs       # -> public/data/dem-*.bin, src/world/obidos/osm.json
 ```
 
+The LiDAR tiles (`MDT-2m-*.tif`) need a free account on the DGT's [data portal](https://cdd.dgterritorio.gov.pt/):
+download them there and put them in `tools/geodata/raw/` before running `build.mjs`. The town's tiles are
+111267, 112266 and 112267 (2024 flight).
+
 ## Project layout
 
 | Folder | Contents |
@@ -115,5 +119,6 @@ node tools/geodata/build.mjs       # -> public/data/dem-*.bin, src/world/obidos/
 ## Credits
 
 Map data © OpenStreetMap contributors (ODbL). Elevation data: Copernicus WorldDEM-30 © DLR e.V. and © Airbus
-Defence and Space GmbH, provided under COPERNICUS by the European Union and ESA. The engine, sky and post
+Defence and Space GmbH, provided under COPERNICUS by the European Union and ESA; LiDAR terrain model ©
+Direção-Geral do Território (CC BY 4.0). The engine, sky and post
 chain come from Tidewater by DRG Software Solutions LLC (MIT). Full details are in [CREDITS.md](CREDITS.md).

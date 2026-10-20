@@ -14,8 +14,9 @@ const UNPAVED = new Set( [ 'earth', 'dirt', 'ground', 'grass', 'unpaved', 'compa
 
 // Óbidos heightmap (1 m texels over 2048 m) plus bilinear queries.
 //
-// Heights are the Copernicus surface model (10 m grid from tools/geodata, bicubic) with small relief
-// added on open ground, and shaped along the curtain wall: the ground at its outer foot is pulled down
+// Heights are the DGT LiDAR terrain model (bare ground, 2 m, from tools/geodata) where it covers the
+// town, and elsewhere the Copernicus surface model (10 m grid, bicubic) with small relief added on open
+// ground; tools/geodata feathers one into the other. The ground is shaped along the curtain wall: the ground at its outer foot is pulled down
 // so the wall stands ~8-12 m above it, as at Óbidos, while inside it is only a few metres above the
 // streets. Outside the domain heightAt() falls back to the far DEM grid.
 //
@@ -108,10 +109,24 @@ export class TerrainData {
 
 		const { res, texel, origin, heights, dem } = this;
 		const nz = this.noise;
-		// bicubic of the 10 m grid, evaluated on a 2 m lattice, then bilinear to 1 m (smooth either way)
+		// on a 2 m lattice: the LiDAR detail grid's samples where it covers (it lies on the same lattice),
+		// else the bicubic of the 10 m grid; then bilinear to 1 m (smooth either way)
 		const C = res / 2 + 1, cs = texel * 2;
-		const coarse = new Float32Array( C * C );
-		for ( let j = 0; j < C; j ++ ) for ( let i = 0; i < C; i ++ ) coarse[ j * C + i ] = sampleGrid( dem.near, origin + i * cs, origin + j * cs );
+		const coarse = new Float32Array( C * C ), lidar = this.lidar = new Float32Array( C * C );
+		const d = dem.detail;
+		for ( let j = 0; j < C; j ++ ) for ( let i = 0; i < C; i ++ ) {
+
+			const x = origin + i * cs, z = origin + j * cs;
+			const di = d ? Math.round( ( x - d.x0 ) / d.step ) : - 1, dj = d ? Math.round( ( z - d.z0 ) / d.step ) : - 1;
+			if ( di >= 0 && dj >= 0 && di < d.nx && dj < d.nz ) {
+
+				coarse[ j * C + i ] = d.data[ dj * d.nx + di ];
+				lidar[ j * C + i ] = d.w[ dj * d.nx + di ];
+
+			} else coarse[ j * C + i ] = sampleGrid( dem.near, x, z );
+
+		}
+
 		for ( let j = 0; j < res; j ++ ) {
 
 			const z = origin + ( j + 0.5 ) * texel;
@@ -122,8 +137,9 @@ export class TerrainData {
 				const fx = ( i + 0.5 ) / 2, ix = Math.min( C - 2, Math.floor( fx ) ), tx = fx - ix;
 				const k = jz * C + ix;
 				const h = ( coarse[ k ] * ( 1 - tx ) + coarse[ k + 1 ] * tx ) * ( 1 - tz ) + ( coarse[ k + C ] * ( 1 - tx ) + coarse[ k + C + 1 ] * tx ) * tz;
-				// gentle undulation (the DSM is smooth at this scale) + a hint of soil roughness
-				const r = nz.fbm( x / 60, z / 60, 3 ) * 0.9 + nz.noise( x / 7, z / 7 ) * 0.12;
+				// gentle undulation where the DSM is smooth at this scale (the LiDAR has the real thing)
+				// + a hint of soil roughness
+				const r = nz.fbm( x / 60, z / 60, 3 ) * 0.9 * ( 1 - lidar[ k ] ) + nz.noise( x / 7, z / 7 ) * 0.12;
 				heights[ j * res + i ] = h + r;
 
 			}
@@ -173,7 +189,9 @@ export class TerrainData {
 		for ( let k = 0; k < res * res; k ++ ) if ( inside[ k ] ) scarp[ k ] = 255;
 
 		// The surface model is lumpy in the town (roofs and gardens averaged in): smooth the ground
-		// inside the walls (and just round them) into the ridge's shape, a bit below the raw surface
+		// inside the walls (and just round them) into the ridge's shape, a bit below the raw surface.
+		// The LiDAR is the bare ground already, so where it covers, it's left as it is.
+		const lidarAt = ( gi, gj ) => this.lidar[ Math.min( res / 2, gj >> 1 ) * ( res / 2 + 1 ) + Math.min( res / 2, gi >> 1 ) ];
 		const M = 40;
 		const ci0 = Math.max( 0, Math.floor( ( x0 - M - origin ) / texel ) ), ci1 = Math.min( res - 1, Math.ceil( ( x1 + M - origin ) / texel ) );
 		const cj0 = Math.max( 0, Math.floor( ( z0 - M - origin ) / texel ) ), cj1 = Math.min( res - 1, Math.ceil( ( z1 + M - origin ) / texel ) );
@@ -192,8 +210,8 @@ export class TerrainData {
 		for ( let j = 0; j < hgt; j ++ ) for ( let i = 0; i < w; i ++ ) {
 
 			const k = ( cj0 + j ) * res + ci0 + i;
-			const t = Math.min( 1, soft[ j * n + i ] * 2 );
-			heights[ k ] = lerp( heights[ k ], smooth[ j * n + i ] - 1.5, t );
+			const t = Math.min( 1, soft[ j * n + i ] * 2 ) * ( 1 - lidarAt( ci0 + i, cj0 + j ) );
+			if ( t > 0 ) heights[ k ] = lerp( heights[ k ], smooth[ j * n + i ] - 1.5, t );
 
 		}
 

@@ -1803,6 +1803,15 @@ export class Walls {
 
 				const near = this.buildingIndex.nearest( st.x, st.z, 1.0 );
 				if ( near ) return null;
+				// nor against a tower (you'd walk into it before reaching the walk)
+				for ( const b of this.colliders.boxes ) {
+
+					if ( b.tag !== 'tower' ) continue;
+					const dx = st.x - b.center.x, dz = st.z - b.center.z;
+					const lx = dx * b.cos - dz * b.sin, lz = dx * b.sin + dz * b.cos;
+					if ( Math.abs( lx ) < b.half.x + width && Math.abs( lz ) < b.half.z + width ) return null;
+
+				}
 				for ( const b of OSM.buildings ) {
 
 					if ( Math.abs( b.pts[ 0 ][ 0 ] - st.x ) > 40 || Math.abs( b.pts[ 0 ][ 1 ] - st.z ) > 40 ) continue;

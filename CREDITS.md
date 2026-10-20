@@ -17,6 +17,12 @@ Produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defenc
 provided under COPERNICUS by the European Union and ESA; all rights reserved. The GLO-30 tiles are read
 from the public AWS Open Data bucket and resampled to the local frame by `tools/geodata/build.mjs`.
 
+Around the town (`dem-detail*.bin`, and blended into `dem-near.bin`) the heights come from the LiDAR digital
+terrain model at 2 m (MDT-2m, 2024 flight) by the [Direção-Geral do Território](https://www.dgterritorio.gov.pt/),
+available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) from its
+[data portal](https://cdd.dgterritorio.gov.pt/) (a free account is needed to download the tiles). The tiles are
+reprojected from PT-TM06 to the local frame and feathered into the Copernicus heights at their edges.
+
 ## Audio: `public/audio/`
 
 Ten field recordings from [Freesound](https://freesound.org), all released under
