@@ -428,11 +428,13 @@ export class Town {
 			const mx = ( a[ 0 ] + c[ 0 ] ) / 2, mz = ( a[ 1 ] + c[ 1 ] ) / 2;
 			// a party wall (another house right against it) gets no windows
 			const party = this._inOther( mx + nx * 0.8, mz + nz * 0.8, f );
-			const gEdge = Math.min( T.heightAt( a[ 0 ], a[ 1 ] ), T.heightAt( c[ 0 ], c[ 1 ] ) );
+			const ga = T.heightAt( a[ 0 ], a[ 1 ] ), gc = T.heightAt( c[ 0 ], c[ 1 ] ), gEdge = Math.min( ga, gc );
 			const facade = ! party && L > 1.6 ? 1 : 0;
-			// openings: in storeys above the lowest ground at this edge
+			// openings: in storeys above the lowest ground at this edge; the ground's slope along it rides
+			// in w (see TownMaterials) so the base band and the street-level doors follow the street
 			const st = isChurch ? 1 : Math.max( 1, Math.round( ( eave - gEdge ) / STOREY ) );
-			kit.vdata = [ L, st, seed + i * 0.137, facade ];
+			const slope = Math.max( - 0.95, Math.min( 0.95, ( gc - ga ) / L ) );
+			kit.vdata = [ L, st, seed + i * 0.137, facade + slope * 0.4 ];
 			const ha = roofH( a[ 0 ], a[ 1 ] ), hc = roofH( c[ 0 ], c[ 1 ] );
 			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], hc, c[ 1 ] ], [ a[ 0 ], ha, a[ 1 ] ], [ nx, 0, nz ],
 				[ [ 0, base - gEdge ], [ L, base - gEdge ], [ L, hc - gEdge ], [ 0, ha - gEdge ] ] );

@@ -7,7 +7,8 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 // uvs, which are in metres, plus the shared detail noise texture for breakup). The geometry carries
 //   tint  vec3  stone tone / trim paint colour (the barra and the window surrounds)
 //   vdata vec4  stone:   x seed, y weathering 0..1
-//               plaster: x facade length (m), y storeys, z seed, w 1 = facade with windows and doors;
+//               plaster: x facade length (m), y storeys, z seed, w 1 = facade with windows and doors
+//                        (0 = a blank wall), plus 0.4 x the ground's slope along it (-0.95..0.95);
 //                        w 2-4: the finishes of townTiles (azulejos, a painted vault, flat paint)
 //               roof:    x seed, y age 0..1
 //
@@ -133,14 +134,21 @@ fn townRect( p: vec2f, c: vec2f, hs: vec2f, aa: f32 ) -> f32 {
 	return 1.0 - smoothstep( - aa, aa, k );
 }
 
-// Whitewashed facade. uv: u along the facade from its start (m), v = height above the facade base.
-// d: vdata (length, storeys, seed, facade flag); trim: paint colour.
+// Whitewashed facade. uv: u along the facade from its start (m), v = height above the lowest ground
+// along it. d: vdata (length, storeys, seed, facade flag + 0.4 x ground slope); trim: paint colour.
+// On a sloping street the base band and the street-level row of openings follow the ground; the rows
+// above stay level, and those the ground has climbed past are left out.
 fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSurf {
 	let n0 = townNoise( P.xz / 4.3 + P.y / 7.0 );
 	let n1 = townNoise( vec2f( uv.x, uv.y ) / 1.3 + d.z * 5.0 );
+	let facade = round( d.w );
+	let slope = ( d.w - facade ) * 2.5;
+	// the ground's height above v = 0 at u
+	let g0 = max( 0.0, - slope * d.x );
+	let gy = uv.y - ( g0 + slope * uv.x );
 	var col = mix( TC_white, TC_whiteWarm, n0.w * 0.8 );
 	// grime: splashes at the foot, streaks under the eaves and sills
-	let foot = 1.0 - smoothstep( 0.0, 1.4, uv.y + ( n1.y - 0.5 ) * 0.5 );
+	let foot = 1.0 - smoothstep( 0.0, 1.4, gy + ( n1.y - 0.5 ) * 0.5 );
 	col = mix( col, TC_grime, foot * 0.35 );
 	col = col * ( 1.0 - smoothstep( 0.55, 0.8, townNoise( vec2f( uv.x / 1.1, uv.y / 9.0 ) + d.z ).w ) * 0.12 );
 	var hd = n1.x * 0.004;
@@ -150,10 +158,10 @@ fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSur
 	let aa = max( px, 0.004 ) * 1.2;
 	// painted base band (barra), ~0.7 m
 	let barH = 0.55 + fract( d.z * 13.7 ) * 0.4;
-	let barK = 1.0 - smoothstep( barH - aa, barH + aa, uv.y );
+	let barK = 1.0 - smoothstep( barH - aa, barH + aa, gy );
 	col = mix( col, trim * ( n1.w * 0.15 + 0.9 ), barK );
 	hd += barK * 0.004;
-	if ( d.w > 0.5 ) {
+	if ( facade > 0.5 ) {
 		// openings: a regular rhythm along the facade, one row per storey; the ground floor has a door
 		let L = max( d.x, 0.5 );
 		let bays = max( 1.0, floor( L / 3.2 ) );
@@ -161,17 +169,22 @@ fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSur
 		let bay = clamp( floor( uv.x / bayW ), 0.0, bays - 1.0 );
 		let cx = ( bay + 0.5 ) * bayW;
 		let storeyH = 3.0;
-		let storey = floor( max( uv.y, 0.0 ) / storeyH );
+		// the street-level row at this bay: the storey nearest the ground there, its openings set
+		// from the ground (rows below it are under the street)
+		let gb = g0 + slope * cx;
+		let street = max( 0.0, round( gb / storeyH ) );
+		let storey = max( floor( max( uv.y, 0.0 ) / storeyH ), street );
 		let inBuilding = storey < d.y;
 		let hb = townHash( vec2f( bay, d.z * 31.0 ) );
-		let isDoor = storey < 0.5 && ( hb < 0.45 || bay == floor( bays * fract( d.z * 7.3 ) ) );
+		let atStreet = storey == street;
+		let isDoor = atStreet && ( hb < 0.45 || bay == floor( bays * fract( d.z * 7.3 ) ) );
 		var c = vec2f( cx, storey * storeyH + 1.75 );
 		var hs = vec2f( 0.45, 0.62 );
 		if ( isDoor ) {
-			c = vec2f( cx, 1.15 );
+			c = vec2f( cx, gb + 1.15 );
 			hs = vec2f( 0.6, 1.15 );
-		} else if ( storey < 0.5 ) {
-			c = vec2f( cx, 1.65 );
+		} else if ( atStreet ) {
+			c = vec2f( cx, gb + 1.65 );
 			hs = vec2f( 0.42, 0.55 );
 		}
 		let show = select( 0.0, 1.0, inBuilding && L > 1.8 && hb < 0.93 );
