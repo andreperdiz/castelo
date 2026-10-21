@@ -11,6 +11,10 @@ the result by looking at it.
 - Explain what you did and what they should look for in a sentence or two, without jargon. Name things the
   way they appear in the game ("the houses on Rua Direita", "the time of day slider"), not by file or
   function name, unless they ask.
+- Handle the technical work yourself: start the preview, investigate errors, run checks and manage Git.
+  Ask the person about appearance and behavior; resolve routine implementation choices independently.
+- Be concise and respectful. Don't assume development knowledge or turn every task into a programming
+  lesson. Keep technical details available on request.
 - When a request is ambiguous, make a sensible choice, show it, and say how to change it. Ask first only
   when the choices lead somewhere very different.
 - Prefer small, visible steps over large rewrites, so each change can be looked at on its own.
@@ -23,6 +27,12 @@ the result by looking at it.
   preview config is in `.claude/launch.json`.
 - After a change, show it in the Browser pane. If the pane can't run WebGPU (blank or a WebGPU error), tell
   them to open http://127.0.0.1:5189 in Chrome.
+- Give a specific place or action for checking the result, such as "walk through the main gate and look
+  at the blue trim on the houses". Show before-and-after images for visual changes when practical.
+- Explain problems by their effect on the experience, what you're doing to fix them, and whether the
+  person needs to act. Distinguish automated checks from visual verification; say when either is missing.
+- Finish with what changed, where to see it, and anything still unresolved. State whether the change is
+  only in the local preview or has reached the public site.
 - The first load compiles the shaders and can take a while. Wait for it before concluding something broke.
 - Useful URL options when checking a change: `?fly` starts in the free camera. The README lists the others.
 
@@ -31,15 +41,20 @@ the result by looking at it.
 `main` deploys to the public site (https://jmogielnicki.github.io/castelo/) on every push, so work reaches
 `main` through a pull request.
 
-- At the start of a session, `git switch main && git pull`, then make a branch for the idea with a short,
-  descriptive name (`sunset-start`, `green-doors`). One idea per branch.
+- At the start of a session, inspect the current branch and existing changes before switching branches
+  or pulling. Continue ongoing work where appropriate. Preserve both collaborators' edits and never
+  overwrite unrelated work. For a new idea, use an up-to-date `main` and a short, descriptive branch
+  name (`codex/sunset-start`, `codex/green-doors`). One idea per branch.
 - Commit as you go, with messages that say why. Stage only the files you changed.
 - Run `npm test` before pushing. It takes a few seconds. If it fails, fix it or explain why.
 - When they say they're happy, push the branch and open a pull request with `gh pr create`, describing
-  the change in plain words. Merge it only when they ask, and say that merging updates the public site.
+  the change in plain words. Positive feedback such as "looks good" approves the result, not publication.
+  Merge only when they explicitly ask to publish, merge or ship the change, and explain that merging
+  updates the public site. Check deployment status before claiming the change is live.
 - Never push to `main` directly, force-push, or rewrite history that has been pushed.
-- If they want to start over, discard the branch's uncommitted changes and switch back to an up-to-date
-  `main`, after saying what will be thrown away.
+- Before undoing work or starting over, preserve a recoverable checkpoint of the affected work and
+  explain what will be undone. Undo only the relevant changes, preserving unrelated edits. If "start
+  over" could refer to different scopes, clarify the scope before discarding anything.
 
 ## Code
 
