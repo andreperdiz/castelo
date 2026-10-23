@@ -14,8 +14,9 @@ const UNPAVED = new Set( [ 'earth', 'dirt', 'ground', 'grass', 'unpaved', 'compa
 
 // Óbidos heightmap (1 m texels over 2048 m) plus bilinear queries.
 //
-// Heights are the Copernicus surface model (10 m grid from tools/geodata, bicubic) with small relief
-// added on open ground, and shaped along the curtain wall: the ground at its outer foot is pulled down
+// Heights are the DGT LiDAR terrain model (bare ground, 2 m, from tools/geodata) where it covers the
+// town, and elsewhere the Copernicus surface model (10 m grid, bicubic) with small relief added on open
+// ground; tools/geodata feathers one into the other. The ground is shaped along the curtain wall: the ground at its outer foot is pulled down
 // so the wall stands ~8-12 m above it, as at Óbidos, while inside it is only a few metres above the
 // streets. Outside the domain heightAt() falls back to the far DEM grid.
 //
@@ -25,6 +26,25 @@ const UNPAVED = new Set( [ 'earth', 'dirt', 'ground', 'grass', 'unpaved', 'compa
 //   gully -> scrub and woodland (OSM scrub / wood, steep uncultivated slopes)
 //   scarp -> town ground (inside the walls and among the houses outside them)
 //   rock  -> bare limestone (Float32 0..1) on the steepest slopes
+// the square outside Porta da Vila, between the gate and the houses south of it
+// the inside of Porta da Vila's tower, and the passages through its two arches: a level floor of setts
+export const PORTA_DA_VILA_TOWER = [ [ - 60.9, 224.9 ], [ - 52.9, 225.4 ], [ - 52.9, 223 ], [ - 49.3, 223 ], [ - 49.3, 226.2 ], [ - 48.4, 226.2 ], [ - 48.6, 234.8 ], [ - 56.7, 234.8 ], [ - 56.7, 236.6 ], [ - 60.3, 236.6 ], [ - 60.3, 234.8 ], [ - 60.9, 234.8 ], [ - 60.9, 224.9 ] ];
+// the retaining wall between Rua Porta da Vila and Rua do Cemitério, above it on the right going south
+export const CEMITERIO_WALL = [ [ - 57, 249 ], [ - 56.7, 268.2 ], [ - 59.5, 277.9 ], [ - 60.7, 286.7 ], [ - 60.9, 291.8 ], [ - 62.6, 307.1 ], [ - 67.6, 328.9 ], [ - 69.6, 334.9 ], [ - 75.4, 348.4 ], [ - 80.4, 360 ], [ - 83.4, 366.9 ] ];
+// the small square just inside Porta da Vila, between Rua Direita (west) and the lane going down to the
+// right (east), in front of the house where they part: its corners, the house's side first
+export const PV_PRACETA = [ [ - 55, 196.2 ], [ - 47.6, 195.7 ], [ - 49.5, 213.8 ], [ - 51.4, 213.8 ], [ - 53.1, 210 ], [ - 55, 196.2 ] ];
+// from the inner arch to the small square's front, where Rua Direita and the lane part, across to the
+// house on the right
+export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 47.8, 223.6 ], [ - 43.4, 215.4 ], [ - 45, 213.4 ], [ - 52.6, 213.4 ], [ - 53.6, 223.2 ] ];
+// the lane on the right of the small square, from its wall to the houses' fronts, down to the crossing
+export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ], [ - 42.5, 208.7 ], [ - 41, 197.9 ], [ - 40.4, 191 ], [ - 47.3, 191 ], [ - 47.2, 195.8 ], [ - 49.3, 213.6 ] ];
+export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
+// Rua Dom João de Ornelas, going down from the square outside the gate toward the walls' east side
+// (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
+// holding the square up on its left
+export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], [ - 35.7, 234.9 ], [ - 31.4, 221.8 ] ];
+
 export class TerrainData {
 
 	constructor( dem, seed = 7 ) {
@@ -64,6 +84,7 @@ export class TerrainData {
 		mark( 'town' );
 		this._wallProfile();
 		this._shapeWall();
+		this._portaDaVilaFloor();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -88,10 +109,24 @@ export class TerrainData {
 
 		const { res, texel, origin, heights, dem } = this;
 		const nz = this.noise;
-		// bicubic of the 10 m grid, evaluated on a 2 m lattice, then bilinear to 1 m (smooth either way)
+		// on a 2 m lattice: the LiDAR detail grid's samples where it covers (it lies on the same lattice),
+		// else the bicubic of the 10 m grid; then bilinear to 1 m (smooth either way)
 		const C = res / 2 + 1, cs = texel * 2;
-		const coarse = new Float32Array( C * C );
-		for ( let j = 0; j < C; j ++ ) for ( let i = 0; i < C; i ++ ) coarse[ j * C + i ] = sampleGrid( dem.near, origin + i * cs, origin + j * cs );
+		const coarse = new Float32Array( C * C ), lidar = this.lidar = new Float32Array( C * C );
+		const d = dem.detail;
+		for ( let j = 0; j < C; j ++ ) for ( let i = 0; i < C; i ++ ) {
+
+			const x = origin + i * cs, z = origin + j * cs;
+			const di = d ? Math.round( ( x - d.x0 ) / d.step ) : - 1, dj = d ? Math.round( ( z - d.z0 ) / d.step ) : - 1;
+			if ( di >= 0 && dj >= 0 && di < d.nx && dj < d.nz ) {
+
+				coarse[ j * C + i ] = d.data[ dj * d.nx + di ];
+				lidar[ j * C + i ] = d.w[ dj * d.nx + di ];
+
+			} else coarse[ j * C + i ] = sampleGrid( dem.near, x, z );
+
+		}
+
 		for ( let j = 0; j < res; j ++ ) {
 
 			const z = origin + ( j + 0.5 ) * texel;
@@ -102,8 +137,9 @@ export class TerrainData {
 				const fx = ( i + 0.5 ) / 2, ix = Math.min( C - 2, Math.floor( fx ) ), tx = fx - ix;
 				const k = jz * C + ix;
 				const h = ( coarse[ k ] * ( 1 - tx ) + coarse[ k + 1 ] * tx ) * ( 1 - tz ) + ( coarse[ k + C ] * ( 1 - tx ) + coarse[ k + C + 1 ] * tx ) * tz;
-				// gentle undulation (the DSM is smooth at this scale) + a hint of soil roughness
-				const r = nz.fbm( x / 60, z / 60, 3 ) * 0.9 + nz.noise( x / 7, z / 7 ) * 0.12;
+				// gentle undulation where the DSM is smooth at this scale (the LiDAR has the real thing)
+				// + a hint of soil roughness
+				const r = nz.fbm( x / 60, z / 60, 3 ) * 0.9 * ( 1 - lidar[ k ] ) + nz.noise( x / 7, z / 7 ) * 0.12;
 				heights[ j * res + i ] = h + r;
 
 			}
@@ -153,7 +189,9 @@ export class TerrainData {
 		for ( let k = 0; k < res * res; k ++ ) if ( inside[ k ] ) scarp[ k ] = 255;
 
 		// The surface model is lumpy in the town (roofs and gardens averaged in): smooth the ground
-		// inside the walls (and just round them) into the ridge's shape, a bit below the raw surface
+		// inside the walls (and just round them) into the ridge's shape, a bit below the raw surface.
+		// The LiDAR is the bare ground already, so where it covers, it's left as it is.
+		const lidarAt = ( gi, gj ) => this.lidar[ Math.min( res / 2, gj >> 1 ) * ( res / 2 + 1 ) + Math.min( res / 2, gi >> 1 ) ];
 		const M = 40;
 		const ci0 = Math.max( 0, Math.floor( ( x0 - M - origin ) / texel ) ), ci1 = Math.min( res - 1, Math.ceil( ( x1 + M - origin ) / texel ) );
 		const cj0 = Math.max( 0, Math.floor( ( z0 - M - origin ) / texel ) ), cj1 = Math.min( res - 1, Math.ceil( ( z1 + M - origin ) / texel ) );
@@ -172,8 +210,8 @@ export class TerrainData {
 		for ( let j = 0; j < hgt; j ++ ) for ( let i = 0; i < w; i ++ ) {
 
 			const k = ( cj0 + j ) * res + ci0 + i;
-			const t = Math.min( 1, soft[ j * n + i ] * 2 );
-			heights[ k ] = lerp( heights[ k ], smooth[ j * n + i ] - 1.5, t );
+			const t = Math.min( 1, soft[ j * n + i ] * 2 ) * ( 1 - lidarAt( ci0 + i, cj0 + j ) );
+			if ( t > 0 ) heights[ k ] = lerp( heights[ k ], smooth[ j * n + i ] - 1.5, t );
 
 		}
 
@@ -214,7 +252,8 @@ export class TerrainData {
 	// at least ~8 m above the ground just outside; smoothed along the wall, with the slope kept to what
 	// flights of steps can take, and room for an arch over each gate. Returns { pts, length, outward }:
 	// pts [{ x, z, s, nx, nz (outward normal), dx, dz (tangent), gi, ge (ground in / out), top }].
-	profile( lineIn, outward, { gates = [], aboveIn = 3.2, aboveOut = 7.5, closed = false } = {} ) {
+	// caps [{ x, z, r, y }]: no higher than y within r (the slope limit eases the wall down to it).
+	profile( lineIn, outward, { gates = [], aboveIn = 3.2, aboveOut = 7.5, closed = false, caps = [] } = {} ) {
 
 		const line = resample( lineIn, 2 );
 		const pts = [];
@@ -266,6 +305,11 @@ export class TerrainData {
 
 		} );
 
+		for ( const c of caps ) pts.forEach( ( p, i ) => {
+
+			if ( Math.hypot( p.x - c.x, p.z - c.z ) < c.r ) sm[ i ] = Math.min( sm[ i ], c.y );
+
+		} );
 		const maxRise = 2 / 2.5;
 		for ( let pass = 0; pass < ( closed ? 2 : 1 ); pass ++ ) {
 
@@ -286,7 +330,13 @@ export class TerrainData {
 	_wallProfile() {
 
 		this._gates();
-		this.wall = this.profile( this.wallInfo.line, this.wallInfo.outward, { gates: this.gates } );
+		// the floor of Porta da Vila's tower is level (photo references/...-entreportas4) with Rua Direita
+		// inside its inner arch; the outer arch (and the square before it) comes down to it
+		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
+		if ( pv ) this.pvFloor = pv.y = this.heightAt( - 51.1, 225 );
+		// at Porta da Vila the curtain comes down to the gate tower's height, so the steps inside reach it
+		const caps = pv ? [ { x: pv.x, z: pv.z, r: 7, y: pv.y + 8 } ] : [];
+		this.wall = this.profile( this.wallInfo.line, this.wallInfo.outward, { gates: this.gates, caps } );
 
 	}
 
@@ -332,6 +382,8 @@ export class TerrainData {
 		const i0 = Math.max( 0, Math.floor( ( b.x0 - R - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( b.x1 + R - origin ) / texel ) );
 		const j0 = Math.max( 0, Math.floor( ( b.z0 - R - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( b.z1 + R - origin ) / texel ) );
 		const nz = this.noise2;
+		// the square outside Porta da Vila: level with the gate, back to the natural ground 16-28 m out
+		const pv = this.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
 			const k = j * res + i;
@@ -347,8 +399,207 @@ export class TerrainData {
 			const h = heights[ k ];
 			const shaped = Math.min( h, lerp( target, h, k2 ) );
 			heights[ k ] = lerp( h, shaped, gateK );
+			if ( pv ) {
+
+				const d = Math.hypot( pv.x - x, pv.z - z );
+				if ( d < 28 ) heights[ k ] = lerp( pv.y, heights[ k ], smoothstep( 16, 28, d ) );
+
+			}
 
 		}
+
+	}
+
+	// Porta da Vila's tower: its floor level with Rua Direita inside. Just inside, between Rua Direita and the
+	// lane going down on the right, a small square stands two high steps above the street.
+	// Outside, the square is level with the gate, and so is Rua Porta da Vila for its ~150 m south to the
+	// road (it only comes up to the far end's ground); Rua do Cemitério climbs away from it on the right
+	// and runs on above it, behind a retaining wall.
+	_portaDaVilaFloor() {
+
+		const F = this.pvFloor;
+		if ( F === undefined ) return;
+		const { res, texel, origin, heights } = this;
+		const level = ( k ) => {
+
+			heights[ k ] = F;
+
+		};
+		this._fill( PORTA_DA_VILA_TOWER, level );
+		// the square: level, eased back to the ground around it over 14 m
+		const SQ = PORTA_DA_VILA_SQUARE, EASE = 14;
+		const xs = SQ.map( ( q ) => q[ 0 ] ), zs = SQ.map( ( q ) => q[ 1 ] );
+		for ( let j = Math.floor( ( Math.min( ...zs ) - EASE - origin ) / texel ); j <= Math.ceil( ( Math.max( ...zs ) + EASE - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( Math.min( ...xs ) - EASE - origin ) / texel ); i <= Math.ceil( ( Math.max( ...xs ) + EASE - origin ) / texel ); i ++ ) {
+
+			const k = j * res + i;
+			if ( this.inside[ k ] ) continue;
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			let d = 0;
+			if ( ! pointInPolygon( x, z, SQ ) ) {
+
+				d = Infinity;
+				for ( let e = 0; e + 1 < SQ.length; e ++ ) d = Math.min( d, segmentDistance( x, z, SQ[ e ], SQ[ e + 1 ] )[ 0 ] );
+
+			}
+
+			heights[ k ] = lerp( F, heights[ k ], smoothstep( 0, EASE, d ) );
+
+		}
+		// the street from the gate: its pieces joined end to end, then a level band along it
+		const pieces = OSM.streets.filter( ( st ) => st.name === 'Rua Porta da Vila' && st.highway === 'residential' ).map( ( st ) => st.pts );
+		const road = [ [ - 58, 235 ] ];
+		for ( let guard = 0; guard < 8 && pieces.length; guard ++ ) {
+
+			const end = road[ road.length - 1 ];
+			const i = pieces.findIndex( ( q ) => Math.hypot( q[ 0 ][ 0 ] - end[ 0 ], q[ 0 ][ 1 ] - end[ 1 ] ) < 2 || Math.hypot( q[ q.length - 1 ][ 0 ] - end[ 0 ], q[ q.length - 1 ][ 1 ] - end[ 1 ] ) < 2 );
+			if ( i < 0 ) break;
+			const q = pieces.splice( i, 1 )[ 0 ];
+			const pts = Math.hypot( q[ 0 ][ 0 ] - end[ 0 ], q[ 0 ][ 1 ] - end[ 1 ] ) < 2 ? q : q.slice().reverse();
+			road.push( ...pts.slice( 1 ) );
+
+		}
+
+		if ( road.length > 2 ) {
+
+			const cum = [ 0 ];
+			for ( let i = 1; i < road.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( road[ i ][ 0 ] - road[ i - 1 ][ 0 ], road[ i ][ 1 ] - road[ i - 1 ][ 1 ] ) );
+			const L = cum[ cum.length - 1 ], far = road[ road.length - 1 ];
+			const yEnd = this.heightAt( far[ 0 ], far[ 1 ] );
+			const HALF = 4, SOFT = 7;
+			const target = new Float32Array( heights.length ).fill( NaN ), weight = new Float32Array( heights.length );
+			for ( let i = 0; i + 1 < road.length; i ++ ) this._stroke( [ road[ i ], road[ i + 1 ] ], HALF, SOFT, ( k, t ) => {
+
+				if ( t <= weight[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const [ , u ] = segmentDistance( x, z, road[ i ], road[ i + 1 ] );
+				const s = cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] );
+				weight[ k ] = t;
+				target[ k ] = lerp( F, yEnd, smoothstep( 0, 1, s / L ) );
+
+			} );
+			for ( let k = 0; k < heights.length; k ++ ) if ( weight[ k ] > 0 && ! this.inside[ k ] ) heights[ k ] = lerp( heights[ k ], target[ k ], weight[ k ] );
+
+			// Rua do Cemitério runs beside it on the right, higher, behind a retaining wall: from the fork it
+			// ramps up to 2.5 m over the street, then the wall rises slowly to 3.3 m at the far end
+			const near = ( line, cl, x, z ) => {
+
+				let best = null;
+				for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, line[ i ], line[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, u, i, s: cl[ i ] + u * ( cl[ i + 1 ] - cl[ i ] ) };
+
+				}
+
+				return best;
+
+			};
+			const streetY = ( x, z ) => lerp( F, yEnd, smoothstep( 0, 1, near( road, cum, x, z ).s / L ) );
+			const W = CEMITERIO_WALL, cw = [ 0 ];
+			for ( let i = 1; i < W.length; i ++ ) cw.push( cw[ i - 1 ] + Math.hypot( W[ i ][ 0 ] - W[ i - 1 ][ 0 ], W[ i ][ 1 ] - W[ i - 1 ][ 1 ] ) );
+			const LW = cw[ cw.length - 1 ], RAMP = 21;
+			const rise = ( sw ) => sw < RAMP ? 2.5 * sw / RAMP : lerp( 2.5, 3.3, ( sw - RAMP ) / ( LW - RAMP ) );
+			// which side is the upper street: the side of Rua do Cemitério
+			const sideOf = ( i, x, z ) => Math.sign( ( W[ i + 1 ][ 0 ] - W[ i ][ 0 ] ) * ( z - W[ i ][ 1 ] ) - ( W[ i + 1 ][ 1 ] - W[ i ][ 1 ] ) * ( x - W[ i ][ 0 ] ) );
+			const up = sideOf( near( W, cw, - 64, 290 ).i, - 64, 290 );
+			const xs = W.map( ( q ) => q[ 0 ] ), zs = W.map( ( q ) => q[ 1 ] ), M = 16;
+			for ( let j = Math.floor( ( Math.min( ...zs ) - M - origin ) / texel ); j <= Math.ceil( ( Math.max( ...zs ) + M - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( Math.min( ...xs ) - M - origin ) / texel ); i <= Math.ceil( ( Math.max( ...xs ) + M - origin ) / texel ); i ++ ) {
+
+				const k = j * res + i;
+				if ( this.inside[ k ] ) continue;
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const p = near( W, cw, x, z );
+				if ( ( p.i === 0 && p.u <= 0 ) || ( p.i === W.length - 2 && p.u >= 1 ) ) continue; // beyond its ends
+				const sd = p.d * ( sideOf( p.i, x, z ) === up ? 1 : - 1 );
+				const wx = lerp( W[ p.i ][ 0 ], W[ p.i + 1 ][ 0 ], p.u ), wz = lerp( W[ p.i ][ 1 ], W[ p.i + 1 ][ 1 ], p.u );
+				if ( sd > 0 ) heights[ k ] = lerp( heights[ k ], streetY( wx, wz ) + rise( p.s ), 1 - smoothstep( 8, M, sd ) );
+				else if ( sd > - 2.5 ) heights[ k ] = streetY( x, z );
+
+			}
+
+			// for Walls: the wall's line, the street's level at its foot and its top (a 0.5 m parapet)
+			this.cemiterioWall = W.map( ( q, i ) => {
+
+				const y = streetY( q[ 0 ], q[ 1 ] );
+				return { x: q[ 0 ], z: q[ 1 ], low: y, top: y + rise( cw[ i ] ) + 0.5 };
+
+			} );
+
+		}
+
+		// inside the inner arch, level with it as far as the small square's front; the lane on the right,
+		// from the square's wall to the houses, goes down from there in one even slope to the crossing
+		this._fill( PV_FORK, level );
+		const z0 = 213.6, z1 = 191, yC = this.heightAt( - 44.8, z1 );
+		this._fill( PV_LANE, ( k ) => {
+
+			const z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			heights[ k ] = lerp( F, yC, clamp( ( z0 - z ) / ( z0 - z1 ), 0, 1 ) );
+
+		} );
+
+		this._ornelas();
+
+		// the small square inside the inner arch: level, 0.6 m over the street. Walls builds its floor,
+		// steps and walls and the stone column; the ground under it is left as it is
+		const y = F + 0.6;
+		this.praceta = { poly: PV_PRACETA, y };
+
+	}
+
+	// Rua Dom João de Ornelas (ORNELAS): a cars' slope from the square, 1.2 m down by the wall's start, then on
+	// down to where it meets the ground again; beside it on its left the square runs on level to a short
+	// flight of steps down to the wall's start. this.ornelas tells Walls where the steps and the wall go.
+	_ornelas() {
+
+		const F = this.pvFloor, { res, texel, origin, heights } = this;
+		const R = ORNELAS, cum = [ 0 ];
+		for ( let i = 1; i < R.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( R[ i ][ 0 ] - R[ i - 1 ][ 0 ], R[ i ][ 1 ] - R[ i - 1 ][ 1 ] ) );
+		const L = cum[ cum.length - 1 ], end = R[ R.length - 1 ], yEnd = this.heightAt( end[ 0 ], end[ 1 ] );
+		const HALF = 2.4, S0 = 0.5, S_W = 8, DROP = 1.2, yW = F - DROP, FLIGHT = 2.25;
+		const roadY = ( s ) => s <= S0 ? F : s < S_W ? lerp( F, yW, ( s - S0 ) / ( S_W - S0 ) ) : lerp( yW, yEnd, smoothstep( 0, 1, ( s - S_W ) / ( L - S_W ) ) * 0.4 + 0.6 * ( s - S_W ) / ( L - S_W ) );
+		// position, direction (going down) and the left (the square's side) at s along the line
+		const at = ( s ) => {
+
+			let i = 0;
+			while ( i < R.length - 2 && cum[ i + 1 ] < s ) i ++;
+			const a = R[ i ], b = R[ i + 1 ], l = cum[ i + 1 ] - cum[ i ], t = ( s - cum[ i ] ) / l;
+			const dx = ( b[ 0 ] - a[ 0 ] ) / l, dz = ( b[ 1 ] - a[ 1 ] ) / l;
+			return { x: a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, z: a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t, dx, dz, lx: dz, lz: - dx };
+
+		};
+		// the wall's road face, a little off the road's left edge, from the steps' top to the house
+		const WALL_OFF = HALF + 0.2, WALL_END = 24.8;
+		const SOFT = 4;
+		this._stroke( R, HALF, SOFT, ( k, t ) => {
+
+			if ( this.inside[ k ] ) return;
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < R.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, R[ i ], R[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, s: cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] ) };
+
+			}
+
+			const p = at( best.s ), side = ( x - p.x ) * p.lx + ( z - p.z ) * p.lz;
+			// on the square's side: the street's level reaches a little under what stands at its edge (the
+			// square's kerb, the steps and their side wall, the wall), so the ground doesn't slope out of their
+			// faces; the square, level, beyond (Walls paves over the dip behind them)
+			if ( side > 0 && best.s < WALL_END ) {
+
+				const low = best.s < S_W - FLIGHT ? HALF + 1 : best.s < S_W ? HALF + 3 : WALL_OFF + 1;
+				heights[ k ] = side <= low ? roadY( best.s ) : F;
+				return;
+
+			}
+
+			if ( best.s > L - 0.5 ) t *= clamp( ( L + 3 - best.s ) / 3.5, 0, 1 );
+			heights[ k ] = lerp( heights[ k ], roadY( best.s ), side > 0 ? 1 : t );
+
+		} );
+		this.ornelas = { at, roadY, F, S0, S_W, DROP, FLIGHT, HALF, WALL_OFF, WALL_END, length: L };
 
 	}
 
@@ -425,6 +676,21 @@ export class TerrainData {
 			} );
 
 		}
+
+		// the square outside Porta da Vila, the floor of its tower and the small square inside: setts (town ground + paved), as in the photos
+		for ( const poly of [ PORTA_DA_VILA_SQUARE, PORTA_DA_VILA_TOWER, PV_FORK, PV_LANE ] ) this._fill( poly, ( k ) => {
+
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
+		this._stroke( ORNELAS, 2.6, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
 
 		// squares (closed pedestrian ways are plazas)
 		for ( const st of OSM.streets ) {

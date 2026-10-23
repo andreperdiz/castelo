@@ -2,6 +2,7 @@ import './core/BenchSeed.js';
 import { App } from './App.js';
 import { UI } from './ui/UI.js';
 import { AppUI } from './ui/AppUI.js';
+import { PhotoRefs } from './ui/PhotoRefs.js';
 
 // ?bench (and ?bg) run in background tabs too (automation): rAF does not fire in a hidden page
 if ( /[?&](bench|bg)\b/.test( location.search ) ) {
@@ -19,6 +20,7 @@ window.__ui = ui;
 app.init( ( p, text, until ) => ui.setLoading( p, text, until ) ).then( async () => {
 
 	app.ui = new AppUI( app, ui );
+	if ( ! app.qs.has( 'bench' ) ) app.photoRefs = new PhotoRefs( app, ui );
 	ui.setLoading( 1, 'Ready' );
 	await ui.hideLoader();
 	// frame-time benchmark and reference shots (see core/Bench.js): it drives the frames itself

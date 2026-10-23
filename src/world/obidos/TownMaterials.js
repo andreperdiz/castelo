@@ -8,6 +8,8 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 //   tint  vec3  stone tone / trim paint colour (the barra and the window surrounds)
 //   vdata vec4  stone:   x seed, y weathering 0..1
 //               plaster: x facade length (m), y storeys, z seed, w 1 = facade with windows and doors
+//                        (0 = a blank wall), plus 0.4 x the ground's slope along it (-0.95..0.95);
+//                        w 2-4: the finishes of townTiles (azulejos, a painted vault, flat paint)
 //               roof:    x seed, y age 0..1
 //
 // WGSL (townModule, prefix `town`):
@@ -15,6 +17,8 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 //                                                       rain streaks, lichen, a damp dark foot
 //   fn townPlaster( uv, P, d, trim, px ) -> TownSurf    whitewash with a painted base band (barra),
 //                                                       painted window and door surrounds, dark openings
+//   fn townTiles( uv, P, d, trim, px ) -> TownSurf      blue-and-white azulejos, a painted vault, or
+//                                                       flat paint in the trim colour (stone dressings)
 //   fn townRoof( uv, seed, age, px ) -> TownSurf        Roman (canudo) terracotta tiles in channels
 // TownSurf { albedo, rough, hd (bump height, m), ao }.
 const C = {
@@ -37,6 +41,12 @@ const C = {
 	tileC: srgb( 0.78, 0.47, 0.3 ),
 	tileOld: srgb( 0.48, 0.34, 0.27 ),
 	tileLichen: srgb( 0.66, 0.62, 0.5 ),
+	azWhite: srgb( 0.9, 0.9, 0.86 ),
+	azBlue: srgb( 0.15, 0.27, 0.6 ),
+	azBlueDeep: srgb( 0.07, 0.12, 0.36 ),
+	paintCream: srgb( 0.86, 0.79, 0.64 ),
+	paintOchre: srgb( 0.76, 0.55, 0.27 ),
+	paintRed: srgb( 0.52, 0.2, 0.13 ),
 };
 
 const consts = Object.entries( C ).map( ( [ k, v ] ) => `const TC_${ k }: vec3f = ${ v };` ).join( '\n' );
@@ -124,14 +134,21 @@ fn townRect( p: vec2f, c: vec2f, hs: vec2f, aa: f32 ) -> f32 {
 	return 1.0 - smoothstep( - aa, aa, k );
 }
 
-// Whitewashed facade. uv: u along the facade from its start (m), v = height above the facade base.
-// d: vdata (length, storeys, seed, facade flag); trim: paint colour.
+// Whitewashed facade. uv: u along the facade from its start (m), v = height above the lowest ground
+// along it. d: vdata (length, storeys, seed, facade flag + 0.4 x ground slope); trim: paint colour.
+// On a sloping street the base band and the street-level row of openings follow the ground; the rows
+// above stay level, and those the ground has climbed past are left out.
 fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSurf {
 	let n0 = townNoise( P.xz / 4.3 + P.y / 7.0 );
 	let n1 = townNoise( vec2f( uv.x, uv.y ) / 1.3 + d.z * 5.0 );
+	let facade = round( d.w );
+	let slope = ( d.w - facade ) * 2.5;
+	// the ground's height above v = 0 at u
+	let g0 = max( 0.0, - slope * d.x );
+	let gy = uv.y - ( g0 + slope * uv.x );
 	var col = mix( TC_white, TC_whiteWarm, n0.w * 0.8 );
 	// grime: splashes at the foot, streaks under the eaves and sills
-	let foot = 1.0 - smoothstep( 0.0, 1.4, uv.y + ( n1.y - 0.5 ) * 0.5 );
+	let foot = 1.0 - smoothstep( 0.0, 1.4, gy + ( n1.y - 0.5 ) * 0.5 );
 	col = mix( col, TC_grime, foot * 0.35 );
 	col = col * ( 1.0 - smoothstep( 0.55, 0.8, townNoise( vec2f( uv.x / 1.1, uv.y / 9.0 ) + d.z ).w ) * 0.12 );
 	var hd = n1.x * 0.004;
@@ -141,10 +158,10 @@ fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSur
 	let aa = max( px, 0.004 ) * 1.2;
 	// painted base band (barra), ~0.7 m
 	let barH = 0.55 + fract( d.z * 13.7 ) * 0.4;
-	let barK = 1.0 - smoothstep( barH - aa, barH + aa, uv.y );
+	let barK = 1.0 - smoothstep( barH - aa, barH + aa, gy );
 	col = mix( col, trim * ( n1.w * 0.15 + 0.9 ), barK );
 	hd += barK * 0.004;
-	if ( d.w > 0.5 ) {
+	if ( facade > 0.5 ) {
 		// openings: a regular rhythm along the facade, one row per storey; the ground floor has a door
 		let L = max( d.x, 0.5 );
 		let bays = max( 1.0, floor( L / 3.2 ) );
@@ -152,17 +169,22 @@ fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSur
 		let bay = clamp( floor( uv.x / bayW ), 0.0, bays - 1.0 );
 		let cx = ( bay + 0.5 ) * bayW;
 		let storeyH = 3.0;
-		let storey = floor( max( uv.y, 0.0 ) / storeyH );
+		// the street-level row at this bay: the storey nearest the ground there, its openings set
+		// from the ground (rows below it are under the street)
+		let gb = g0 + slope * cx;
+		let street = max( 0.0, round( gb / storeyH ) );
+		let storey = max( floor( max( uv.y, 0.0 ) / storeyH ), street );
 		let inBuilding = storey < d.y;
 		let hb = townHash( vec2f( bay, d.z * 31.0 ) );
-		let isDoor = storey < 0.5 && ( hb < 0.45 || bay == floor( bays * fract( d.z * 7.3 ) ) );
+		let atStreet = storey == street;
+		let isDoor = atStreet && ( hb < 0.45 || bay == floor( bays * fract( d.z * 7.3 ) ) );
 		var c = vec2f( cx, storey * storeyH + 1.75 );
 		var hs = vec2f( 0.45, 0.62 );
 		if ( isDoor ) {
-			c = vec2f( cx, 1.15 );
+			c = vec2f( cx, gb + 1.15 );
 			hs = vec2f( 0.6, 1.15 );
-		} else if ( storey < 0.5 ) {
-			c = vec2f( cx, 1.65 );
+		} else if ( atStreet ) {
+			c = vec2f( cx, gb + 1.65 );
 			hs = vec2f( 0.42, 0.55 );
 		}
 		let show = select( 0.0, 1.0, inBuilding && L > 1.8 && hb < 0.93 );
@@ -197,6 +219,73 @@ fn townPlaster( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSur
 	}
 	var o: TownSurf;
 	o.em = litEm;
+	o.albedo = col;
+	o.rough = rough;
+	o.hd = hd;
+	o.ao = ao;
+	return o;
+}
+
+// The finishes inside the oratory at Porta da Vila (d.w):
+//   2  azulejos, 14 cm square, from height d.x to d.y: a patterned dado, a border, then figured panels
+//      (a blue brush drawing) in frames, with a border again at the top
+//   3  a painted vault: ochre, red and blue scrolls on cream
+//   4  flat paint in the trim colour (the stone of the arch and the niche)
+fn townTiles( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSurf {
+	let n0 = townNoise( P.xz / 3.7 + P.y / 5.0 + d.z );
+	var col = trim * ( n0.w * 0.12 + 0.94 );
+	var rough = 0.8;
+	var hd = n0.x * 0.003;
+	var ao = 1.0;
+	if ( d.w < 2.5 ) {
+		let T = 0.14;
+		let f = fract( uv / T );
+		let cell = floor( uv / T );
+		let aa = max( px, 0.002 ) / T * 1.5;
+		let fade = smoothstep( 0.008, 0.03, px ); // far off, the pattern melts into its average
+		let h = uv.y - d.x;
+		// the dado: a ring at each corner and a dot in the middle, so four tiles make a flower
+		let q = abs( f - 0.5 );
+		let ring = 1.0 - smoothstep( 0.05, 0.05 + aa, abs( length( 0.5 - q ) - 0.3 ) );
+		let dot = 1.0 - smoothstep( 0.13, 0.13 + aa, length( q ) );
+		let dado = max( ring, dot );
+		// the panels: the outlines and the shading of a drawing, from noise
+		// (the noise's w channel is the smooth one)
+		let figure = townNoise( uv / 2.3 + d.z * 3.0 ).w + ( townNoise( uv / 0.7 + 0.5 ).w - 0.5 ) * 0.2;
+		let line = 1.0 - smoothstep( 0.006, 0.014, abs( fract( figure * 5.0 ) - 0.5 ) / 5.0 );
+		let shade = smoothstep( 0.4, 0.62, townNoise( uv / 1.6 + 7.1 ).w ) * 0.9;
+		let panel = max( line * 0.95, shade );
+		// borders: over the dado, under the top, and frames between panels 1.6 m apart
+		let top = d.y - d.x;
+		let fx = fract( uv.x / 1.6 ) * 1.6;
+		let band = select( 0.0, 1.0, ( h > 1.0 && h < 1.28 ) || ( h > top - 0.28 && h < top ) || min( fx, 1.6 - fx ) < 0.14 );
+		var blue = mix( panel, dado, select( 0.0, 1.0, h < 1.0 ) );
+		blue = mix( blue, 0.85 - dot * 0.6, band );
+		blue = mix( blue, 0.45, fade );
+		let glaze = TC_azWhite * ( 0.95 + 0.05 * townHash( cell ) );
+		col = mix( glaze, mix( TC_azBlue, TC_azBlueDeep, smoothstep( 0.6, 1.0, blue ) ), sat( blue ) );
+		// the grout between the tiles
+		let e = min( min( f.x, 1.0 - f.x ), min( f.y, 1.0 - f.y ) );
+		let grout = ( 1.0 - smoothstep( 0.0, 0.03 + aa, e ) ) * ( 1.0 - fade );
+		col = mix( col, TC_mortar * 0.85, grout * 0.7 );
+		rough = mix( 0.2, 0.9, grout );
+		hd = - grout * 0.002 + townHash( cell + 3.1 ) * 0.0015;
+	} else if ( d.w < 3.5 ) {
+		let a = townNoise( uv / 1.4 + d.z ).w;
+		let b = townNoise( uv / 0.9 + 1.3 ).w;
+		let c = townNoise( uv / 2.1 + 4.7 ).w;
+		col = TC_paintCream * ( n0.w * 0.15 + 0.9 );
+		col = mix( col, TC_paintOchre, smoothstep( 0.48, 0.55, a ) );
+		col = mix( col, TC_paintRed, smoothstep( 0.55, 0.6, b ) * 0.85 );
+		col = mix( col, TC_azBlueDeep, smoothstep( 0.58, 0.63, c ) * 0.7 );
+		// the scrolls' dark outlines
+		let s = a + ( b - 0.5 ) * 0.3;
+		col = col * ( 1.0 - ( 1.0 - smoothstep( 0.0, 0.04, abs( fract( s * 4.0 ) - 0.5 ) ) ) * 0.5 );
+		rough = 0.85;
+		ao = 0.9;
+	}
+	var o: TownSurf;
+	o.em = vec3f( 0.0 );
 	o.albedo = col;
 	o.rough = rough;
 	o.hd = hd;
@@ -280,7 +369,12 @@ export function createTownMaterials() {
 ` ),
 		plaster: make( 'TownPlaster', /* wgsl */`
 	${ PX }
-	let t = townPlaster( in.uv, in.P, in.vs.vData, in.vs.vTint, px );
+	var t: TownSurf;
+	if ( in.vs.vData.w > 1.5 ) {
+		t = townTiles( in.uv, in.P, in.vs.vData, in.vs.vTint, px );
+	} else {
+		t = townPlaster( in.uv, in.P, in.vs.vData, in.vs.vTint, px );
+	}
 	s.albedo = t.albedo;
 	s.roughness = t.rough;
 	s.normal = terrainPerturbNormal( in.P, in.N, t.hd, 1.0 );

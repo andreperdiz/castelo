@@ -17,6 +17,15 @@ const MAX_RISE = 3.0;
 const STOREY = 3.0;
 const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
+// the Oratório inside Porta da Vila (the gate tower is open to the sky in the game), and the Passo da Porta
+// da Vila, built as a portal on the tower's face (Walls._passoPortal)
+const SKIP_ID = new Set( [ 1276312776, 1276312777 ] );
+// the Auditório (Casa da Música) without its south wing, where the steps by Porta da Vila are built (its
+// terrace along Rua Direita: Walls._casaDaMusicaTerrace)
+const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };
+// as in the photos: the Casa da Música is white with strong blue trim, two storeys
+const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ] };
+const STOREYS = { 298902328: 2 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [
@@ -48,13 +57,16 @@ export class Town {
 		const CLEAR = { pedestrian: 1.5, residential: 2.2, living_street: 1.8, service: 1.6, unclassified: 2.4, tertiary: 3, secondary: 3.2, primary: 3.6, footway: 0.8, steps: 0.9, path: 0.6 };
 		const streetLines = OSM.streets.filter( ( st ) => CLEAR[ st.highway ] && ! st.tunnel ).map( ( st ) => ( { pts: st.pts, clear: CLEAR[ st.highway ] } ) );
 		const streetIndex = new SegmentIndex( streetLines, 16 );
+		// what the walls build in the town (the steps by Porta da Vila): houses are pushed back to the left of
+		// these lines (away from the walls), even from the wrong side
+		const clearIndex = new SegmentIndex( walls?.clearLines || [], 16 );
 
 		// footprints, cleaned, with a grid for "is this point inside another building" queries
 		const list = [];
 		for ( const b of OSM.buildings ) {
 
-			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) ) continue;
-			let poly = cleanPolygon( b.pts );
+			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) || SKIP_ID.has( b.id ) ) continue;
+			let poly = cleanPolygon( OUTLINE[ b.id ] || b.pts );
 			if ( poly.length < 3 ) continue;
 			poly = poly.map( ( q ) => {
 
@@ -67,6 +79,20 @@ export class Town {
 				if ( d < 1e-3 ) return q; // on the centre line: a passage, leave it
 				dx /= d; dz /= d;
 				return [ px + dx * near.seg.line.clear, pz + dz * near.seg.line.clear ];
+
+			} ).map( ( q ) => {
+
+				const near = clearIndex.nearest( q[ 0 ], q[ 1 ], 6 );
+				if ( ! near ) return q;
+				const { a, b: e } = near.seg, clear = near.seg.line.clear;
+				const L = Math.hypot( e[ 0 ] - a[ 0 ], e[ 1 ] - a[ 1 ] ) || 1;
+				const nx = - ( e[ 1 ] - a[ 1 ] ) / L, nz = ( e[ 0 ] - a[ 0 ] ) / L;
+				const px = a[ 0 ] + ( e[ 0 ] - a[ 0 ] ) * near.t, pz = a[ 1 ] + ( e[ 1 ] - a[ 1 ] ) * near.t;
+				const side = ( q[ 0 ] - px ) * nx + ( q[ 1 ] - pz ) * nz;
+				// round the outside of a bend: beyond a segment's end, push out from the bend itself
+				if ( side > 0 && ( near.t <= 0 || near.t >= 1 ) ) return near.d >= clear ? q : [ px + ( q[ 0 ] - px ) / near.d * clear, pz + ( q[ 1 ] - pz ) / near.d * clear ];
+				if ( side >= clear ) return q;
+				return [ px + nx * clear, pz + nz * clear ];
 
 			} );
 			poly = cleanPolygon( poly );
@@ -140,6 +166,21 @@ export class Town {
 		}
 
 		for ( const f of list ) this._building( f, rand );
+		this._slabPath( [ [ - 58.5, 236.4 ], [ - 58.7, 241.1 ], [ - 56.6, 246.5 ], [ - 54.6, 261 ] ] );
+		// the Passo da Porta da Vila's dressed stone (Walls._passoPortal): smooth, pale cream
+		if ( walls?.passo ) {
+
+			this.walls.color = srgbToLinear( [ 0.93, 0.88, 0.76 ] );
+			for ( const b of walls.passo ) {
+
+				this.walls.vdata = [ b.sx, 1, 0.37, 0 ]; // no windows
+				this.walls.box( b.x, b.y, b.z, b.sx, b.sy, b.sz, b.yaw, 'bottom' );
+
+			}
+
+		}
+
+		if ( walls?.casaTerrace ) for ( const pts of walls.casaTerrace.lines ) this._parapet( { ...walls.casaTerrace, pts }, PAINT[ 298902328 ] );
 		this.edges = list;
 		this._lanterns( materials, rand );
 
@@ -252,6 +293,63 @@ export class Town {
 
 	}
 
+	// A path of big pale limestone slabs set in the setts (the one across the square to Porta da Vila, as in
+	// the photo): about a metre wide, each slab 0.5-0.9 m long, nudged a little left or right of the line.
+	_slabPath( pts ) {
+
+		const T = this.terrain, kit = this.walls, rand = mulberry32( 2207 );
+		kit.color = srgbToLinear( [ 0.82, 0.8, 0.74 ] );
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const a = pts[ i ], b = pts[ i + 1 ];
+			const L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), ux = ( b[ 0 ] - a[ 0 ] ) / L, uz = ( b[ 1 ] - a[ 1 ] ) / L;
+			const yaw = Math.atan2( - uz, ux );
+			for ( let d = 0; d < L - 0.3; ) {
+
+				const len = Math.min( 0.5 + rand() * 0.4, L - d ), w = 0.85 + rand() * 0.3, off = ( rand() - 0.5 ) * 0.3;
+				const x = a[ 0 ] + ux * ( d + len / 2 ) - uz * off, z = a[ 1 ] + uz * ( d + len / 2 ) + ux * off;
+				const y = T.heightAt( x, z );
+				kit.vdata = [ len, 1, rand(), 0 ]; // no windows
+				kit.box( x, y - 0.05, z, len - 0.03, 0.14, w, yaw, 'bottom' );
+				d += len;
+
+			}
+
+		}
+
+	}
+
+	// a whitewashed wall along pts (the Casa da Música's terrace), with a painted base band, from below the
+	// ground up to `top`
+	_parapet( { pts, top, thick }, paint ) {
+
+		const T = this.terrain, kit = this.walls;
+		kit.color = srgbToLinear( paint );
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const a = pts[ i ], c = pts[ i + 1 ];
+			const L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+			const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = - uz * thick / 2, nz = ux * thick / 2; // across the wall
+			const g = Math.min( T.heightAt( a[ 0 ], a[ 1 ] ), T.heightAt( c[ 0 ], c[ 1 ] ) );
+			const base = g - 0.8;
+			kit.vdata = [ L, 1, 0.71 + i, 0 ]; // no windows
+			for ( const s of [ - 1, 1 ] ) {
+
+				const A = [ a[ 0 ] + nx * s, a[ 1 ] + nz * s ], C = [ c[ 0 ] + nx * s, c[ 1 ] + nz * s ];
+				kit.quadFacing( [ A[ 0 ], base, A[ 1 ] ], [ C[ 0 ], base, C[ 1 ] ], [ C[ 0 ], top, C[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ nx * s, 0, nz * s ],
+					[ [ 0, base - g ], [ L, base - g ], [ L, top - g ], [ 0, top - g ] ] );
+
+			}
+
+			kit.quadFacing( [ a[ 0 ] - nx, top, a[ 1 ] - nz ], [ c[ 0 ] - nx, top, c[ 1 ] - nz ], [ c[ 0 ] + nx, top, c[ 1 ] + nz ], [ a[ 0 ] + nx, top, a[ 1 ] + nz ], [ 0, 1, 0 ] );
+			for ( const [ e, f ] of [ [ a, - 1 ], [ c, 1 ] ] ) kit.quadFacing( [ e[ 0 ] - nx, base, e[ 1 ] - nz ], [ e[ 0 ] + nx, base, e[ 1 ] + nz ], [ e[ 0 ] + nx, top, e[ 1 ] + nz ], [ e[ 0 ] - nx, top, e[ 1 ] - nz ], [ ux * f, 0, uz * f ] );
+			this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2, ( base + top ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 ), new Vector3( L / 2, ( top - base ) / 2, thick / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
+
+		}
+
+	}
+
 	_building( f, rand ) {
 
 		const T = this.terrain;
@@ -270,7 +368,7 @@ export class Town {
 		const gC = T.heightAt( f.cx, f.cz );
 		gMin = Math.min( gMin, gC ); gMax = Math.max( gMax, gC );
 		// storeys: tagged, or by size (small houses 1-2, bigger 2-3); churches by area
-		const tagged = Number( b[ 'building:levels' ] );
+		const tagged = STOREYS[ b.id ] ?? Number( b[ 'building:levels' ] );
 		let storeys = tagged > 0 ? tagged : f.area < 60 ? 1 + ( rand() < 0.6 ? 1 : 0 ) : f.area < 160 ? 2 : 2 + ( rand() < 0.3 ? 1 : 0 );
 		if ( ! inTown && tagged <= 0 && rand() < 0.3 ) storeys = Math.max( 1, storeys - 1 );
 		// the eave from the mean ground (on a slope the downhill side shows a little more wall)
@@ -316,7 +414,7 @@ export class Town {
 
 		}
 
-		this.walls.color = srgbToLinear( trim );
+		this.walls.color = srgbToLinear( PAINT[ b.id ] || trim );
 		const seed = rand();
 
 		// walls
@@ -330,11 +428,13 @@ export class Town {
 			const mx = ( a[ 0 ] + c[ 0 ] ) / 2, mz = ( a[ 1 ] + c[ 1 ] ) / 2;
 			// a party wall (another house right against it) gets no windows
 			const party = this._inOther( mx + nx * 0.8, mz + nz * 0.8, f );
-			const gEdge = Math.min( T.heightAt( a[ 0 ], a[ 1 ] ), T.heightAt( c[ 0 ], c[ 1 ] ) );
+			const ga = T.heightAt( a[ 0 ], a[ 1 ] ), gc = T.heightAt( c[ 0 ], c[ 1 ] ), gEdge = Math.min( ga, gc );
 			const facade = ! party && L > 1.6 ? 1 : 0;
-			// openings: in storeys above the lowest ground at this edge
+			// openings: in storeys above the lowest ground at this edge; the ground's slope along it rides
+			// in w (see TownMaterials) so the base band and the street-level doors follow the street
 			const st = isChurch ? 1 : Math.max( 1, Math.round( ( eave - gEdge ) / STOREY ) );
-			kit.vdata = [ L, st, seed + i * 0.137, facade ];
+			const slope = Math.max( - 0.95, Math.min( 0.95, ( gc - ga ) / L ) );
+			kit.vdata = [ L, st, seed + i * 0.137, facade + slope * 0.4 ];
 			const ha = roofH( a[ 0 ], a[ 1 ] ), hc = roofH( c[ 0 ], c[ 1 ] );
 			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], hc, c[ 1 ] ], [ a[ 0 ], ha, a[ 1 ] ], [ nx, 0, nz ],
 				[ [ 0, base - gEdge ], [ L, base - gEdge ], [ L, hc - gEdge ], [ 0, ha - gEdge ] ] );

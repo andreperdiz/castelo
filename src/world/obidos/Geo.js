@@ -1,14 +1,17 @@
 import OSM from './osm.json' with { type: 'json' };
 
 // Óbidos geodata in the local frame (see WorldLayout): the OpenStreetMap features converted by
-// tools/geodata/build.mjs (© OpenStreetMap contributors, ODbL) and the Copernicus DEM grids
-// (public/data, © DLR / Airbus, provided under COPERNICUS by the EU and ESA).
+// tools/geodata/build.mjs (© OpenStreetMap contributors, ODbL) and the DEM grids (public/data):
+// Copernicus (© DLR / Airbus, provided under COPERNICUS by the EU and ESA) and, round the town, the
+// DGT LiDAR terrain model (© Direção-Geral do Território, CC BY 4.0).
 export { OSM };
 
 // ---------------------------------------------------------------- DEM grids
 
 // Loads public/data/dem*.bin (int16 decimetres) as { near, far } grids:
 // { n, step, half, data: Float32Array (m) }, row 0 = north edge (z = -half), column 0 = west edge.
+// and, where there are DGT LiDAR tiles, detail: { nx, nz, x0, z0, step, data (m), w (0..1, how much is
+// LiDAR) }, row 0 at z0, column 0 at x0.
 export async function loadDEM( base = 'data/' ) {
 
 	const read = async ( name ) => {
@@ -39,7 +42,23 @@ export async function loadDEM( base = 'data/' ) {
 
 	};
 
-	return { origin: meta.origin, near: await grid( meta.near ), far: await grid( meta.far ) };
+	const detail = async ( g ) => {
+
+		const n = g.nx * g.nz, bytes = await read( g.file ), wb = await read( g.weights );
+		const i16 = new Int16Array( bytes.buffer, bytes.byteOffset, n );
+		const data = new Float32Array( n ), w = new Float32Array( n );
+		for ( let i = 0; i < n; i ++ ) {
+
+			data[ i ] = i16[ i ] * 0.01;
+			w[ i ] = wb[ i ] / 255;
+
+		}
+
+		return { nx: g.nx, nz: g.nz, x0: g.x0, z0: g.z0, step: g.step, data, w };
+
+	};
+
+	return { origin: meta.origin, near: await grid( meta.near ), far: await grid( meta.far ), detail: meta.detail ? await detail( meta.detail ) : null };
 
 }
 

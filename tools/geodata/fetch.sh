@@ -3,6 +3,8 @@
 #   - OpenStreetMap (© OpenStreetMap contributors, ODbL) through the public Overpass API
 #   - Copernicus DEM GLO-30 (© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018,
 #     provided under COPERNICUS by the European Union and ESA) from the AWS open data bucket
+# The DGT LiDAR terrain tiles (MDT-2m-*.tif, CC BY 4.0) need a free account at https://cdd.dgterritorio.gov.pt/:
+# download them there into raw/ by hand.
 # Then `node tools/geodata/build.mjs` converts them into public/data and src/world/obidos/osm.json.
 set -e
 cd "$(dirname "$0")"
