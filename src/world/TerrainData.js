@@ -44,6 +44,10 @@ export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44
 // (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
 // holding the square up on its left
 export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], [ - 35.7, 234.9 ], [ - 31.4, 221.8 ] ];
+// Porta Este, the gate in the east curtain where Travessa do Poço comes out (photo
+// references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
+export const PORTA_ESTE = [ 74.9, 48.5 ];
+export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
 
 export class TerrainData {
 
@@ -85,6 +89,7 @@ export class TerrainData {
 		this._wallProfile();
 		this._shapeWall();
 		this._portaDaVilaFloor();
+		this._travessaPoco();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -600,6 +605,66 @@ export class TerrainData {
 
 		} );
 		this.ornelas = { at, roadY, F, S0, S_W, DROP, FLIGHT, HALF, WALL_OFF, WALL_END, length: L };
+
+	}
+
+	// Travessa do Poço, in through Porta Este (photo references/...-deforaportaeste): two low steps in the
+	// passage, a cobbled slope up from the arch, then a broad flight of steps between low whitewashed walls,
+	// and on up to Rua Padre Nunes Tavares. s is along the lane from the gate (out < 0 < in); the walking
+	// surface is surf( s ). this.portaEste tells Walls where the steps and the walls go.
+	_travessaPoco() {
+
+		const g = this.gates.find( ( q ) => Math.hypot( q.x - PORTA_ESTE[ 0 ], q.z - PORTA_ESTE[ 1 ] ) < 3 );
+		const w = g && this.wallNearest( g.x, g.z );
+		if ( ! w ) return;
+		const { res, texel, origin, heights } = this;
+		const nx = w.p.nx, nz = w.p.nz; // outward
+		const OUT = 6, E = TRAVESSA_POCO_END;
+		const line = [ [ g.x + nx * OUT, g.z + nz * OUT ], [ g.x, g.z ], E ];
+		const cum = [ 0, OUT, OUT + Math.hypot( E[ 0 ] - g.x, E[ 1 ] - g.z ) ];
+		const L = cum[ 2 ] - OUT;
+		// position, direction (going in) and the left at s
+		const at = ( s ) => {
+
+			const i = s < 0 ? 0 : 1, a = line[ i ], b = line[ i + 1 ], l = cum[ i + 1 ] - cum[ i ], t = ( s + OUT - cum[ i ] ) / l;
+			const dx = ( b[ 0 ] - a[ 0 ] ) / l, dz = ( b[ 1 ] - a[ 1 ] ) / l;
+			return { x: a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, z: a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t, dx, dz, lx: dz, lz: - dx };
+
+		};
+		const HALF = 2.0; // the lane between its walls
+		const FACE = 1.4; // the curtain's faces from its line (Walls' W / 2)
+		const yOut = this.heightAt( g.x + nx * FACE, g.z + nz * FACE ), yEnd = this.heightAt( E[ 0 ], E[ 1 ] );
+		const LOW = 0.15, y1 = yOut + LOW, y2 = y1 + LOW, STEP2 = 0.1; // the passage's two steps
+		const SF = 11, N = 13, RISE = 0.18, TREAD = 0.4, ST = SF + N * TREAD; // the flight
+		const yF0 = y2 + 0.12 * ( SF - FACE ), yF1 = yF0 + N * RISE;
+		// the walking surface (on the flight, the line of its nosings)
+		const surf = ( s ) => s < - FACE ? this.heightAt( at( s ).x, at( s ).z ) : s < STEP2 ? y1 : s < FACE ? y2
+			: s < SF ? lerp( y2, yF0, ( s - FACE ) / ( SF - FACE ) ) : s < ST ? lerp( yF0, yF1, ( s - SF ) / ( ST - SF ) )
+				: lerp( yF1, yEnd, smoothstep( 0, 1, ( s - ST ) / ( L - ST ) ) * 0.5 + 0.5 * ( s - ST ) / ( L - ST ) );
+		// the ground: under the passage's slabs and the flight's blocks a little below them
+		const groundY = ( s ) => s < FACE ? surf( s ) - 0.05 : s >= SF && s < ST ? surf( s ) - 0.25 : surf( s );
+		const SOFT = 3;
+		this._stroke( [ line[ 1 ], E ], HALF, SOFT, ( k, t ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const out = ( x - g.x ) * nx + ( z - g.z ) * nz;
+			if ( out > FACE ) return; // beyond the outer face: the threshold's stroke below
+			const [ , u ] = segmentDistance( x, z, line[ 1 ], E );
+			const s = out > 0 ? - out : u * L;
+			if ( s > L - 0.5 ) t *= clamp( ( L + 3 - s ) / 3.5, 0, 1 );
+			heights[ k ] = lerp( heights[ k ], groundY( s ), t );
+
+		} );
+		// outside, the ground comes up to the threshold
+		this._stroke( [ line[ 0 ], [ g.x + nx * FACE, g.z + nz * FACE ] ], 1.6, 2, ( k, t ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const d = ( x - g.x ) * nx + ( z - g.z ) * nz;
+			heights[ k ] = lerp( heights[ k ], lerp( yOut, heights[ k ], smoothstep( FACE, OUT, d ) ), t );
+
+		} );
+		g.y = y1;
+		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, y1, y2, SF, ST, N, RISE, TREAD, length: L };
 
 	}
 

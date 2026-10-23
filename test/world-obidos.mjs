@@ -4,6 +4,7 @@
 //   - gates where the streets cross the curtain, flights of steps up onto the walls
 //   - Rua Direita can be walked from Porta da Vila to the castle end
 //   - Porta da Vila can be walked through, in by one arch and out by the other
+//   - Porta Este too, and up the flight of steps inside it
 //   - every flight of steps can be climbed onto the wall walk
 //   - on the walk the parapet holds you in; stepping off the town side drops you into the street
 //   node test/world-obidos.mjs
@@ -72,6 +73,25 @@ check( ok, `walked in through both arches of Porta da Vila to (${ P.position.x.t
 P.placeAt( - 58.5, T.heightAt( - 58.5, 231 ) + 0.2, 231 );
 const blocked = ! walkTo( - 58.5, 220, 6 );
 check( blocked, `the tower's town wall stops you going straight on (${ P.position.z.toFixed( 1 ) })` );
+
+// in through Porta Este, up the slope and the broad flight to Rua Padre Nunes Tavares
+const pe = T.portaEste;
+ok = !! pe;
+if ( ok ) {
+
+	const o = pe.at( - 4 );
+	P.placeAt( o.x, T.heightAt( o.x, o.z ) + 0.2, o.z );
+	for ( const s of [ - 1, 1, 6, pe.SF - 0.5, ( pe.SF + pe.ST ) / 2, pe.ST + 1, pe.length - 2 ] ) if ( ok ) {
+
+		// beside the handrail, a little left of the middle
+		const p = pe.at( s );
+		ok = walkTo( p.x + p.lx * 0.8, p.z + p.lz * 0.8, 20, 0.6 );
+
+	}
+
+}
+
+check( ok && P.position.y > pe.surf( pe.ST ), `walked in through Porta Este and up its steps (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) }, y ${ P.position.y.toFixed( 1 ) })` );
 
 // every flight of steps
 let climbed = 0;
