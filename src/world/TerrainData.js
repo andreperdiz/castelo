@@ -664,8 +664,29 @@ export class TerrainData {
 			heights[ k ] = lerp( heights[ k ], lerp( yOut, heights[ k ], smoothstep( FACE, OUT, d ) ), t );
 
 		} );
+		// on the left (south) a raised bed behind the lane's wall, level with its top, the plane trees in it
+		// (photo references/...-entradaportaeste), as far as the flight's top; it falls back to the ground
+		// beyond its back
+		const BED = 0.9, BED_W = 6.5, BED_END = ST + 1, BACK = 2.5;
+		const ux = ( E[ 0 ] - g.x ) / L, uz = ( E[ 1 ] - g.z ) / L, lx = uz, lz = - ux;
+		const pad = HALF + BED_W + BACK;
+		const xs = [ g.x, E[ 0 ], g.x + lx * pad, E[ 0 ] + lx * pad ], zs = [ g.z, E[ 1 ], g.z + lz * pad, E[ 1 ] + lz * pad ];
+		const i0 = Math.max( 0, Math.floor( ( Math.min( ...xs ) - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs ) - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( Math.min( ...zs ) - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs ) - origin ) / texel ) );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			const s = ( x - g.x ) * ux + ( z - g.z ) * uz, d = ( x - g.x ) * lx + ( z - g.z ) * lz;
+			if ( s < FACE + 0.2 || s > BED_END + BACK || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
+			const k = j * res + i;
+			// (rising behind the wall, so the 1 m texels don't lift the lane's edge in front of it)
+			const t = smoothstep( HALF + 0.4, HALF + 1.4, d ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) ) * ( 1 - smoothstep( BED_END, BED_END + BACK, s ) );
+			heights[ k ] = lerp( heights[ k ], surf( Math.min( s, ST ) ) + BED, t );
+
+		}
+
 		g.y = y1;
-		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, length: L };
+		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, length: L };
 
 	}
 

@@ -1278,42 +1278,145 @@ export class Walls {
 		beam( railPt( pe.SF ), railPt( pe.ST ), 0.06 );
 		beam( railPt( pe.ST ), railPt( rs1 ), 0.06 );
 
-		// the low walls either side, whitewashed, a yellow band along their foot that follows the lane
+		// the lane's walls, whitewashed, a yellow band along their foot that follows the lane (photo
+		// references/...-entradaportaeste): on the left a low one with a dark coping, holding up the bed
+		// of the plane trees (TerrainData raises it), loose setts heaped at its foot; on the right only
+		// beside the flight (the slope below it has an earth verge), tall, holding up the ground behind,
+		// with stone quoins at its foot's corner and a stone balustrade along its top
 		const YELLOW = lin( [ 0.86, 0.64, 0.17 ] );
-		plaster.color = YELLOW;
-		plaster.vdata = [ 20, 0, 0, 0 ];
-		const TH = 0.4, TOP = 1.0, BAR = 1.3; // the band's 0.55 m becomes 0.42 m
-		const s0 = FACE, s1 = pe.ST + 1.6;
-		const cuts = [ s0 ];
-		for ( let sv = Math.ceil( s0 ); sv < s1 - 0.3; sv ++ ) cuts.push( sv );
-		cuts.push( pe.SF, pe.ST, s1 );
-		const cs = [ ...new Set( cuts.map( ( v ) => Math.round( v * 1000 ) / 1000 ) ) ].sort( ( a, b ) => a - b );
+		const TH = 0.4, BAR = 1.3; // the band's 0.55 m becomes 0.42 m
 		const T = this.terrain;
-		for ( const side of [ - 1, 1 ] ) {
+		const STONE = [ 0.88, 0.85, 0.78 ];
+		const wallRun = ( side, s0, s1, topAt ) => {
 
+			const cuts = [ s0 ];
+			for ( let sv = Math.ceil( s0 ); sv < s1 - 0.3; sv ++ ) cuts.push( sv );
+			cuts.push( pe.SF, pe.ST, s1 );
+			const cs = [ ...new Set( cuts.filter( ( v ) => v >= s0 && v <= s1 ).map( ( v ) => Math.round( v * 1000 ) / 1000 ) ) ].sort( ( p, q ) => p - q );
+			plaster.color = YELLOW;
+			plaster.vdata = [ 20, 0, 0, 0 ];
 			for ( let i = 0; i + 1 < cs.length; i ++ ) {
 
-				const sa = cs[ i ], sb = cs[ i + 1 ], ra = pe.surf( sa ), rb = pe.surf( sb );
+				const sa = cs[ i ], sb = cs[ i + 1 ], ra = pe.surf( sa ), rb = pe.surf( sb ), ta = topAt( sa ), tb = topAt( sb );
 				const A = lanePt( sa, side * H ), B = lanePt( sb, side * H ), A2 = lanePt( sa, side * ( H + TH ) ), B2 = lanePt( sb, side * ( H + TH ) );
-				// where the ground behind stands higher than the lane, the wall holds it up and stands over it
-				const behind = ( s ) => T.heightAt( ...lanePt( s, side * ( H + TH + 0.6 ) ) ) + 0.35;
-				const ta = Math.max( ra + TOP, behind( sa ) ), tb = Math.max( rb + TOP, behind( sb ) );
 				const ya = Math.min( ra, T.heightAt( ...A2 ) ) - 0.5, yb = Math.min( rb, T.heightAt( ...B2 ) ) - 0.5;
 				const p = pe.at( ( sa + sb ) / 2 ), toLane = [ - p.lx * side, 0, - p.lz * side ];
+				const band = ( y, r ) => ( y - r ) * BAR;
 				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], tb, B[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], toLane,
-					[ [ sa, ( ya - ra ) * BAR ], [ sb, ( yb - rb ) * BAR ], [ sb, ( tb - rb ) * BAR ], [ sa, ( ta - ra ) * BAR ] ] );
+					[ [ sa, band( ya, ra ) ], [ sb, band( yb, rb ) ], [ sb, band( tb, rb ) ], [ sa, band( ta, ra ) ] ] );
 				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], toLane.map( ( v ) => - v ),
 					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
 				plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ B[ 0 ], tb, B[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ],
 					[ [ sa, 5 ], [ sb, 5 ], [ sb, 5.4 ], [ sa, 5.4 ] ] );
-				if ( i + 2 === cs.length ) plaster.quadFacing( [ B[ 0 ], yb, B[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ B[ 0 ], tb, B[ 1 ] ], [ p.dx, 0, p.dz ],
-					[ [ 0, ( yb - rb ) * BAR ], [ TH, ( yb - rb ) * BAR ], [ TH, ( tb - rb ) * BAR ], [ 0, ( tb - rb ) * BAR ] ] );
+				for ( const [ end, sv, y0, r, t, dir ] of [ [ i === 0, sa, ya, ra, ta, - 1 ], [ i + 2 === cs.length, sb, yb, rb, tb, 1 ] ] ) {
+
+					if ( ! end ) continue;
+					const E1 = lanePt( sv, side * H ), E2 = lanePt( sv, side * ( H + TH ) ), q = pe.at( sv );
+					plaster.quadFacing( [ E1[ 0 ], y0, E1[ 1 ] ], [ E2[ 0 ], y0, E2[ 1 ] ], [ E2[ 0 ], t, E2[ 1 ] ], [ E1[ 0 ], t, E1[ 1 ] ], [ q.dx * dir, 0, q.dz * dir ],
+						[ [ 0, band( y0, r ) ], [ TH, band( y0, r ) ], [ TH, band( t, r ) ], [ 0, band( t, r ) ] ] );
+
+				}
+
 				const [ cx, cz ] = lanePt( ( sa + sb ) / 2, side * ( H + TH / 2 ) ), top = Math.max( ta, tb ), bottom = Math.min( ya, yb );
 				this.colliders.addBox( new Vector3( cx, ( top + bottom ) / 2, cz ), new Vector3( ( sb - sa ) / 2 + 0.02, ( top - bottom ) / 2, TH / 2 ), yawAt( ( sa + sb ) / 2 ), { walkable: false, tag: 'wall' } );
 
 			}
 
+			return cs;
+
+		};
+
+		// the left wall, its coping, the loose setts
+		const leftTop = ( sv ) => pe.surf( sv ) + pe.BED + 0.15;
+		const ls = wallRun( 1, FACE, pe.ST + 1.6, leftTop );
+		plaster.vdata = [ 0, 0, 0.41, 4 ];
+		plaster.color = lin( [ 0.42, 0.33, 0.27 ] );
+		for ( let i = 0; i + 1 < ls.length; i ++ ) {
+
+			// a thin strip following the wall's slope, a little proud of both faces
+			const sa = ls[ i ], sb = ls[ i + 1 ], C = 0.06, ya = leftTop( sa ) + C, yb = leftTop( sb ) + C;
+			const A = lanePt( sa, H - 0.03 ), B = lanePt( sb, H - 0.03 ), A2 = lanePt( sa, H + TH + 0.03 ), B2 = lanePt( sb, H + TH + 0.03 );
+			const p = pe.at( ( sa + sb ) / 2 ), toLane = [ - p.lx, 0, - p.lz ];
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ A2[ 0 ], ya, A2[ 1 ] ], [ 0, 1, 0 ] );
+			plaster.quadFacing( [ A[ 0 ], ya - C - 0.01, A[ 1 ] ], [ B[ 0 ], yb - C - 0.01, B[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ A[ 0 ], ya, A[ 1 ] ], toLane );
+			plaster.quadFacing( [ A2[ 0 ], ya - C - 0.01, A2[ 1 ] ], [ B2[ 0 ], yb - C - 0.01, B2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ A2[ 0 ], ya, A2[ 1 ] ], toLane.map( ( v ) => - v ) );
+
 		}
+
+		{
+
+			let seed = 11;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			for ( let i = 0; i < 70; i ++ ) {
+
+				const sv = 4.5 + rnd() * 4.5, dd = H - 0.05 - rnd() * rnd() * 0.55, sz = 0.11 + rnd() * 0.08;
+				// heaped against the wall: higher close to it
+				const [ x, z ] = lanePt( sv, dd ), y = pe.surf( sv ) + sz * 0.3 + rnd() * 0.15 * ( 1 - ( H - dd ) / 0.6 );
+				const tone = 0.7 + rnd() * 0.2;
+				kit.color = [ tone, tone * 0.98, tone * 0.93 ];
+				kit.box( x, y, z, sz, sz * 0.8, sz * ( 0.8 + rnd() * 0.4 ), rnd() * 3 );
+
+			}
+
+		}
+
+		// the right wall beside the flight: tall where the ground behind stands high, its balustrade
+		const behindR = ( sv ) => T.heightAt( ...lanePt( sv, - ( H + TH + 0.6 ) ) );
+		const RS0 = pe.SF - 1.4, rightTop = ( sv ) => Math.max( pe.surf( sv ) + 1.0, behindR( sv ) + 0.1 );
+		const rs = wallRun( - 1, RS0, pe.ST + 1.6, rightTop );
+		kit.vdata = [ 0.43, 0.45, 0, 0 ];
+		kit.color = STONE;
+		for ( let i = 0; i + 1 < rs.length; i ++ ) {
+
+			// the rail along the top, pillars between
+			const sa = rs[ i ], sb = rs[ i + 1 ], sm = ( sa + sb ) / 2, [ x, z ] = lanePt( sm, - ( H + TH / 2 ) ), yaw = yawAt( sm );
+			const y = ( rightTop( sa ) + rightTop( sb ) ) / 2 + 0.78;
+			kit.box( x, y, z, sb - sa + 0.02, 0.12 + Math.abs( rightTop( sb ) - rightTop( sa ) ), TH - 0.06, yaw );
+
+		}
+
+		for ( let sv = RS0 + 0.15; sv < pe.ST + 1.5; sv += 0.55 ) {
+
+			const [ x, z ] = lanePt( sv, - ( H + TH / 2 ) ), y0 = rightTop( sv );
+			kit.box( x, y0 + 0.36, z, 0.16, 0.72, 0.16, yawAt( sv ) );
+
+		}
+
+		for ( const sv of [ RS0, pe.ST + 1.6 ] ) {
+
+			const [ x, z ] = lanePt( sv + ( sv === RS0 ? 0.15 : - 0.15 ), - ( H + TH / 2 ) ), y0 = rightTop( sv );
+			kit.box( x, y0 + 0.45, z, 0.32, 0.9, TH + 0.04, yawAt( sv ) ); // the posts at its ends
+
+		}
+
+		{
+
+			// the balustrade's collider (you can't step over it)
+			const sm = ( RS0 + pe.ST + 1.6 ) / 2, [ x, z ] = lanePt( sm, - ( H + TH / 2 ) ), yTop = rightTop( pe.ST + 1.6 ) + 0.9, yBot = rightTop( RS0 );
+			this.colliders.addBox( new Vector3( x, ( yTop + yBot ) / 2, z ), new Vector3( ( pe.ST + 1.6 - RS0 ) / 2, ( yTop - yBot ) / 2, TH / 2 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
+
+		}
+
+		// quoins at its foot's corner: long and short in turn, on its face and its end
+		for ( let y = pe.surf( RS0 ) - 0.1, k = 0; y < rightTop( RS0 ) - 0.05; k ++ ) {
+
+			const h = Math.min( rightTop( RS0 ) - y, 0.32 ), w = k % 2 ? 0.28 : 0.5;
+			const [ x, z ] = lanePt( RS0 + w / 2, - H + 0.02 ), yaw = yawAt( RS0 );
+			kit.box( x, y + h / 2, z, w, h - 0.02, 0.06, yaw );
+			const [ x2, z2 ] = lanePt( RS0 - 0.02, - ( H + ( k % 2 ? 0.5 : 0.28 ) / 2 ) );
+			kit.box( x2, y + h / 2, z2, 0.06, h - 0.02, k % 2 ? 0.5 : 0.28, yaw );
+			y += h;
+
+		}
+
+		// the two old plane trees in the bed (Trees grows them)
+		this.extraTrees = [ [ 6.5, H + TH + 2.6, 1.0 ], [ 11.8, H + TH + 3.2, 0.92 ] ].map( ( [ sv, dd, scale ] ) => {
+
+			const [ x, z ] = lanePt( sv, dd );
+			return { kind: 'plane', x, z, scale };
+
+		} );
 
 		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'porta-este' ], [ iron, materials.lantern, 'porta-este-rail' ] ] ) {
 

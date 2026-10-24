@@ -9,7 +9,8 @@ import { mulberry32, Noise2D } from '../../util/Noise.js';
 // the walls. One instanced mesh per species: a trunk and a crown of noise-displaced lobes, flat-shaded
 // by a foliage material (clumped normals from the shared detail noise, darker inside the crown, a
 // little translucency against the light). Placed from the OSM trees, the scrub and woodland mask round
-// the walls (within RADIUS of the town) and the open ground of the gardens inside the walls.
+// the walls (within RADIUS of the town) and the open ground of the gardens inside the walls; and the
+// trees Walls asks for where a photo shows them (walls.extraTrees: the plane trees inside Porta Este).
 const RADIUS = 650;
 
 const SPECIES = {
@@ -17,6 +18,7 @@ const SPECIES = {
 	olive: { colour: srgb( 0.33, 0.37, 0.27 ), colour2: srgb( 0.4, 0.43, 0.32 ) },
 	pine: { colour: srgb( 0.16, 0.22, 0.1 ), colour2: srgb( 0.22, 0.28, 0.13 ) },
 	garden: { colour: srgb( 0.13, 0.22, 0.08 ), colour2: srgb( 0.2, 0.3, 0.11 ) },
+	plane: { colour: srgb( 0.33, 0.43, 0.18 ), colour2: srgb( 0.5, 0.58, 0.26 ) },
 };
 
 export class Trees {
@@ -28,7 +30,8 @@ export class Trees {
 		this.group.name = 'Trees';
 		const rand = mulberry32( seed );
 		const noise = new Noise2D( seed );
-		const sites = { cypress: [], olive: [], pine: [], garden: [] };
+		const sites = { cypress: [], olive: [], pine: [], garden: [], plane: [] };
+		for ( const t of ( walls && walls.extraTrees ) || [] ) sites[ t.kind ].push( t );
 		const T = terrain;
 
 		const blocked = ( x, z, clear = 2.5 ) => {
@@ -108,7 +111,7 @@ export class Trees {
 			const mesh = new InstancedMesh( geo, mat, list.length );
 			list.forEach( ( p, i ) => {
 
-				const sc = kind === 'cypress' ? 0.75 + rand() * 0.5 : 0.7 + rand() * 0.55;
+				const sc = p.scale ?? ( kind === 'cypress' ? 0.75 + rand() * 0.5 : 0.7 + rand() * 0.55 );
 				s.set( sc * ( 0.9 + rand() * 0.2 ), sc, sc * ( 0.9 + rand() * 0.2 ) );
 				q.setFromAxisAngle( up, rand() * Math.PI * 2 );
 				pos.set( p.x, T.heightAt( p.x, p.z ) - 0.15, p.z );
@@ -183,14 +186,14 @@ class Parts {
 
 	}
 
-	// tapered cylinder from y0 to y1, bent by lean (x, z offset at the top)
-	trunk( r0, r1, y0, y1, lean = [ 0, 0 ], segs = 6, rings = 3 ) {
+	// tapered cylinder from y0 to y1, bent by lean (x, z offset at the top), its foot at foot (x, z)
+	trunk( r0, r1, y0, y1, lean = [ 0, 0 ], segs = 6, rings = 3, foot = [ 0, 0 ] ) {
 
 		const base = this.n;
 		for ( let i = 0; i <= rings; i ++ ) {
 
 			const v = i / rings, y = y0 + ( y1 - y0 ) * v, r = r0 + ( r1 - r0 ) * v;
-			const ox = lean[ 0 ] * v * v, oz = lean[ 1 ] * v * v;
+			const ox = foot[ 0 ] + lean[ 0 ] * v * v, oz = foot[ 1 ] + lean[ 1 ] * v * v;
 			for ( let j = 0; j <= segs; j ++ ) {
 
 				const a = j / segs * Math.PI * 2;
@@ -272,6 +275,30 @@ function buildSpecies( kind, rand ) {
 
 		}
 
+	} else if ( kind === 'plane' ) {
+
+		// London plane, old and big: a thick trunk forking at ~3.5 m into leaning limbs, a high broad
+		// crown ~14 m up and as much across
+		P.trunk( 0.6, 0.42, - 0.3, 3.6, [ 0.15, 0 ], 9, 3 );
+		const limbs = 4;
+		for ( let i = 0; i < limbs; i ++ ) {
+
+			const a = i / limbs * Math.PI * 2 + rand() * 0.8, out = 2.2 + rand() * 1.4;
+			const lean = [ Math.cos( a ) * out, Math.sin( a ) * out ];
+			P.trunk( 0.3, 0.14, 3.3, 8.5 + rand() * 1.5, lean, 7, 4, [ 0.15, 0 ] );
+
+		}
+
+		// clumps of leaves round the limbs' ends and over the middle, open between them
+		for ( let i = 0; i < 14; i ++ ) {
+
+			const a = i / 14 * Math.PI * 2 * 3 + rand(), d = i < 2 ? rand() * 1.5 : 2.4 + rand() * 2.8;
+			const y = 7.5 + rand() * 4.5 + ( d < 2 ? 2 : 0 );
+			const r = 1.7 + rand() * 1.0;
+			P.lobe( [ Math.cos( a ) * d, y, Math.sin( a ) * d ], [ r, r * 0.75, r ], rand, { rings: 6, segs: 9, bump: 0.35, crownY: [ 6, 14 ] } );
+
+		}
+
 	} else {
 
 		// garden tree (orange, lemon, fig): a short trunk and a round crown ~4 m
@@ -320,6 +347,10 @@ function foliageMaterial( kind ) {
 	let n2 = textureSample( terrainDetailTex, smpAniso4Repeat, P.zy * 2.3 + P.x * 0.7 + seed * 3.0 ).w;
 	if ( d.x < 0.5 ) {
 		s.albedo = ${ srgb( 0.3, 0.26, 0.22 ) } * ( bark * 0.5 + 0.6 );
+		${ kind === 'plane' ? `// plane bark: flaking in patches of cream, grey-green and olive
+		let flake = textureSample( terrainDetailTex, smpAniso4Repeat, vec2f( P.x * 0.9 + P.z * 0.7, P.y * 0.6 + P.z * 0.5 ) * 0.7 + seed ).w;
+		s.albedo = mix( ${ srgb( 0.5, 0.47, 0.37 ) }, ${ srgb( 0.72, 0.68, 0.55 ) }, smoothstep( 0.38, 0.68, flake ) );
+		s.albedo = mix( s.albedo, ${ srgb( 0.45, 0.45, 0.32 ) }, smoothstep( 0.6, 0.8, bark ) * 0.5 );` : '' }
 		s.roughness = 0.9;
 	} else {
 		// foliage: leaf clumps from two scales of the detail noise, darker deep in the crown and low down
