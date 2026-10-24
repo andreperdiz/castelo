@@ -79,9 +79,11 @@ const pe = T.portaEste;
 ok = !! pe;
 if ( ok ) {
 
-	const o = pe.at( - 4 );
-	P.placeAt( o.x, T.heightAt( o.x, o.z ) + 0.2, o.z );
-	for ( const s of [ - 1, 1, 6, pe.SF - 0.5, ( pe.SF + pe.ST ) / 2, pe.ST + 1, pe.length - 2 ] ) if ( ok ) {
+	// through the middle of the doorway (it's 1.4 m wide), then beside the handrail
+	const g = pe.gate, f = g.frame;
+	P.placeAt( g.x + f.nx * 5, T.heightAt( g.x + f.nx * 5, g.z + f.nz * 5 ) + 0.2, g.z + f.nz * 5 );
+	for ( const d of [ 2.5, 0, - 2.5 ] ) if ( ok ) ok = walkTo( g.x + f.nx * d, g.z + f.nz * d, 20, 0.4 );
+	for ( const s of [ 6, pe.SF - 0.5, ( pe.SF + pe.ST ) / 2, pe.ST + 1, pe.length - 2 ] ) if ( ok ) {
 
 		// beside the handrail, a little left of the middle
 		const p = pe.at( s );

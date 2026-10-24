@@ -52,9 +52,11 @@ export class Walls {
 		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		// and is pointed (photo references/...-portadavila)
 		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, pointed: 1.6 } );
-		// Porta Este is narrow, tall and pointed (photo references/...-deforaportaeste)
+		// Porta Este is a narrow pointed doorway, 1.4 m wide and about 3.8 m high (photos
+		// references/...-deforaportaeste, -deforaportaeste2); the wall's pieces leave a wider gap, which
+		// _portaEste closes down to it with masonry
 		const portaEste = terrain.portaEste && terrain.portaEste.gate;
-		if ( portaEste ) Object.assign( portaEste, { half: 0.95, pointed: 1.5, spring: 3.1, fit: true } );
+		if ( portaEste ) Object.assign( portaEste, { half: 0.6, pointed: 1.6, spring: 2.7, fit: true, opening: 0.7 } );
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
 		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
@@ -1098,10 +1100,27 @@ export class Walls {
 		};
 		const GREY = [ 0.92, 0.88, 0.8 ], PROUD = 0.06, FACE = pe.FACE;
 
+		// the gap the wall's pieces leave, closed down to the doorway: masonry from the floor to the
+		// springing (the soffit is level there), the wall's full depth
+		if ( g.span > R + 0.01 ) {
+
+			const w = g.span - R, tone = 0.92;
+			kit.vdata = [ 0.37, 0.8, 0, 0 ];
+			kit.color = [ tone * 1.05, tone * 0.84, tone * 0.56 ];
+			for ( const side of [ - 1, 1 ] ) {
+
+				const a = side * ( R + w / 2 ), [ x, z ] = onFace( a, 0 ), bottom = Math.min( pe.yOut, pe.y1 ) - 0.8;
+				kit.box( x, ( spring + bottom ) / 2, z, w, spring - bottom, 2 * FACE, yawT );
+				this.colliders.addBox( new Vector3( x, ( spring + bottom ) / 2, z ), new Vector3( w / 2, ( spring - bottom ) / 2, FACE ), yawT, { walkable: false, tag: 'wall' } );
+
+			}
+
+		}
+
 		// the voussoirs: each half of the arch an arc of radius rr struck from beyond the other jamb
 		kit.vdata = [ 0.43, 0.35, 0, 0 ];
 		kit.color = GREY;
-		const RING = 0.5, NV = 7, GAP = 0.012, d0 = FACE, d1 = FACE + PROUD;
+		const RING = 0.38, NV = 5, GAP = 0.012, d0 = FACE, d1 = FACE + PROUD;
 		for ( const side of [ - 1, 1 ] ) {
 
 			const c = - side * ( rr - R ), tMax = Math.acos( ( rr - R ) / rr );
@@ -1131,7 +1150,7 @@ export class Walls {
 			// the jamb stones below the springing, long and short in turn, flush with the opening
 			for ( let y = g.y, k = 0; y < spring - 0.05; k ++ ) {
 
-				const h = Math.min( spring - y, k % 2 ? 0.48 : 0.62 ), w = k % 2 ? 0.42 : 0.7;
+				const h = Math.min( spring - y, k % 2 ? 0.5 : 0.62 ), w = k % 2 ? 0.36 : 0.6;
 				const [ x, z ] = onFace( side * ( R + w / 2 ), FACE + PROUD / 2 );
 				kit.box( x, y + h / 2, z, w - 0.02, h - 0.02, PROUD, yawT );
 				y += h;
@@ -1143,12 +1162,12 @@ export class Walls {
 		// the passage: two low steps of grey setts, each with a nosing of pale stone
 		const passage = ( s0, s1, top ) => {
 
-			const sm = ( s0 + s1 ) / 2, [ x, z ] = onFace( 0, - sm - lineD( 0 ) );
+			const sm = ( s0 + s1 ) / 2, [ x, z ] = onFace( 0, - sm );
 			kit.vdata = [ 0.29, 0.6, 0, 0 ];
 			kit.color = [ 0.8, 0.78, 0.74 ];
 			kit.box( x, top - 0.3, z, 2 * R + 0.1, 0.6, s1 - s0, yawT );
 			this.colliders.addBox( new Vector3( x, top - 0.3, z ), new Vector3( R + 0.05, 0.3, ( s1 - s0 ) / 2 ), yawT, { walkable: true, tag: 'stair' } );
-			const [ nx, nz ] = onFace( 0, - s0 - 0.11 - lineD( 0 ) );
+			const [ nx, nz ] = onFace( 0, - s0 - 0.11 );
 			kit.vdata = [ 0.43, 0.5, 0, 0 ];
 			kit.color = [ 0.95, 0.9, 0.8 ];
 			kit.box( nx, top - 0.1 + 0.005, nz, 2 * R + 0.12, 0.2, 0.22, yawT );
@@ -1156,6 +1175,43 @@ export class Walls {
 		};
 		passage( - FACE, pe.STEP2, pe.y1 );
 		passage( pe.STEP2, FACE + 0.3, pe.y2 );
+
+		// outside, two big steps of grey limestone against the wall up to the threshold, wider than the door
+		for ( let i = 0; i < 2; i ++ ) {
+
+			const d0 = FACE + i * 0.42, d1 = d0 + ( i ? 0.48 : 0.42 ), top = pe.yOut + pe.OUT_RISE * ( 2 - i ), bottom = pe.yOut - 0.5;
+			const [ x, z ] = onFace( 0, ( d0 + d1 ) / 2 );
+			kit.vdata = [ 0.43, 0.4, 0, 0 ];
+			kit.color = [ 0.84, 0.83, 0.79 ];
+			kit.box( x, ( top + bottom ) / 2, z, i ? 2.7 : 2.45, top - bottom, d1 - d0 + 0.02, yawT );
+			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( i ? 1.35 : 1.225, ( top - bottom ) / 2, ( d1 - d0 ) / 2 ), yawT, { walkable: true, tag: 'stair' } );
+
+		}
+
+		// above the door, a white marble plaque in a grey frame, five lines cut in it
+		// ("A Virgem Nossa Senhora foi concebida sem peccado original")
+		{
+
+			const crown = spring + Math.sqrt( rr * rr - ( rr - R ) * ( rr - R ) );
+			const PW = 1.15, PH = 0.72, cy = crown + 1.3 + PH / 2, a = 0;
+			const at = ( da, d ) => onFace( a + da, FACE + d );
+			const [ x, z ] = at( 0, 0.03 );
+			plaster.vdata = [ 0, 0, 0.31, 4 ];
+			plaster.color = lin( [ 0.55, 0.56, 0.55 ] );
+			plaster.box( x, cy, z, PW + 0.08, PH + 0.08, 0.06, yawT );
+			const [ x2, z2 ] = at( 0, 0.065 );
+			plaster.color = lin( [ 0.9, 0.9, 0.87 ] );
+			plaster.box( x2, cy, z2, PW, PH, 0.02, yawT );
+			plaster.color = lin( [ 0.22, 0.22, 0.22 ] );
+			const lines = [ 0.62, 0.86, 0.8, 0.88, 0.5 ];
+			lines.forEach( ( w, k ) => {
+
+				const [ x3, z3 ] = at( 0, 0.077 );
+				plaster.box( x3, cy + PH / 2 - 0.12 - k * 0.12, z3, PW * w, 0.05, 0.006, yawT );
+
+			} );
+
+		}
 
 		// the flight, across the lane between its walls
 		const yawAt = ( s ) => {
@@ -1585,7 +1641,7 @@ export class Walls {
 		}
 
 		// fit: the arch centred on the opening the pieces leave (their edges needn't fall evenly about the
-		// gate's point), its radius half the opening
+		// gate's point), its radius half the opening (or opening, if narrower: span is the gap's half)
 		const span = new Map();
 		for ( let i = 0; i < n; i ++ ) {
 
@@ -1607,7 +1663,8 @@ export class Walls {
 
 			const mid = ( sp.lo + sp.hi ) / 2;
 			g.x += sp.tx * mid; g.z += sp.tz * mid;
-			arcR.set( g, ( sp.hi - sp.lo ) / 2 );
+			g.span = ( sp.hi - sp.lo ) / 2;
+			arcR.set( g, Math.min( g.span, g.opening ?? Infinity ) );
 
 		}
 

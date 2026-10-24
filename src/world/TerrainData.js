@@ -634,7 +634,8 @@ export class TerrainData {
 		const HALF = 2.0; // the lane between its walls
 		const FACE = 1.4; // the curtain's faces from its line (Walls' W / 2)
 		const yOut = this.heightAt( g.x + nx * FACE, g.z + nz * FACE ), yEnd = this.heightAt( E[ 0 ], E[ 1 ] );
-		const LOW = 0.15, y1 = yOut + LOW, y2 = y1 + LOW, STEP2 = 0.1; // the passage's two steps
+		// two big steps up to the threshold outside (Walls builds them), then the passage's two low steps
+		const OUT_RISE = 0.17, LOW = 0.13, y1 = yOut + 2 * OUT_RISE + LOW, y2 = y1 + LOW, STEP2 = 0.1;
 		const SF = 11, N = 13, RISE = 0.18, TREAD = 0.4, ST = SF + N * TREAD; // the flight
 		const yF0 = y2 + 0.12 * ( SF - FACE ), yF1 = yF0 + N * RISE;
 		// the walking surface (on the flight, the line of its nosings)
@@ -664,7 +665,7 @@ export class TerrainData {
 
 		} );
 		g.y = y1;
-		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, y1, y2, SF, ST, N, RISE, TREAD, length: L };
+		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, length: L };
 
 	}
 
