@@ -685,8 +685,39 @@ export class TerrainData {
 
 		}
 
+		// on the right (north) of the flight a terrace, flat, held up by a tall wall along the flight and
+		// across its foot (photo references/...-muroescadariaportaeste); level a little over the flight's
+		// top, it falls back to the ground beyond its far sides
+		const TERRACE = { s0: SF - 1.4, s1: ST + 1.6, depth: 8, y: yF1 + 0.9 };
+		{
+
+			const T0 = TERRACE, dIn = HALF + 0.4, dOut = HALF + T0.depth, FALL = 3;
+			const pad2 = dOut + FALL, xs2 = [], zs2 = [];
+			for ( const sv of [ T0.s0, T0.s1 + FALL ] ) for ( const dv of [ - dIn, - pad2 ] ) {
+
+				xs2.push( g.x + ux * sv + lx * dv ); zs2.push( g.z + uz * sv + lz * dv );
+
+			}
+
+			const a0 = Math.max( 0, Math.floor( ( Math.min( ...xs2 ) - origin ) / texel ) ), a1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs2 ) - origin ) / texel ) );
+			const b0 = Math.max( 0, Math.floor( ( Math.min( ...zs2 ) - origin ) / texel ) ), b1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs2 ) - origin ) / texel ) );
+			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
+				if ( sv < T0.s0 + 0.5 || sv > T0.s1 + FALL || dv < dIn + 0.5 || dv > pad2 ) continue;
+				// (full from just behind the walls, so the 1 m texels don't spill it out in front of them)
+				const t = smoothstep( T0.s0 + 0.5, T0.s0 + 1.3, sv ) * smoothstep( dIn + 0.5, dIn + 1.3, dv )
+					* ( 1 - smoothstep( T0.s1, T0.s1 + FALL, sv ) ) * ( 1 - smoothstep( dOut, pad2, dv ) );
+				const k = j * res + i;
+				heights[ k ] = lerp( heights[ k ], T0.y - 0.05, t );
+
+			}
+
+		}
+
 		g.y = y1;
-		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, length: L };
+		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, TERRACE, length: L };
 
 	}
 

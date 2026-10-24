@@ -1442,24 +1442,132 @@ export class Walls {
 
 		}
 
-		// the right wall beside the flight: tall where the ground behind stands high, its yellow band tall
-		// too (about a metre), the balustrade along its top
-		const behindR = ( sv ) => T.heightAt( ...lanePt( sv, - ( H + TH + 0.6 ) ) );
-		const RS0 = pe.SF - 1.4, rightTop = ( sv ) => Math.max( pe.surf( sv ) + 1.0, behindR( sv ) + 0.1 );
-		wallRun( - 1, RS0, pe.ST + 1.6, rightTop, 0.58 );
-		balustrade( - 1, RS0, pe.ST + 1.6, rightTop );
+		// the right wall beside the flight holds up a flat terrace (TerrainData levels it): its top level
+		// with the terrace, so it stands ~3.5 m over the flight's foot, its yellow band tall; the balustrade
+		// along its top. At the flight's foot it turns the corner and runs back from the lane, along the
+		// verge (photo references/...-muroescadariaportaeste), quoins up the corner, and in front of it a
+		// planter with a blue band, plants spilling over, a black gate at its end.
+		const TR = pe.TERRACE, RS0 = TR.s0, rightTop = () => TR.y;
+		wallRun( - 1, RS0, TR.s1, rightTop, 0.58 );
+		balustrade( - 1, RS0, TR.s1, rightTop );
 
-		// quoins at its foot's corner: long and short in turn, on its face and its end
-		kit.vdata = [ 0.43, 0.45, 0, 0 ];
-		kit.color = STONE;
-		for ( let y = pe.surf( RS0 ) - 0.1, k = 0; y < rightTop( RS0 ) - 0.1; k ++ ) {
+		// a straight wall from P0 to P1 (world xz), thick toward `back` (unit xz), from below the ground to
+		// top( t ) (t 0..1 along it); its band (colour) follows the ground at its face
+		const straightWall = ( P0, P1, back, top, color, bar, ends = [ true, true ] ) => {
 
-			const h = Math.min( rightTop( RS0 ) - 0.02 - y, 0.34 ), w = k % 2 ? 0.26 : 0.44, yaw = yawAt( RS0 );
-			const [ x, z ] = lanePt( RS0 + w / 2, - H + 0.015 );
-			kit.box( x, y + h / 2, z, w, h - 0.03, 0.03, yaw );
-			const [ x2, z2 ] = lanePt( RS0 - 0.015, - ( H + ( k % 2 ? 0.44 : 0.26 ) / 2 ) );
-			kit.box( x2, y + h / 2, z2, 0.03, h - 0.03, k % 2 ? 0.44 : 0.26, yaw );
-			y += h;
+			const L = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] ), n = Math.max( 1, Math.ceil( L ) );
+			const ux = ( P1[ 0 ] - P0[ 0 ] ) / L, uz = ( P1[ 1 ] - P0[ 1 ] ) / L, yaw = Math.atan2( - uz, ux );
+			plaster.color = color;
+			plaster.vdata = [ 20, 0, 0, 0 ];
+			const at = ( t, k ) => [ P0[ 0 ] + ( P1[ 0 ] - P0[ 0 ] ) * t + back[ 0 ] * k, P0[ 1 ] + ( P1[ 1 ] - P0[ 1 ] ) * t + back[ 1 ] * k ];
+			const front = [ - back[ 0 ], 0, - back[ 1 ] ];
+			for ( let i = 0; i < n; i ++ ) {
+
+				const ta = i / n, tb = ( i + 1 ) / n, A = at( ta, 0 ), B = at( tb, 0 ), A2 = at( ta, TH ), B2 = at( tb, TH );
+				const ga = T.heightAt( ...at( ta, - 0.3 ) ), gb = T.heightAt( ...at( tb, - 0.3 ) ), ya = ga - 0.6, yb = gb - 0.6, hA = top( ta ), hB = top( tb );
+				const ua = ta * L, ub = tb * L;
+				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], hB, B[ 1 ] ], [ A[ 0 ], hA, A[ 1 ] ], front,
+					[ [ ua, ( ya - ga ) * bar ], [ ub, ( yb - gb ) * bar ], [ ub, ( hB - gb ) * bar ], [ ua, ( hA - ga ) * bar ] ] );
+				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], hB, B2[ 1 ] ], [ A2[ 0 ], hA, A2[ 1 ] ], front.map( ( v ) => - v ),
+					[ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
+				plaster.quadFacing( [ A[ 0 ], hA, A[ 1 ] ], [ B[ 0 ], hB, B[ 1 ] ], [ B2[ 0 ], hB, B2[ 1 ] ], [ A2[ 0 ], hA, A2[ 1 ] ], [ 0, 1, 0 ],
+					[ [ ua, 5 ], [ ub, 5 ], [ ub, 5.4 ], [ ua, 5.4 ] ] );
+				for ( const [ end, t, E, E2, y0, h, g, dir ] of [ [ ends[ 0 ] && i === 0, ta, A, A2, ya, hA, ga, - 1 ], [ ends[ 1 ] && i === n - 1, tb, B, B2, yb, hB, gb, 1 ] ] ) {
+
+					if ( ! end ) continue;
+					plaster.quadFacing( [ E[ 0 ], y0, E[ 1 ] ], [ E2[ 0 ], y0, E2[ 1 ] ], [ E2[ 0 ], h, E2[ 1 ] ], [ E[ 0 ], h, E[ 1 ] ], [ ux * dir, 0, uz * dir ],
+						[ [ 0, ( y0 - g ) * bar ], [ TH, ( y0 - g ) * bar ], [ TH, ( h - g ) * bar ], [ 0, ( h - g ) * bar ] ] );
+
+				}
+
+				const [ cx, cz ] = at( ( ta + tb ) / 2, TH / 2 ), hi = Math.max( hA, hB ), lo = Math.min( ya, yb );
+				this.colliders.addBox( new Vector3( cx, ( hi + lo ) / 2, cz ), new Vector3( L / n / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), yaw, { walkable: false, tag: 'wall' } );
+
+			}
+
+		};
+		// quoins up a corner at P (world xz), on the faces running along u1 and u2 (unit xz, away from the corner)
+		const quoins = ( P, u1, u2, y0, y1 ) => {
+
+			kit.vdata = [ 0.43, 0.45, 0, 0 ];
+			kit.color = [ 1.02, 0.86, 0.6 ]; // golden limestone, as in the photo
+			for ( let y = y0, k = 0; y < y1 - 0.1; k ++ ) {
+
+				const h = Math.min( y1 - 0.02 - y, 0.36 ), wa = k % 2 ? 0.26 : 0.46, wb = k % 2 ? 0.46 : 0.26;
+				for ( const [ u, o, w ] of [ [ u1, u2, wa ], [ u2, u1, wb ] ] ) {
+
+					// on the face along u (its outward normal is -o), proud of it
+					kit.box( P[ 0 ] + u[ 0 ] * w / 2 - o[ 0 ] * 0.015, y + h / 2, P[ 1 ] + u[ 1 ] * w / 2 - o[ 1 ] * 0.015, w, h - 0.03, 0.03, Math.atan2( - u[ 1 ], u[ 0 ] ) );
+
+				}
+
+				y += h;
+
+			}
+
+		};
+
+		// the wall across the flight's foot, back from the lane along the verge
+		const RET = 7.5, PLANT0 = 2.6, PLANT_OUT = 1.3; // its length; the planter from 2.6 m along, 1.3 m deep
+		const p0 = pe.at( RS0 ), along = [ - p0.lx, - p0.lz ], intoT = [ p0.dx, p0.dz ]; // away from the lane; into the terrace
+		const C0 = lanePt( RS0, - H ), C1 = [ C0[ 0 ] + along[ 0 ] * RET, C0[ 1 ] + along[ 1 ] * RET ];
+		straightWall( C0, C1, intoT, () => TR.y, YELLOW, 0.58, [ false, true ] );
+		{
+
+			// its balustrade, level with the terrace: posts and rail as on the flight's side
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ];
+			const mid = [ ( C0[ 0 ] + C1[ 0 ] ) / 2 + intoT[ 0 ] * TH / 2, ( C0[ 1 ] + C1[ 1 ] ) / 2 + intoT[ 1 ] * TH / 2 ], yaw = Math.atan2( - along[ 1 ], along[ 0 ] );
+			kit.box( mid[ 0 ], TR.y + 0.03, mid[ 1 ], RET, 0.1, 0.3, yaw );
+			kit.box( mid[ 0 ], TR.y + 0.655, mid[ 1 ], RET, 0.11, 0.32, yaw );
+			for ( let t = 0.3; t < RET - 0.2; t += 0.3 ) {
+
+				const x = C0[ 0 ] + along[ 0 ] * t + intoT[ 0 ] * TH / 2, z = C0[ 1 ] + along[ 1 ] * t + intoT[ 1 ] * TH / 2;
+				kit.box( x, TR.y + 0.34, z, 0.11, 0.52, 0.13, yaw );
+
+			}
+
+			this.colliders.addBox( new Vector3( mid[ 0 ], TR.y + 0.35, mid[ 1 ] ), new Vector3( RET / 2, 0.36, 0.16 ), yaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		quoins( C0, along, intoT, pe.surf( RS0 ) - 0.1, TR.y );
+
+		// the planter in front of it: a low wall with a blue band, its top level, plants over it
+		const BLUE = lin( [ 0.1, 0.27, 0.78 ] );
+		const Q0 = [ C0[ 0 ] + along[ 0 ] * PLANT0 - intoT[ 0 ] * PLANT_OUT, C0[ 1 ] + along[ 1 ] * PLANT0 - intoT[ 1 ] * PLANT_OUT ];
+		const Q1 = [ C1[ 0 ] - intoT[ 0 ] * PLANT_OUT, C1[ 1 ] - intoT[ 1 ] * PLANT_OUT ];
+		const plantTop = T.heightAt( ...Q0 ) + 1.5;
+		straightWall( Q0, Q1, intoT, () => plantTop, BLUE, 0.62 );
+		const S0 = [ C0[ 0 ] + along[ 0 ] * PLANT0, C0[ 1 ] + along[ 1 ] * PLANT0 ];
+		straightWall( S0, [ S0[ 0 ] - intoT[ 0 ] * ( PLANT_OUT - TH ), S0[ 1 ] - intoT[ 1 ] * ( PLANT_OUT - TH ) ], along, () => plantTop, BLUE, 0.62, [ false, false ] );
+		quoins( Q0, along, intoT, T.heightAt( ...Q0 ) - 0.1, plantTop );
+		{
+
+			let seed = 23;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < 260; i ++ ) {
+
+				const t = rnd(), o = 0.1 + rnd() * ( PLANT_OUT - 0.2 ), hang = rnd() < 0.15;
+				const x = Q0[ 0 ] + ( Q1[ 0 ] - Q0[ 0 ] ) * t + intoT[ 0 ] * ( hang ? - 0.05 : o ), z = Q0[ 1 ] + ( Q1[ 1 ] - Q0[ 1 ] ) * t + intoT[ 1 ] * ( hang ? - 0.05 : o );
+				const y = hang ? plantTop - rnd() * 0.9 : plantTop + rnd() * rnd() * 1.1;
+				const sz = 0.12 + rnd() * 0.2, flower = rnd() < 0.08;
+				plaster.color = lin( flower ? [ 0.85, 0.35, 0.15 ] : [ 0.16 + rnd() * 0.1, 0.32 + rnd() * 0.12, 0.1 ] );
+				plaster.box( x, y, z, sz, sz * 0.8, sz, rnd() * 3 );
+
+			}
+
+		}
+
+		{
+
+			// the black gate at its end, in the wall's line, into the terrace's garden
+			iron.vdata = [ 0, 0, 0, 0 ];
+			const G0 = [ Q1[ 0 ] + along[ 0 ] * 0.05, Q1[ 1 ] + along[ 1 ] * 0.05 ], GL = 1.6, g0 = T.heightAt( ...G0 );
+			const mid = [ G0[ 0 ] + along[ 0 ] * GL / 2, G0[ 1 ] + along[ 1 ] * GL / 2 ], yaw = Math.atan2( - along[ 1 ], along[ 0 ] );
+			iron.box( mid[ 0 ], g0 + 1.15, mid[ 1 ], GL, 2.3, 0.06, yaw );
+			this.colliders.addBox( new Vector3( mid[ 0 ], g0 + 1.15, mid[ 1 ] ), new Vector3( GL / 2, 1.15, 0.05 ), yaw, { walkable: false, tag: 'gate' } );
 
 		}
 
