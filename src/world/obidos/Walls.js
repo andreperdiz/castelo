@@ -1242,41 +1242,71 @@ export class Walls {
 
 		}
 
-		// the handrail up the middle: three posts and a rail, 0.95 m over the nosings' line
-		iron.vdata = [ 0, 0, 0, 0 ];
-		const RAIL = 0.95, rs0 = pe.SF - 0.35, rs1 = pe.ST + 0.35;
-		const railY = ( s ) => pe.surf( Math.min( Math.max( s, pe.SF ), pe.ST ) ) + RAIL;
-		for ( const s of [ rs0, ( rs0 + rs1 ) / 2, rs1 ] ) {
-
-			const [ x, z ] = lanePt( s, 0 ), y0 = s < pe.SF ? pe.surf( s ) : s > pe.ST ? pe.surf( s ) : railY( s ) - RAIL + pe.RISE;
-			iron.box( x, ( y0 + railY( s ) ) / 2, z, 0.05, railY( s ) - y0, 0.05, yawAt( s ) );
-			this.colliders.addBox( new Vector3( x, ( y0 + railY( s ) ) / 2, z ), new Vector3( 0.05, ( railY( s ) - y0 ) / 2, 0.05 ), yawAt( s ), { walkable: false, tag: 'rail' } );
-
-		}
-
+		// a bar of iron from a to b ([ x, y, z ]), w thick
 		const beam = ( a, b, w ) => {
 
 			const dx = b[ 0 ] - a[ 0 ], dz = b[ 2 ] - a[ 2 ], l = Math.hypot( dx, dz );
-			const sx = - dz / l * w / 2, sz = dx / l * w / 2, h = w / 2;
-			const c = ( p, i, j ) => [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
-			const ax = [ dx / l, 0, dz / l ];
-			iron.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ 0, 1, 0 ] );
-			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), [ 0, - 1, 0 ] );
+			// (a vertical bar: any horizontal side will do)
+			const ux = l > 1e-4 ? dx / l : f.tx, uz = l > 1e-4 ? dz / l : f.tz;
+			const sx = - uz * w / 2, sz = ux * w / 2, h = w / 2;
+			const vert = l < 1e-4;
+			const c = ( p, i, j ) => vert ? [ p[ 0 ] + sx * i + ux * h * j, p[ 1 ], p[ 2 ] + sz * i + uz * h * j ] : [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
+			const ax = vert ? [ 0, Math.sign( b[ 1 ] - a[ 1 ] ), 0 ] : [ ux, 0, uz ];
+			const up = vert ? [ ux, 0, uz ] : [ 0, 1, 0 ];
+			iron.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), up );
+			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), up.map( ( v ) => - v ) );
 			iron.quadFacing( c( a, 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ sx, 0, sz ] );
 			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, - 1, 1 ), c( a, - 1, 1 ), [ - sx, 0, - sz ] );
 			iron.quadFacing( c( a, - 1, - 1 ), c( a, 1, - 1 ), c( a, 1, 1 ), c( a, - 1, 1 ), ax.map( ( v ) => - v ) );
 			iron.quadFacing( c( b, - 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( b, - 1, 1 ), ax );
 
 		};
-		const railPt = ( s ) => {
 
-			const [ x, z ] = lanePt( s, 0 );
-			return [ x, railY( s ), z ];
+		// the handrail up the middle (photo references/...-escadariaportaeste): a round iron bar 0.9 m over
+		// the nosings' line on posts with forked heads; at each end it runs on level a little, then turns
+		// down into the ground
+		iron.vdata = [ 0, 0, 0, 0 ];
+		const RAIL = 0.9, BAR_W = 0.045;
+		const nose = ( sv ) => pe.surf( Math.min( Math.max( sv, pe.SF ), pe.ST ) );
+		const tread = ( sv ) => sv < pe.SF ? pe.surf( sv ) : sv >= pe.ST ? pe.surf( sv ) : pe.surf( pe.SF ) + ( Math.floor( ( sv - pe.SF ) / pe.TREAD ) + 1 ) * pe.RISE;
+		const P3 = ( sv, y ) => {
+
+			const [ x, z ] = lanePt( sv, 0 );
+			return [ x, y, z ];
 
 		};
-		beam( railPt( rs0 ), railPt( pe.SF ), 0.06 );
-		beam( railPt( pe.SF ), railPt( pe.ST ), 0.06 );
-		beam( railPt( pe.ST ), railPt( rs1 ), 0.06 );
+		const r0 = pe.SF + 0.1, r1 = pe.ST - 0.1, foot = pe.SF - 0.45, head = pe.ST + 0.4;
+		const yR0 = nose( r0 ) + RAIL, yR1 = nose( r1 ) + RAIL;
+		beam( P3( r0, yR0 ), P3( r1, yR1 ), BAR_W );
+		beam( P3( foot, yR0 ), P3( r0, yR0 ), BAR_W );
+		beam( P3( r1, yR1 ), P3( head, yR1 ), BAR_W );
+		beam( P3( foot, tread( foot ) - 0.05 ), P3( foot, yR0 + BAR_W / 2 ), BAR_W );
+		beam( P3( head, tread( head ) - 0.05 ), P3( head, yR1 + BAR_W / 2 ), BAR_W );
+		for ( const sv of [ foot, head ] ) {
+
+			const [ x, z ] = lanePt( sv, 0 ), y0 = tread( sv ), y1 = ( sv === foot ? yR0 : yR1 );
+			this.colliders.addBox( new Vector3( x, ( y0 + y1 ) / 2, z ), new Vector3( 0.05, ( y1 - y0 ) / 2, 0.05 ), yawAt( sv ), { walkable: false, tag: 'rail' } );
+
+		}
+
+		const NP = 4;
+		for ( let k = 0; k < NP; k ++ ) {
+
+			const sv = r0 + 0.5 + ( r1 - r0 - 1.0 ) * k / ( NP - 1 ), yr = nose( sv ) + RAIL, y0 = tread( sv ), yaw = yawAt( sv );
+			const [ x, z ] = lanePt( sv, 0 );
+			iron.box( x, ( y0 + yr - 0.12 ) / 2, z, 0.04, yr - 0.12 - y0, 0.04, yaw );
+			// the fork: two prongs either side of the bar, joined under it
+			iron.box( x, yr - 0.12, z, 0.035, 0.03, 0.15, yaw );
+			for ( const side of [ - 1, 1 ] ) {
+
+				const [ px, pz ] = lanePt( sv, side * 0.065 );
+				iron.box( px, yr - 0.05, pz, 0.03, 0.15, 0.022, yaw );
+
+			}
+
+			this.colliders.addBox( new Vector3( x, ( y0 + yr ) / 2, z ), new Vector3( 0.05, ( yr - y0 ) / 2, 0.08 ), yaw, { walkable: false, tag: 'rail' } );
+
+		}
 
 		// the lane's walls, whitewashed, a yellow band along their foot that follows the lane (photo
 		// references/...-entradaportaeste): on the left a low one with a dark coping, holding up the bed
@@ -1287,12 +1317,63 @@ export class Walls {
 		const TH = 0.4, BAR = 1.3; // the band's 0.55 m becomes 0.42 m
 		const T = this.terrain;
 		const STONE = [ 0.88, 0.85, 0.78 ];
-		const wallRun = ( side, s0, s1, topAt ) => {
+		// the cuts along the lane for things that follow its slope: every metre, and the flight's ends
+		const cutsFor = ( s0, s1 ) => {
 
-			const cuts = [ s0 ];
-			for ( let sv = Math.ceil( s0 ); sv < s1 - 0.3; sv ++ ) cuts.push( sv );
-			cuts.push( pe.SF, pe.ST, s1 );
-			const cs = [ ...new Set( cuts.filter( ( v ) => v >= s0 && v <= s1 ).map( ( v ) => Math.round( v * 1000 ) / 1000 ) ) ].sort( ( p, q ) => p - q );
+			const c = [ s0 ];
+			for ( let sv = Math.ceil( s0 ); sv < s1 - 0.3; sv ++ ) c.push( sv );
+			c.push( pe.SF, pe.ST, s1 );
+			return [ ...new Set( c.filter( ( v ) => v >= s0 && v <= s1 ).map( ( v ) => Math.round( v * 1000 ) / 1000 ) ) ].sort( ( p, q ) => p - q );
+
+		};
+		// a bar along the lane from sa to sb, d across (centre), w wide, its bottom and top at each end
+		const prism = ( k, sa, sb, d, w, ya0, ya1, yb0, yb1 ) => {
+
+			const A = lanePt( sa, d - w / 2 ), B = lanePt( sb, d - w / 2 ), A2 = lanePt( sa, d + w / 2 ), B2 = lanePt( sb, d + w / 2 );
+			const p = pe.at( ( sa + sb ) / 2 ), left = [ p.lx, 0, p.lz ];
+			k.quadFacing( [ A[ 0 ], ya1, A[ 1 ] ], [ B[ 0 ], yb1, B[ 1 ] ], [ B2[ 0 ], yb1, B2[ 1 ] ], [ A2[ 0 ], ya1, A2[ 1 ] ], [ 0, 1, 0 ] );
+			k.quadFacing( [ A[ 0 ], ya0, A[ 1 ] ], [ B[ 0 ], yb0, B[ 1 ] ], [ B2[ 0 ], yb0, B2[ 1 ] ], [ A2[ 0 ], ya0, A2[ 1 ] ], [ 0, - 1, 0 ] );
+			k.quadFacing( [ A[ 0 ], ya0, A[ 1 ] ], [ B[ 0 ], yb0, B[ 1 ] ], [ B[ 0 ], yb1, B[ 1 ] ], [ A[ 0 ], ya1, A[ 1 ] ], left.map( ( v ) => - v ) );
+			k.quadFacing( [ A2[ 0 ], ya0, A2[ 1 ] ], [ B2[ 0 ], yb0, B2[ 1 ] ], [ B2[ 0 ], yb1, B2[ 1 ] ], [ A2[ 0 ], ya1, A2[ 1 ] ], left );
+			k.quadFacing( [ A[ 0 ], ya0, A[ 1 ] ], [ A2[ 0 ], ya0, A2[ 1 ] ], [ A2[ 0 ], ya1, A2[ 1 ] ], [ A[ 0 ], ya1, A[ 1 ] ], [ - p.dx, 0, - p.dz ] );
+			k.quadFacing( [ B[ 0 ], yb0, B[ 1 ] ], [ B2[ 0 ], yb0, B2[ 1 ] ], [ B2[ 0 ], yb1, B2[ 1 ] ], [ B[ 0 ], yb1, B[ 1 ] ], [ p.dx, 0, p.dz ] );
+
+		};
+		// a stone balustrade along a wall's top (base( s )): a plinth, square balusters close together, a
+		// rail; stouter posts at its ends
+		const balustrade = ( side, s0, s1, base ) => {
+
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ]; // grey, lichened
+			const d = side * ( H + TH / 2 ), PH = 0.6, cs = cutsFor( s0, s1 );
+			for ( let i = 0; i + 1 < cs.length; i ++ ) {
+
+				const sa = cs[ i ], sb = cs[ i + 1 ], ba = base( sa ), bb = base( sb );
+				prism( kit, sa, sb, d, 0.3, ba - 0.02, ba + 0.08, bb - 0.02, bb + 0.08 );
+				prism( kit, sa, sb, d, 0.32, ba + PH, ba + PH + 0.11, bb + PH, bb + PH + 0.11 );
+				const [ cx, cz ] = lanePt( ( sa + sb ) / 2, d ), top = Math.max( ba, bb ) + PH + 0.11, bot = Math.min( ba, bb );
+				this.colliders.addBox( new Vector3( cx, ( top + bot ) / 2, cz ), new Vector3( ( sb - sa ) / 2 + 0.02, ( top - bot ) / 2, 0.16 ), yawAt( ( sa + sb ) / 2 ), { walkable: false, tag: 'wall' } );
+
+			}
+
+			for ( let sv = s0 + 0.32; sv < s1 - 0.2; sv += 0.3 ) {
+
+				const [ x, z ] = lanePt( sv, d ), b0 = base( sv ) + 0.08;
+				kit.box( x, b0 + ( PH - 0.08 ) / 2, z, 0.11, PH - 0.08, 0.13, yawAt( sv ) );
+
+			}
+
+			for ( const sv of [ s0 + 0.12, s1 - 0.12 ] ) {
+
+				const [ x, z ] = lanePt( sv, d ), b0 = base( sv ) - 0.02;
+				kit.box( x, b0 + ( PH + 0.2 ) / 2, z, 0.24, PH + 0.2, 0.34, yawAt( sv ) );
+
+			}
+
+		};
+		const wallRun = ( side, s0, s1, topAt, bar = BAR ) => {
+
+			const cs = cutsFor( s0, s1 );
 			plaster.color = YELLOW;
 			plaster.vdata = [ 20, 0, 0, 0 ];
 			for ( let i = 0; i + 1 < cs.length; i ++ ) {
@@ -1301,7 +1382,7 @@ export class Walls {
 				const A = lanePt( sa, side * H ), B = lanePt( sb, side * H ), A2 = lanePt( sa, side * ( H + TH ) ), B2 = lanePt( sb, side * ( H + TH ) );
 				const ya = Math.min( ra, T.heightAt( ...A2 ) ) - 0.5, yb = Math.min( rb, T.heightAt( ...B2 ) ) - 0.5;
 				const p = pe.at( ( sa + sb ) / 2 ), toLane = [ - p.lx * side, 0, - p.lz * side ];
-				const band = ( y, r ) => ( y - r ) * BAR;
+				const band = ( y, r ) => ( y - r ) * bar;
 				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], tb, B[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], toLane,
 					[ [ sa, band( ya, ra ) ], [ sb, band( yb, rb ) ], [ sb, band( tb, rb ) ], [ sa, band( ta, ra ) ] ] );
 				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], toLane.map( ( v ) => - v ),
@@ -1361,52 +1442,49 @@ export class Walls {
 
 		}
 
-		// the right wall beside the flight: tall where the ground behind stands high, its balustrade
+		// the right wall beside the flight: tall where the ground behind stands high, its yellow band tall
+		// too (about a metre), the balustrade along its top
 		const behindR = ( sv ) => T.heightAt( ...lanePt( sv, - ( H + TH + 0.6 ) ) );
 		const RS0 = pe.SF - 1.4, rightTop = ( sv ) => Math.max( pe.surf( sv ) + 1.0, behindR( sv ) + 0.1 );
-		const rs = wallRun( - 1, RS0, pe.ST + 1.6, rightTop );
-		kit.vdata = [ 0.43, 0.45, 0, 0 ];
-		kit.color = STONE;
-		for ( let i = 0; i + 1 < rs.length; i ++ ) {
-
-			// the rail along the top, pillars between
-			const sa = rs[ i ], sb = rs[ i + 1 ], sm = ( sa + sb ) / 2, [ x, z ] = lanePt( sm, - ( H + TH / 2 ) ), yaw = yawAt( sm );
-			const y = ( rightTop( sa ) + rightTop( sb ) ) / 2 + 0.78;
-			kit.box( x, y, z, sb - sa + 0.02, 0.12 + Math.abs( rightTop( sb ) - rightTop( sa ) ), TH - 0.06, yaw );
-
-		}
-
-		for ( let sv = RS0 + 0.15; sv < pe.ST + 1.5; sv += 0.55 ) {
-
-			const [ x, z ] = lanePt( sv, - ( H + TH / 2 ) ), y0 = rightTop( sv );
-			kit.box( x, y0 + 0.36, z, 0.16, 0.72, 0.16, yawAt( sv ) );
-
-		}
-
-		for ( const sv of [ RS0, pe.ST + 1.6 ] ) {
-
-			const [ x, z ] = lanePt( sv + ( sv === RS0 ? 0.15 : - 0.15 ), - ( H + TH / 2 ) ), y0 = rightTop( sv );
-			kit.box( x, y0 + 0.45, z, 0.32, 0.9, TH + 0.04, yawAt( sv ) ); // the posts at its ends
-
-		}
-
-		{
-
-			// the balustrade's collider (you can't step over it)
-			const sm = ( RS0 + pe.ST + 1.6 ) / 2, [ x, z ] = lanePt( sm, - ( H + TH / 2 ) ), yTop = rightTop( pe.ST + 1.6 ) + 0.9, yBot = rightTop( RS0 );
-			this.colliders.addBox( new Vector3( x, ( yTop + yBot ) / 2, z ), new Vector3( ( pe.ST + 1.6 - RS0 ) / 2, ( yTop - yBot ) / 2, TH / 2 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
-
-		}
+		wallRun( - 1, RS0, pe.ST + 1.6, rightTop, 0.58 );
+		balustrade( - 1, RS0, pe.ST + 1.6, rightTop );
 
 		// quoins at its foot's corner: long and short in turn, on its face and its end
-		for ( let y = pe.surf( RS0 ) - 0.1, k = 0; y < rightTop( RS0 ) - 0.05; k ++ ) {
+		kit.vdata = [ 0.43, 0.45, 0, 0 ];
+		kit.color = STONE;
+		for ( let y = pe.surf( RS0 ) - 0.1, k = 0; y < rightTop( RS0 ) - 0.1; k ++ ) {
 
-			const h = Math.min( rightTop( RS0 ) - y, 0.32 ), w = k % 2 ? 0.28 : 0.5;
-			const [ x, z ] = lanePt( RS0 + w / 2, - H + 0.02 ), yaw = yawAt( RS0 );
-			kit.box( x, y + h / 2, z, w, h - 0.02, 0.06, yaw );
-			const [ x2, z2 ] = lanePt( RS0 - 0.02, - ( H + ( k % 2 ? 0.5 : 0.28 ) / 2 ) );
-			kit.box( x2, y + h / 2, z2, 0.06, h - 0.02, k % 2 ? 0.5 : 0.28, yaw );
+			const h = Math.min( rightTop( RS0 ) - 0.02 - y, 0.34 ), w = k % 2 ? 0.26 : 0.44, yaw = yawAt( RS0 );
+			const [ x, z ] = lanePt( RS0 + w / 2, - H + 0.015 );
+			kit.box( x, y + h / 2, z, w, h - 0.03, 0.03, yaw );
+			const [ x2, z2 ] = lanePt( RS0 - 0.015, - ( H + ( k % 2 ? 0.44 : 0.26 ) / 2 ) );
+			kit.box( x2, y + h / 2, z2, 0.03, h - 0.03, k % 2 ? 0.44 : 0.26, yaw );
 			y += h;
+
+		}
+
+		// on the left, part way up, a pier: its foot yellow, whitewashed, a stone cap and a terracotta urn;
+		// the balustrade runs on from it up beside the flight
+		{
+
+			const sP = pe.SF + 2.4, [ x, z ] = lanePt( sP, H + TH / 2 ), yaw = yawAt( sP ), r = pe.surf( sP );
+			const bottom = r - 0.4, top = leftTop( sP ) + 0.85, band = r + 0.45, W2 = 0.56;
+			plaster.vdata = [ 0, 0, 0.27, 4 ];
+			plaster.color = YELLOW;
+			plaster.box( x, ( bottom + band ) / 2, z, W2, band - bottom, W2, yaw );
+			plaster.color = lin( [ 0.93, 0.92, 0.89 ] );
+			plaster.box( x, ( band + top ) / 2, z, W2, top - band, W2, yaw, 'bottom' );
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ];
+			kit.box( x, top + 0.06, z, W2 + 0.1, 0.12, W2 + 0.1, yaw );
+			plaster.color = lin( [ 0.62, 0.33, 0.2 ] );
+			plaster.box( x, top + 0.17, z, 0.16, 0.1, 0.16, yaw );
+			for ( const turn of [ 0, Math.PI / 4 ] ) plaster.box( x, top + 0.37, z, 0.32, 0.3, 0.32, yaw + turn );
+			plaster.box( x, top + 0.55, z, 0.36, 0.06, 0.36, yaw + Math.PI / 8 );
+			plaster.color = lin( [ 0.2, 0.3, 0.12 ] );
+			plaster.box( x, top + 0.64, z, 0.3, 0.14, 0.3, yaw + 0.3 ); // a plant in it
+			this.colliders.addBox( new Vector3( x, ( bottom + top ) / 2, z ), new Vector3( W2 / 2, ( top - bottom ) / 2, W2 / 2 ), yaw, { walkable: false, tag: 'wall' } );
+			balustrade( 1, sP + W2 / 2, pe.ST + 1.6, ( sv ) => leftTop( sv ) + 0.06 );
 
 		}
 
