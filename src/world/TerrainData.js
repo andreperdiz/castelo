@@ -690,7 +690,8 @@ export class TerrainData {
 		// on the right (north) of the flight a terrace, flat, held up by a tall wall along the flight and
 		// across its foot (photo references/...-muroescadariaportaeste); level a little over the flight's
 		// top, it falls back to the ground beyond its far sides
-		const TERRACE = { s0: SF - 1.4, s1: ST + 1.6, depth: 8, y: yF1 + 0.9 };
+		const TERRACE = { s0: SF - 1.4, s1: ST + 1.6, depth: 7.5, y: yF1 + 0.9 }; // (depth: as far back as the corner wall runs)
+		const largo = OSM.streets.find( ( st ) => st.name === 'Largo Doutor João Lourenço' );
 		{
 
 			const T0 = TERRACE, dIn = HALF + 0.4, dOut = HALF + T0.depth, FALL = 3;
@@ -703,11 +704,22 @@ export class TerrainData {
 
 			const a0 = Math.max( 0, Math.floor( ( Math.min( ...xs2 ) - origin ) / texel ) ), a1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs2 ) - origin ) / texel ) );
 			const b0 = Math.max( 0, Math.floor( ( Math.min( ...zs2 ) - origin ) / texel ) ), b1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs2 ) - origin ) / texel ) );
+			// the square on it (Largo Doutor João Lourenço, OSM), already about level with it: level it too,
+			// back from the corner wall's line
+			const sq = largo && largo.pts;
+			if ( sq ) this._fill( sq, ( k ) => {
+
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
+				if ( sv >= T0.s0 + 0.5 && dv >= dIn + 0.5 ) heights[ k ] = T0.y - 0.05;
+
+			} );
 			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
 
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
 				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
 				if ( sv < T0.s0 + 0.5 || sv > T0.s1 + FALL || dv < dIn + 0.5 || dv > pad2 ) continue;
+				if ( sq && pointInPolygon( x, z, sq ) ) continue; // (levelled above)
 				// (full from just behind the walls, so the 1 m texels don't spill it out in front of them)
 				const t = smoothstep( T0.s0 + 0.5, T0.s0 + 1.3, sv ) * smoothstep( dIn + 0.5, dIn + 1.3, dv )
 					* ( 1 - smoothstep( T0.s1, T0.s1 + FALL, sv ) ) * ( 1 - smoothstep( dOut, pad2, dv ) );
@@ -719,7 +731,9 @@ export class TerrainData {
 		}
 
 		g.y = y1;
-		this.portaEste = { gate: g, at, surf, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, TERRACE, length: L };
+		// the lane's frame: s along it from the gate, d across (left +)
+		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, TERRACE, length: L };
 
 	}
 
@@ -821,6 +835,41 @@ export class TerrainData {
 			this._fill( st.pts, ( k ) => {
 
 				path[ k ] = 255;
+
+			} );
+
+		}
+
+		// by Porta Este the square is the terrace the corner wall holds up: paved over the terrace, and not
+		// in front of the corner wall (the earth verge there)
+		const pe = this.portaEste;
+		if ( pe ) {
+
+			const { res, texel, origin } = this, TR = pe.TERRACE, H = pe.HALF;
+			const at = ( k ) => pe.frame( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel );
+			// (its outline is stroked like a street too: off within that stroke's reach of it)
+			if ( pe.largo ) this._stroke( pe.largo.pts, STREET_HALF.pedestrian + 0.8, 0, ( k ) => {
+
+				const [ s, d ] = at( k );
+				if ( s < TR.s0 && - d > H + 0.2 ) path[ k ] = 0;
+
+			} );
+			if ( pe.largo ) this._fill( pe.largo.pts, ( k ) => {
+
+				const [ s, d ] = at( k );
+				if ( s < TR.s0 && - d > H + 0.2 ) path[ k ] = 0;
+
+			} );
+			const c = [ [ TR.s0, H ], [ TR.s1, H ], [ TR.s1, H + TR.depth ], [ TR.s0, H + TR.depth ] ].map( ( [ s, d ] ) => {
+
+				const p = pe.at( s );
+				return [ p.x - p.lx * d, p.z - p.lz * d ];
+
+			} );
+			this._fill( c, ( k ) => {
+
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
 
 			} );
 

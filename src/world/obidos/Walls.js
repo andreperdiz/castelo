@@ -1540,7 +1540,7 @@ export class Walls {
 		};
 
 		// the wall across the flight's foot, back from the lane along the verge
-		const RET = 7.5, PLANT0 = 2.6, PLANT_OUT = 1.3; // its length; the planter from 2.6 m along, 1.3 m deep
+		const RET = TR.depth, PLANT0 = 2.6, PLANT_OUT = 1.3; // its length (the terrace's depth); the planter from 2.6 m along, 1.3 m deep
 		const p0 = pe.at( RS0 ), along = [ - p0.lx, - p0.lz ], intoT = [ p0.dx, p0.dz ]; // away from the lane; into the terrace
 		const C0 = lanePt( RS0, - H ), C1 = [ C0[ 0 ] + along[ 0 ] * RET, C0[ 1 ] + along[ 1 ] * RET ];
 		straightWall( C0, C1, intoT, () => TR.y, YELLOW, 0.58, [ false, true ] );
