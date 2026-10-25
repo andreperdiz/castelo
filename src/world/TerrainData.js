@@ -636,8 +636,10 @@ export class TerrainData {
 		const yOut = this.heightAt( g.x + nx * FACE, g.z + nz * FACE ), yEnd = this.heightAt( E[ 0 ], E[ 1 ] );
 		// two big steps up to the threshold outside (Walls builds them), then the passage's two low steps
 		const OUT_RISE = 0.17, LOW = 0.13, y1 = yOut + 2 * OUT_RISE + LOW, y2 = y1 + LOW, STEP2 = - 0.1; // (the second at the town side's recess)
-		const SF = 11, N = 13, RISE = 0.18, TREAD = 0.4, ST = SF + N * TREAD; // the flight
-		const yF0 = y2 + 0.12 * ( SF - FACE ), yF1 = yF0 + N * RISE;
+		// the flight: sixteen steps, most of the way up the lane (photos references/...-entradaportaeste,
+		// -escadariaportaeste), a long gentle slope below it
+		const SF = 17.2, N = 16, RISE = 0.17, TREAD = 0.42, ST = SF + N * TREAD;
+		const yF0 = y2 + 0.11 * ( SF - FACE ), yF1 = yF0 + N * RISE;
 		// the walking surface (on the flight, the line of its nosings)
 		const surf = ( s ) => s < - FACE ? this.heightAt( at( s ).x, at( s ).z ) : s < STEP2 ? y1 : s < FACE ? y2
 			: s < SF ? lerp( y2, yF0, ( s - FACE ) / ( SF - FACE ) ) : s < ST ? lerp( yF0, yF1, ( s - SF ) / ( ST - SF ) )

@@ -1302,7 +1302,7 @@ export class Walls {
 
 		}
 
-		const NP = 4;
+		const NP = 5;
 		for ( let k = 0; k < NP; k ++ ) {
 
 			const sv = r0 + 0.5 + ( r1 - r0 - 1.0 ) * k / ( NP - 1 ), yr = nose( sv ) + RAIL, y0 = tread( sv ), yaw = yawAt( sv );
