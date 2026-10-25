@@ -635,7 +635,7 @@ export class TerrainData {
 		const FACE = 1.4; // the curtain's faces from its line (Walls' W / 2)
 		const yOut = this.heightAt( g.x + nx * FACE, g.z + nz * FACE ), yEnd = this.heightAt( E[ 0 ], E[ 1 ] );
 		// two big steps up to the threshold outside (Walls builds them), then the passage's two low steps
-		const OUT_RISE = 0.17, LOW = 0.13, y1 = yOut + 2 * OUT_RISE + LOW, y2 = y1 + LOW, STEP2 = 0.1;
+		const OUT_RISE = 0.17, LOW = 0.13, y1 = yOut + 2 * OUT_RISE + LOW, y2 = y1 + LOW, STEP2 = - 0.1; // (the second at the town side's recess)
 		const SF = 11, N = 13, RISE = 0.18, TREAD = 0.4, ST = SF + N * TREAD; // the flight
 		const yF0 = y2 + 0.12 * ( SF - FACE ), yF1 = yF0 + N * RISE;
 		// the walking surface (on the flight, the line of its nosings)

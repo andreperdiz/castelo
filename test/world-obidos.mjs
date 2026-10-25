@@ -95,6 +95,16 @@ if ( ok ) {
 
 check( ok && P.position.y > pe.surf( pe.ST ), `walked in through Porta Este and up its steps (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) }, y ${ P.position.y.toFixed( 1 ) })` );
 
+// and from just inside it up the short flight to the plane trees' bed
+if ( pe ) {
+
+	const sm = pe.FACE + 0.6, a = pe.at( sm ), b = pe.at( sm );
+	P.placeAt( a.x - a.lx * 0.5, pe.surf( sm ) + 0.2, a.z - a.lz * 0.5 );
+	ok = walkTo( b.x + b.lx * ( pe.HALF + 2.4 ), b.z + b.lz * ( pe.HALF + 2.4 ), 10, 0.4 );
+	check( ok && P.position.y > pe.surf( sm ) + pe.BED - 0.15, `up the steps by Porta Este onto the plane trees' bed (y ${ ( P.position.y - pe.surf( sm ) ).toFixed( 2 ) } over the lane)` );
+
+}
+
 // every flight of steps
 let climbed = 0;
 for ( const st of W.stairs ) {

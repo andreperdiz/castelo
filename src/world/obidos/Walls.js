@@ -56,7 +56,9 @@ export class Walls {
 		// references/...-deforaportaeste, -deforaportaeste2); the wall's pieces leave a wider gap, which
 		// _portaEste closes down to it with masonry
 		const portaEste = terrain.portaEste && terrain.portaEste.gate;
-		if ( portaEste ) Object.assign( portaEste, { half: 0.6, pointed: 1.6, spring: 2.7, fit: true, opening: 0.7 } );
+		// seen from the town it is a taller round arch as wide as the gap, the doorway set back in it (photo
+		// references/...-portaeste3)
+		if ( portaEste ) Object.assign( portaEste, { half: 0.6, pointed: 1.6, spring: 2.7, fit: true, opening: 0.7, inner: { spring: 3.15, depth: 1.5 } } );
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
 		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
@@ -1101,7 +1103,8 @@ export class Walls {
 		const GREY = [ 0.92, 0.88, 0.8 ], PROUD = 0.06, FACE = pe.FACE;
 
 		// the gap the wall's pieces leave, closed down to the doorway: masonry from the floor to the
-		// springing (the soffit is level there), the wall's full depth
+		// springing (the soffit is level there), from the outer face back to the town side's recess
+		const SPLIT = g.inner ? - FACE + g.inner.depth : - FACE, DEEP = FACE - SPLIT;
 		if ( g.span > R + 0.01 ) {
 
 			const w = g.span - R, tone = 0.92;
@@ -1109,72 +1112,82 @@ export class Walls {
 			kit.color = [ tone * 1.05, tone * 0.84, tone * 0.56 ];
 			for ( const side of [ - 1, 1 ] ) {
 
-				const a = side * ( R + w / 2 ), [ x, z ] = onFace( a, 0 ), bottom = Math.min( pe.yOut, pe.y1 ) - 0.8;
-				kit.box( x, ( spring + bottom ) / 2, z, w, spring - bottom, 2 * FACE, yawT );
-				this.colliders.addBox( new Vector3( x, ( spring + bottom ) / 2, z ), new Vector3( w / 2, ( spring - bottom ) / 2, FACE ), yawT, { walkable: false, tag: 'wall' } );
+				const a = side * ( R + w / 2 ), [ x, z ] = onFace( a, ( SPLIT + FACE ) / 2 ), bottom = Math.min( pe.yOut, pe.y1 ) - 0.8;
+				kit.box( x, ( spring + bottom ) / 2, z, w, spring - bottom, DEEP, yawT );
+				this.colliders.addBox( new Vector3( x, ( spring + bottom ) / 2, z ), new Vector3( w / 2, ( spring - bottom ) / 2, DEEP / 2 ), yawT, { walkable: false, tag: 'wall' } );
 
 			}
 
 		}
 
-		// the voussoirs: each half of the arch an arc of radius rr struck from beyond the other jamb
-		kit.vdata = [ 0.43, 0.35, 0, 0 ];
-		kit.color = GREY;
-		const RING = 0.38, NV = 5, GAP = 0.012, d0 = FACE, d1 = FACE + PROUD;
-		for ( const side of [ - 1, 1 ] ) {
+		// a ring of voussoirs round an arch on a face (face +1 outer, -1 inner): each half an arc of radius
+		// rr struck from beyond the other jamb (rr = R: round), springing at ys; jamb stones below it
+		const voussoirs = ( face, R0, rr0, ys, ring, nv, color, jambW ) => {
 
-			const c = - side * ( rr - R ), tMax = Math.acos( ( rr - R ) / rr );
-			const pt = ( t, r, d ) => {
+			kit.vdata = [ 0.43, 0.35, 0, 0 ];
+			kit.color = color;
+			const GAP = 0.012, d0 = face * FACE, d1 = face * ( FACE + PROUD );
+			const out = [ f.nx * face, 0, f.nz * face ];
+			for ( const side of [ - 1, 1 ] ) {
 
-				const a = c + side * r * Math.cos( t ), [ x, z ] = onFace( a, d );
-				return [ x, spring + r * Math.sin( t ), z ];
+				const c = - side * ( rr0 - R0 ), tMax = Math.acos( ( rr0 - R0 ) / rr0 );
+				const pt = ( t, r, d ) => {
 
-			};
-			for ( let i = 0; i < NV; i ++ ) {
+					const a = c + side * r * Math.cos( t ), [ x, z ] = onFace( a, d );
+					return [ x, ys + r * Math.sin( t ), z ];
 
-				const ta = tMax * i / NV + ( i > 0 ? GAP / rr : 0 ), tb = tMax * ( i + 1 ) / NV - ( i < NV - 1 ? GAP / rr : 0 );
-				const ia = pt( ta, rr, d1 ), ib = pt( tb, rr, d1 ), oa = pt( ta, rr + RING, d1 ), ob = pt( tb, rr + RING, d1 );
-				const ia0 = pt( ta, rr, d0 ), ib0 = pt( tb, rr, d0 ), oa0 = pt( ta, rr + RING, d0 ), ob0 = pt( tb, rr + RING, d0 );
-				const out = [ f.nx, 0, f.nz ], tm = ( ta + tb ) / 2;
-				const radial = [ f.tx * side * Math.cos( tm ), Math.sin( tm ), f.tz * side * Math.cos( tm ) ];
-				kit.quadFacing( ia, ib, ob, oa, out );
-				kit.quadFacing( ia0, ib0, ib, ia, radial.map( ( v ) => - v ) );
-				kit.quadFacing( oa0, ob0, ob, oa, radial );
-				// the joints: the arc's tangent at each end (pointing up the arch), backwards at the start
-				const along = ( t ) => [ - f.tx * side * Math.sin( t ), Math.cos( t ), - f.tz * side * Math.sin( t ) ];
-				kit.quadFacing( ia0, oa0, oa, ia, along( ta ).map( ( v ) => - v ) );
-				kit.quadFacing( ib0, ob0, ob, ib, along( tb ) );
+				};
+				for ( let i = 0; i < nv; i ++ ) {
+
+					const ta = tMax * i / nv + ( i > 0 ? GAP / rr0 : 0 ), tb = tMax * ( i + 1 ) / nv - ( i < nv - 1 ? GAP / rr0 : 0 );
+					const ia = pt( ta, rr0, d1 ), ib = pt( tb, rr0, d1 ), oa = pt( ta, rr0 + ring, d1 ), ob = pt( tb, rr0 + ring, d1 );
+					const ia0 = pt( ta, rr0, d0 ), ib0 = pt( tb, rr0, d0 ), oa0 = pt( ta, rr0 + ring, d0 ), ob0 = pt( tb, rr0 + ring, d0 );
+					const tm = ( ta + tb ) / 2;
+					const radial = [ f.tx * side * Math.cos( tm ), Math.sin( tm ), f.tz * side * Math.cos( tm ) ];
+					kit.quadFacing( ia, ib, ob, oa, out );
+					kit.quadFacing( ia0, ib0, ib, ia, radial.map( ( v ) => - v ) );
+					kit.quadFacing( oa0, ob0, ob, oa, radial );
+					// the joints: the arc's tangent at each end (pointing up the arch), backwards at the start
+					const along = ( t ) => [ - f.tx * side * Math.sin( t ), Math.cos( t ), - f.tz * side * Math.sin( t ) ];
+					kit.quadFacing( ia0, oa0, oa, ia, along( ta ).map( ( v ) => - v ) );
+					kit.quadFacing( ib0, ob0, ob, ib, along( tb ) );
+
+				}
+
+				// the jamb stones below the springing, long and short in turn, flush with the opening
+				for ( let y = g.y, k = 0; y < ys - 0.05; k ++ ) {
+
+					const h = Math.min( ys - y, k % 2 ? 0.5 : 0.62 ), w = k % 2 ? jambW[ 0 ] : jambW[ 1 ];
+					const [ x, z ] = onFace( side * ( R0 + w / 2 ), face * ( FACE + PROUD / 2 ) );
+					kit.box( x, y + h / 2, z, w - 0.02, h - 0.02, PROUD, yawT );
+					y += h;
+
+				}
 
 			}
 
-			// the jamb stones below the springing, long and short in turn, flush with the opening
-			for ( let y = g.y, k = 0; y < spring - 0.05; k ++ ) {
-
-				const h = Math.min( spring - y, k % 2 ? 0.5 : 0.62 ), w = k % 2 ? 0.36 : 0.6;
-				const [ x, z ] = onFace( side * ( R + w / 2 ), FACE + PROUD / 2 );
-				kit.box( x, y + h / 2, z, w - 0.02, h - 0.02, PROUD, yawT );
-				y += h;
-
-			}
-
-		}
+		};
+		voussoirs( 1, R, rr, spring, 0.38, 5, GREY, [ 0.36, 0.6 ] );
+		// on the town side, golden: the round arch over the recess
+		if ( g.inner ) voussoirs( - 1, g.span, g.span, g.y + g.inner.spring, 0.42, 6, [ 1.02, 0.84, 0.56 ], [ 0.4, 0.62 ] );
 
 		// the passage: two low steps of grey setts, each with a nosing of pale stone
-		const passage = ( s0, s1, top ) => {
+		const passage = ( s0, s1, top, half ) => {
 
 			const sm = ( s0 + s1 ) / 2, [ x, z ] = onFace( 0, - sm );
 			kit.vdata = [ 0.29, 0.6, 0, 0 ];
 			kit.color = [ 0.8, 0.78, 0.74 ];
-			kit.box( x, top - 0.3, z, 2 * R + 0.1, 0.6, s1 - s0, yawT );
-			this.colliders.addBox( new Vector3( x, top - 0.3, z ), new Vector3( R + 0.05, 0.3, ( s1 - s0 ) / 2 ), yawT, { walkable: true, tag: 'stair' } );
+			kit.box( x, top - 0.3, z, 2 * half + 0.1, 0.6, s1 - s0, yawT );
+			this.colliders.addBox( new Vector3( x, top - 0.3, z ), new Vector3( half + 0.05, 0.3, ( s1 - s0 ) / 2 ), yawT, { walkable: true, tag: 'stair' } );
 			const [ nx, nz ] = onFace( 0, - s0 - 0.11 );
 			kit.vdata = [ 0.43, 0.5, 0, 0 ];
 			kit.color = [ 0.95, 0.9, 0.8 ];
-			kit.box( nx, top - 0.1 + 0.005, nz, 2 * R + 0.12, 0.2, 0.22, yawT );
+			kit.box( nx, top - 0.1 + 0.005, nz, 2 * half + 0.12, 0.2, 0.22, yawT );
 
 		};
-		passage( - FACE, pe.STEP2, pe.y1 );
-		passage( pe.STEP2, FACE + 0.3, pe.y2 );
+		// (the inner one under the recess, as wide as it)
+		passage( - FACE, pe.STEP2, pe.y1, R );
+		passage( pe.STEP2, FACE + 0.3, pe.y2, g.inner ? g.span : R );
 
 		// outside, two big steps of grey limestone against the wall up to the threshold, wider than the door
 		for ( let i = 0; i < 2; i ++ ) {
@@ -1407,9 +1420,28 @@ export class Walls {
 
 		};
 
-		// the left wall, its coping, the loose setts
+		// the left wall, its coping, the loose setts; it starts a little way in from the curtain, leaving
+		// room for a short flight up to the bed against the curtain's face (photo references/...-portaeste3):
+		// five stone steps rising away from the lane, the first standing out into it
 		const leftTop = ( sv ) => pe.surf( sv ) + pe.BED + 0.15;
-		const ls = wallRun( 1, FACE, pe.ST + 1.6, leftTop );
+		const BS0 = FACE + 0.05, BS1 = FACE + 1.15, BN = 5, BTREAD = 0.42;
+		{
+
+			const sm = ( BS0 + BS1 ) / 2, r = pe.surf( sm ), yaw = yawAt( sm );
+			for ( let k = 0; k < BN; k ++ ) {
+
+				const d0 = H - 0.35 + k * BTREAD, top = r + ( k + 1 ) * pe.BED / BN, bottom = r - 0.4;
+				const [ x, z ] = lanePt( sm, d0 + BTREAD / 2 );
+				kit.vdata = [ 0.43, 0.5, 0, 0 ];
+				kit.color = [ 0.8, 0.79, 0.74 ];
+				kit.box( x, ( top + bottom ) / 2, z, BS1 - BS0, top - bottom, BTREAD + 0.01, yaw );
+				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( ( BS1 - BS0 ) / 2, ( top - bottom ) / 2, BTREAD / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+			}
+
+		}
+
+		const ls = wallRun( 1, BS1 + 0.1, pe.ST + 1.6, leftTop );
 		plaster.vdata = [ 0, 0, 0.41, 4 ];
 		plaster.color = lin( [ 0.42, 0.33, 0.27 ] );
 		for ( let i = 0; i + 1 < ls.length; i ++ ) {
@@ -1973,6 +2005,14 @@ export class Walls {
 			return spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
 
 		};
+		// gate.inner { R, spring, depth }: on the town side, for depth from the inner face, the passage is a
+		// taller round-arched recess (Porta Este: photo references/...-portaeste3)
+		const innerY = ( g, p, x, z ) => {
+
+			const a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz, I = g.inner, R = I.R ?? g.span ?? arcR.get( g );
+			return g.y + I.spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
+
+		};
 
 		const T = this.terrain;
 		const kit = this.kit;
@@ -2005,19 +2045,21 @@ export class Walls {
 			const arch = gate ? Array.from( { length: SUB + 1 }, ( _, k ) => {
 
 				const t = k / SUB, m = { x: A.x + ( B.x - A.x ) * t, z: A.z + ( B.z - A.z ) * t, nx: A.nx + ( B.nx - A.nx ) * t, nz: A.nz + ( B.nz - A.nz ) * t };
-				return { t, m, y: archY( gate, p, m.x, m.z ) };
+				return { t, m, y: archY( gate, p, m.x, m.z ), yi: gate.inner ? innerY( gate, p, m.x, m.z ) : archY( gate, p, m.x, m.z ) };
 
 			} ) : null;
+			const split = gate && gate.inner ? inner + gate.inner.depth : null; // the recess's back, from the wall line
 			const yg = gate ? Math.min( arch[ 0 ].y, arch[ SUB ].y ) : null;
 			// a face from the arch up to yTop, at offset d from the wall line
-			const archFace = ( d, yTop, N, u0 ) => {
+			// (key: 'y' the arch, 'yi' the inner recess's)
+			const archFace = ( d, yTop, N, u0, key = 'y' ) => {
 
 				for ( let k = 0; k < SUB; k ++ ) {
 
-					const a = arch[ k ], b = arch[ k + 1 ], qa = off( a.m, d ), qb = off( b.m, d );
+					const a = arch[ k ], b = arch[ k + 1 ], qa = off( a.m, d ), qb = off( b.m, d ), ya = a[ key ], yb = b[ key ];
 					const ua = u0 + len * a.t, ub = u0 + len * b.t;
-					kit.quadFacing( [ qa[ 0 ], a.y, qa[ 1 ] ], [ qb[ 0 ], b.y, qb[ 1 ] ], [ qb[ 0 ], yTop, qb[ 1 ] ], [ qa[ 0 ], yTop, qa[ 1 ] ], N,
-						[ [ ua, a.y ], [ ub, b.y ], [ ub, yTop ], [ ua, yTop ] ] );
+					kit.quadFacing( [ qa[ 0 ], ya, qa[ 1 ] ], [ qb[ 0 ], yb, qb[ 1 ] ], [ qb[ 0 ], yTop, qb[ 1 ] ], [ qa[ 0 ], yTop, qa[ 1 ] ], N,
+						[ [ ua, ya ], [ ub, yb ], [ ub, yTop ], [ ua, yTop ] ] );
 
 				}
 
@@ -2031,7 +2073,7 @@ export class Walls {
 				[ [ u, 0 ], [ u + len, 0 ], [ u + len, W / 2 + PO ], [ u, W / 2 + PO ] ] );
 			// inner face
 			const gIn = Math.min( ground( IA ), ground( IB ) ) - FOOT;
-			if ( gate ) archFace( inner, y, inN, u );
+			if ( gate ) archFace( inner, y, inN, u, 'yi' );
 			else kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ IB[ 0 ], gIn, IB[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], [ IA[ 0 ], yA, IA[ 1 ] ], inN,
 				[ [ u, gIn ], [ u + len, gIn ], [ u + len, yB ], [ u, yA ] ] );
 			// parapet: inner face, top, outer face (down to the ground outside)
@@ -2062,19 +2104,34 @@ export class Walls {
 			// the passage: soffit and jambs
 			if ( gate ) {
 
+				// the soffit (with a recess, its own from the inner face to the recess's back, and the face
+				// stepping down from it to the arch there)
+				const mid = split ?? inner;
 				for ( let k = 0; k < SUB; k ++ ) {
 
 					const a = arch[ k ], b = arch[ k + 1 ];
-					const ia = off( a.m, inner ), ib = off( b.m, inner ), oa = off( a.m, outer ), ob = off( b.m, outer );
-					kit.quadFacing( [ ia[ 0 ], a.y, ia[ 1 ] ], [ ib[ 0 ], b.y, ib[ 1 ] ], [ ob[ 0 ], b.y, ob[ 1 ] ], [ oa[ 0 ], a.y, oa[ 1 ] ], [ 0, - 1, 0 ] );
+					const ia = off( a.m, inner ), ib = off( b.m, inner ), ma = off( a.m, mid ), mb = off( b.m, mid ), oa = off( a.m, outer ), ob = off( b.m, outer );
+					kit.quadFacing( [ ma[ 0 ], a.y, ma[ 1 ] ], [ mb[ 0 ], b.y, mb[ 1 ] ], [ ob[ 0 ], b.y, ob[ 1 ] ], [ oa[ 0 ], a.y, oa[ 1 ] ], [ 0, - 1, 0 ] );
+					if ( split !== null ) {
+
+						kit.quadFacing( [ ia[ 0 ], a.yi, ia[ 1 ] ], [ ib[ 0 ], b.yi, ib[ 1 ] ], [ mb[ 0 ], b.yi, mb[ 1 ] ], [ ma[ 0 ], a.yi, ma[ 1 ] ], [ 0, - 1, 0 ] );
+						kit.quadFacing( [ ma[ 0 ], a.y, ma[ 1 ] ], [ mb[ 0 ], b.y, mb[ 1 ] ], [ mb[ 0 ], b.yi, mb[ 1 ] ], [ ma[ 0 ], a.yi, ma[ 1 ] ], inN );
+
+					}
 
 				}
 
 				const prev = samples[ i - 1 ], next = samples[ i + 1 ];
 				const tA = [ - p.tx, 0, - p.tz ], tB = [ p.tx, 0, p.tz ];
-				const yA = arch[ 0 ].y, yB = arch[ SUB ].y;
-				if ( ! prev || prev.gate !== gate ) kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ OA[ 0 ], gOut, OA[ 1 ] ], [ OA[ 0 ], yA, OA[ 1 ] ], [ IA[ 0 ], yA, IA[ 1 ] ], tB );
-				if ( ! next || next.gate !== gate ) kit.quadFacing( [ IB[ 0 ], gIn, IB[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], yB, OB[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], tA );
+				const MA = off( A, mid ), MB = off( B, mid );
+				const jamb = ( I, M, O, e, N ) => {
+
+					kit.quadFacing( [ M[ 0 ], gIn, M[ 1 ] ], [ O[ 0 ], gOut, O[ 1 ] ], [ O[ 0 ], e.y, O[ 1 ] ], [ M[ 0 ], e.y, M[ 1 ] ], N );
+					if ( split !== null ) kit.quadFacing( [ I[ 0 ], gIn, I[ 1 ] ], [ M[ 0 ], gIn, M[ 1 ] ], [ M[ 0 ], e.yi, M[ 1 ] ], [ I[ 0 ], e.yi, I[ 1 ] ], N );
+
+				};
+				if ( ! prev || prev.gate !== gate ) jamb( IA, MA, OA, arch[ 0 ], tB );
+				if ( ! next || next.gate !== gate ) jamb( IB, MB, OB, arch[ SUB ], tA );
 
 			}
 
