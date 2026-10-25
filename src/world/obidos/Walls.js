@@ -1540,7 +1540,7 @@ export class Walls {
 		};
 
 		// the wall across the flight's foot, back from the lane along the verge
-		const RET = TR.depth, PLANT0 = 2.6, PLANT_OUT = 1.3, PLANT1 = RET - 3.4; // its length (the terrace's depth); the planter from 2.6 m along to PLANT1, 1.3 m deep
+		const GD = pe.GARDEN, RET = TR.depth, PLANT0 = GD.PLANT0, PLANT_OUT = GD.PLANT_OUT, PLANT1 = RET - 3.4; // its length (the terrace's depth); the planter from PLANT0 along to PLANT1, PLANT_OUT deep
 		const p0 = pe.at( RS0 ), along = [ - p0.lx, - p0.lz ], intoT = [ p0.dx, p0.dz ]; // away from the lane; into the terrace
 		const C0 = lanePt( RS0, - H ), C1 = [ C0[ 0 ] + along[ 0 ] * RET, C0[ 1 ] + along[ 1 ] * RET ];
 		straightWall( C0, C1, intoT, () => TR.y, YELLOW, 0.58, [ false, true ] );
@@ -1622,29 +1622,31 @@ export class Walls {
 
 		}
 
+		// the garden's wall along the lane: from the planter's lane end to the house, low, whitewashed with
+		// a blue band, a gateway past its middle with quoins either side and a small black gate standing open
 		{
 
-			// past the planter, a small black gate in the tall wall, golden jamb stones round it: the way up
-			// into the garden on the square (its trees over the wall)
-			iron.vdata = [ 0, 0, 0, 0 ];
-			const GW = 1.1, GH = 2.0, at = PLANT1 + 0.6 + GW / 2;
-			const mid = [ C0[ 0 ] + along[ 0 ] * at - intoT[ 0 ] * 0.03, C0[ 1 ] + along[ 1 ] * at - intoT[ 1 ] * 0.03 ];
-			const g0 = T.heightAt( mid[ 0 ] - intoT[ 0 ] * 0.4, mid[ 1 ] - intoT[ 1 ] * 0.4 ), yaw = Math.atan2( - along[ 1 ], along[ 0 ] );
-			iron.box( mid[ 0 ], g0 + GH / 2, mid[ 1 ], GW, GH, 0.06, yaw );
-			kit.vdata = [ 0.43, 0.45, 0, 0 ];
-			kit.color = [ 1.02, 0.86, 0.6 ];
-			for ( const side of [ - 1, 1 ] ) for ( let y = g0, k = 0; y < g0 + GH; k ++ ) {
+			const u = intoT.map( ( v ) => - v ), P0 = [ Q0[ 0 ], Q0[ 1 ] ], L = GD.s1 - GD.s0;
+			const pt = ( t, o = 0 ) => [ P0[ 0 ] + u[ 0 ] * t + along[ 0 ] * o, P0[ 1 ] + u[ 1 ] * t + along[ 1 ] * o ];
+			const groundAt = ( t ) => T.heightAt( ...pt( t, - 0.3 ) );
+			const GAP = 1.6, gc = L * 0.55, g0 = gc - GAP / 2, g1 = gc + GAP / 2, WALL_H = 1.45;
+			for ( const [ t0, t1, ends ] of [ [ 0, g0, [ false, true ] ], [ g1, L, [ true, false ] ] ] ) {
 
-				const h = Math.min( g0 + GH - y, 0.4 ), w = k % 2 ? 0.24 : 0.36, o = side * ( GW / 2 + w / 2 );
-				kit.box( mid[ 0 ] + along[ 0 ] * o - intoT[ 0 ] * 0.01, y + h / 2, mid[ 1 ] + along[ 1 ] * o - intoT[ 1 ] * 0.01, w, h - 0.02, 0.05, yaw );
-				y += h;
+				straightWall( pt( t0 ), pt( t1 ), along, ( t ) => groundAt( t0 + ( t1 - t0 ) * t ) + WALL_H, BLUE, 0.62, ends );
 
 			}
 
-			kit.box( mid[ 0 ] - intoT[ 0 ] * 0.01, g0 + GH + 0.15, mid[ 1 ] - intoT[ 1 ] * 0.01, GW + 0.5, 0.3, 0.05, yaw ); // the lintel
-			this.colliders.addBox( new Vector3( mid[ 0 ], g0 + GH / 2, mid[ 1 ] ), new Vector3( GW / 2, GH / 2, 0.05 ), yaw, { walkable: false, tag: 'gate' } );
+			// the gateway's quoins, and the gate swung in against the wall
+			for ( const t of [ g0, g1 ] ) quoins( pt( t, 0 ), t === g0 ? u.map( ( v ) => - v ) : u, along, groundAt( t ) - 0.1, groundAt( t ) + WALL_H );
+			iron.vdata = [ 0, 0, 0, 0 ];
+			const y0 = groundAt( gc ), leaf = 1.4, hinge = pt( g1, TH ), open = 1.75;
+			const dir = [ - u[ 0 ] * Math.cos( open ) + along[ 0 ] * Math.sin( open ), - u[ 1 ] * Math.cos( open ) + along[ 1 ] * Math.sin( open ) ];
+			const mid = [ hinge[ 0 ] + dir[ 0 ] * leaf / 2, hinge[ 1 ] + dir[ 1 ] * leaf / 2 ], yaw = Math.atan2( - dir[ 1 ], dir[ 0 ] );
+			iron.box( mid[ 0 ], y0 + 0.95, mid[ 1 ], leaf, 1.7, 0.05, yaw );
+			this.colliders.addBox( new Vector3( mid[ 0 ], y0 + 0.95, mid[ 1 ] ), new Vector3( leaf / 2, 0.85, 0.05 ), yaw, { walkable: false, tag: 'gate' } );
 
 		}
+
 
 
 		// on the left, part way up, a pier: its foot yellow, whitewashed, a stone cap and a terracotta urn;
@@ -1675,8 +1677,9 @@ export class Walls {
 		// the two old plane trees in the bed, and on the square behind the corner wall a garden's trees
 		// (Trees grows them)
 		this.extraTrees = [ [ 6.5, H + TH + 2.6, 1.0, 'plane' ], [ 11.8, H + TH + 3.2, 0.92, 'plane' ],
-			[ RS0 + 2.4, - ( H + 6 ), 1.1, 'garden' ], [ RS0 + 3.2, - ( H + 10.5 ), 1.2, 'olive' ], [ RS0 + 2.2, - ( H + 13.5 ), 1.0, 'garden' ],
-			[ RS0 + 6.5, - ( H + 12 ), 1.0, 'cypress' ] ].map( ( [ sv, dd, scale, kind ] ) => {
+			[ RS0 + 3.2, - ( H + 10.5 ), 1.2, 'olive' ], [ RS0 + 6.5, - ( H + 12 ), 1.0, 'cypress' ],
+			// in the paved garden in front of the corner wall
+			[ GD.s1 - 2.2, - ( GD.front + 2.6 ), 1.1, 'garden' ], [ GD.s0 + 2.0, - ( GD.front + 3.6 ), 1.0, 'garden' ], [ ( GD.s0 + GD.s1 ) / 2, - ( GD.back - 1.6 ), 1.15, 'olive' ] ].map( ( [ sv, dd, scale, kind ] ) => {
 
 			const [ x, z ] = lanePt( sv, dd );
 			return { kind, x, z, scale };

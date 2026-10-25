@@ -759,10 +759,29 @@ export class TerrainData {
 
 		}
 
+		// the garden in front of the corner wall: from the planter's lane end a low wall runs along the lane
+		// to the house, a gateway in it (marked on a screenshot); paved inside. GARDEN: s from the house's
+		// face (s0) to the planter's front (s1), d from the wall's line (front) back (back)
+		const PLANT0 = 2.6, PLANT_OUT = 1.3;
+		const GARDEN = { front: HALF + PLANT0, back: HALF + TERRACE.depth - 3.4, s1: TERRACE.s0 - PLANT_OUT, s0: null, PLANT0, PLANT_OUT };
+		for ( let sv = GARDEN.s1 - 0.5; sv > GARDEN.s1 - 16; sv -= 0.1 ) {
+
+			const p = at( sv ), x = p.x - p.lx * ( GARDEN.front + 0.3 ), z = p.z - p.lz * ( GARDEN.front + 0.3 );
+			if ( OSM.buildings.some( ( b ) => Math.abs( b.pts[ 0 ][ 0 ] - x ) < 40 && Math.abs( b.pts[ 0 ][ 1 ] - z ) < 40 && pointInPolygon( x, z, b.pts ) ) ) {
+
+				GARDEN.s0 = sv + 0.05;
+				break;
+
+			}
+
+		}
+
+		if ( GARDEN.s0 === null ) GARDEN.s0 = GARDEN.s1 - 10;
+
 		g.y = y1;
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
-		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, TERRACE, length: L };
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, TERRACE, GARDEN, length: L };
 
 	}
 
@@ -896,6 +915,19 @@ export class TerrainData {
 
 			} );
 			this._fill( c, ( k ) => {
+
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			} );
+			// and the garden in front of the corner wall
+			const G = pe.GARDEN, gc = [ [ G.s0, G.front + 0.4 ], [ G.s1, G.front + 0.4 ], [ G.s1, G.back ], [ G.s0, G.back ] ].map( ( [ s, d ] ) => {
+
+				const p = pe.at( s );
+				return [ p.x - p.lx * d, p.z - p.lz * d ];
+
+			} );
+			this._fill( gc, ( k ) => {
 
 				path[ k ] = 255;
 				this.scarp[ k ] = 255;
