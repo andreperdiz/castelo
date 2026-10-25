@@ -711,17 +711,18 @@ export class TerrainData {
 
 				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
 				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
-				if ( sv >= T0.s0 + 0.5 && dv >= dIn + 0.5 ) heights[ k ] = T0.y - 0.05;
+				if ( sv >= T0.s0 + 0.4 && dv >= dIn ) heights[ k ] = T0.y - 0.05;
 
 			} );
 			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
 
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
 				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
-				if ( sv < T0.s0 + 0.5 || sv > T0.s1 + FALL || dv < dIn + 0.5 || dv > pad2 ) continue;
+				if ( sv < T0.s0 + 0.4 || sv > T0.s1 + FALL || dv < dIn || dv > pad2 ) continue;
 				if ( sq && pointInPolygon( x, z, sq ) ) continue; // (levelled above)
-				// (full from just behind the walls, so the 1 m texels don't spill it out in front of them)
-				const t = smoothstep( T0.s0 + 0.5, T0.s0 + 1.3, sv ) * smoothstep( dIn + 0.5, dIn + 1.3, dv )
+				// (rising from the walls' inner faces, so the 1 m texels don't spill it out in front of them;
+				// Walls paves a level border along them over the rest of the rise)
+				const t = smoothstep( T0.s0 + 0.4, T0.s0 + 0.9, sv ) * smoothstep( dIn, dIn + 0.5, dv )
 					* ( 1 - smoothstep( T0.s1, T0.s1 + FALL, sv ) ) * ( 1 - smoothstep( dOut, pad2, dv ) );
 				const k = j * res + i;
 				heights[ k ] = lerp( heights[ k ], T0.y - 0.05, t );

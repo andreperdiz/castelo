@@ -1565,6 +1565,33 @@ export class Walls {
 
 		quoins( C0, along, intoT, pe.surf( RS0 ) - 0.1, TR.y );
 
+		// on the terrace, a level border of setts along the inside of both walls, over the ground's rise
+		// from them (its 1 m texels can't step up right at a wall)
+		{
+
+			const BW = 1.0, top = TR.y - 0.04, bottom = TR.y - 1.2;
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.8, 0.78, 0.74 ];
+			const strip = ( x, z, lx, lz, yaw ) => {
+
+				kit.box( x, ( top + bottom ) / 2, z, lx, top - bottom, lz, yaw, 'bottom' );
+				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( lx / 2, ( top - bottom ) / 2, lz / 2 ), yaw, { walkable: true, tag: 'terrace' } );
+
+			};
+			// along the flight's wall (the lane's frame), in metre lengths as the lane bends a little
+			for ( let sv = RS0 + TH; sv < TR.s1 - 0.01; sv += 1 ) {
+
+				const sb = Math.min( TR.s1, sv + 1 ), [ x, z ] = lanePt( ( sv + sb ) / 2, - ( H + TH + BW / 2 ) );
+				strip( x, z, sb - sv + 0.02, BW, yawAt( ( sv + sb ) / 2 ) );
+
+			}
+
+			// along the corner wall, back from the lane
+			const len = RET - TH - BW, c = [ C0[ 0 ] + intoT[ 0 ] * ( TH + BW / 2 ) + along[ 0 ] * ( TH + BW + len / 2 ), C0[ 1 ] + intoT[ 1 ] * ( TH + BW / 2 ) + along[ 1 ] * ( TH + BW + len / 2 ) ];
+			strip( c[ 0 ], c[ 1 ], len, BW, Math.atan2( - along[ 1 ], along[ 0 ] ) );
+
+		}
+
 		// the planter in front of it: a low wall with a blue band, its top level, plants over it
 		const BLUE = lin( [ 0.1, 0.27, 0.78 ] );
 		const Q0 = [ C0[ 0 ] + along[ 0 ] * PLANT0 - intoT[ 0 ] * PLANT_OUT, C0[ 1 ] + along[ 1 ] * PLANT0 - intoT[ 1 ] * PLANT_OUT ];
