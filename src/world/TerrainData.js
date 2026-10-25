@@ -690,7 +690,7 @@ export class TerrainData {
 		// on the right (north) of the flight a terrace, flat, held up by a tall wall along the flight and
 		// across its foot (photo references/...-muroescadariaportaeste); level a little over the flight's
 		// top, it falls back to the ground beyond its far sides
-		const TERRACE = { s0: SF - 1.4, s1: ST + 1.6, depth: 7.5, y: yF1 + 0.9 }; // (depth: as far back as the corner wall runs)
+		const TERRACE = { s0: SF - 1.4, s1: ST + 1.6, depth: 15, y: yF1 + 0.9 }; // (depth: as far back as the corner wall runs)
 		const largo = OSM.streets.find( ( st ) => st.name === 'Largo Doutor João Lourenço' );
 		{
 
@@ -711,21 +711,49 @@ export class TerrainData {
 
 				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
 				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
-				if ( sv >= T0.s0 + 0.4 && dv >= dIn ) heights[ k ] = T0.y - 0.05;
+				if ( sv >= T0.s0 + 1.3 && dv >= dIn ) heights[ k ] = T0.y - 0.05;
 
 			} );
 			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
 
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
 				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
-				if ( sv < T0.s0 + 0.4 || sv > T0.s1 + FALL || dv < dIn || dv > pad2 ) continue;
+				if ( sv < T0.s0 + 1.0 || sv > T0.s1 + FALL || dv < dIn || dv > pad2 ) continue;
 				if ( sq && pointInPolygon( x, z, sq ) ) continue; // (levelled above)
-				// (rising from the walls' inner faces, so the 1 m texels don't spill it out in front of them;
-				// Walls paves a level border along them over the rest of the rise)
-				const t = smoothstep( T0.s0 + 0.4, T0.s0 + 0.9, sv ) * smoothstep( dIn, dIn + 0.5, dv )
+				// (rising from the walls' inner faces, so the 1 m texels don't spill it out in front of them:
+				// a metre in from the corner wall, whose foot outside is far lower; Walls paves a level border
+				// along them over the rest of the rise)
+				const t = smoothstep( T0.s0 + 1.0, T0.s0 + 1.4, sv ) * smoothstep( dIn, dIn + 0.5, dv )
 					* ( 1 - smoothstep( T0.s1, T0.s1 + FALL, sv ) ) * ( 1 - smoothstep( dOut, pad2, dv ) );
 				const k = j * res + i;
 				heights[ k ] = lerp( heights[ k ], T0.y - 0.05, t );
+
+			}
+
+		}
+
+		// in front of the corner wall the verge: low, a little under the lane's edge and falling gently
+		// away from it (photo references/...-muroescadariaportaeste), back to the ground east and north
+		{
+
+			const V0 = TERRACE.s0 - 7, V1 = TERRACE.s0 + 1.0, DV = HALF + TERRACE.depth + 1, FALL = 3; // (to under the terrace's border)
+			const xs3 = [], zs3 = [];
+			for ( const sv of [ V0 - FALL, V1 ] ) for ( const dv of [ - HALF, - ( DV + FALL ) ] ) {
+
+				xs3.push( g.x + ux * sv + lx * dv ); zs3.push( g.z + uz * sv + lz * dv );
+
+			}
+
+			const a0 = Math.max( 0, Math.floor( ( Math.min( ...xs3 ) - origin ) / texel ) ), a1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs3 ) - origin ) / texel ) );
+			const b0 = Math.max( 0, Math.floor( ( Math.min( ...zs3 ) - origin ) / texel ) ), b1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs3 ) - origin ) / texel ) );
+			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
+				if ( sv < V0 - FALL || sv > V1 - 0.1 || dv < HALF + 0.3 || dv > DV + FALL ) continue;
+				const t = smoothstep( V0 - FALL, V0, sv ) * ( 1 - smoothstep( DV, DV + FALL, dv ) ) * smoothstep( HALF + 0.3, HALF + 1.5, dv );
+				const k = j * res + i;
+				heights[ k ] = lerp( heights[ k ], surf( Math.min( sv, TERRACE.s0 ) ) - 0.05 - 0.06 * ( dv - HALF ), t );
 
 			}
 

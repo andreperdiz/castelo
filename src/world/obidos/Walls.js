@@ -1540,7 +1540,7 @@ export class Walls {
 		};
 
 		// the wall across the flight's foot, back from the lane along the verge
-		const RET = TR.depth, PLANT0 = 2.6, PLANT_OUT = 1.3; // its length (the terrace's depth); the planter from 2.6 m along, 1.3 m deep
+		const RET = TR.depth, PLANT0 = 2.6, PLANT_OUT = 1.3, PLANT1 = RET - 3.4; // its length (the terrace's depth); the planter from 2.6 m along to PLANT1, 1.3 m deep
 		const p0 = pe.at( RS0 ), along = [ - p0.lx, - p0.lz ], intoT = [ p0.dx, p0.dz ]; // away from the lane; into the terrace
 		const C0 = lanePt( RS0, - H ), C1 = [ C0[ 0 ] + along[ 0 ] * RET, C0[ 1 ] + along[ 1 ] * RET ];
 		straightWall( C0, C1, intoT, () => TR.y, YELLOW, 0.58, [ false, true ] );
@@ -1586,20 +1586,23 @@ export class Walls {
 
 			}
 
-			// along the corner wall, back from the lane
-			const len = RET - TH - BW, c = [ C0[ 0 ] + intoT[ 0 ] * ( TH + BW / 2 ) + along[ 0 ] * ( TH + BW + len / 2 ), C0[ 1 ] + intoT[ 1 ] * ( TH + BW / 2 ) + along[ 1 ] * ( TH + BW + len / 2 ) ];
-			strip( c[ 0 ], c[ 1 ], len, BW, Math.atan2( - along[ 1 ], along[ 0 ] ) );
+			// along the corner wall, back from the lane: wider (the ground rises further in there)
+			const BW2 = 1.7, len = RET - TH - BW, c = [ C0[ 0 ] + intoT[ 0 ] * ( TH + BW2 / 2 ) + along[ 0 ] * ( TH + BW + len / 2 ), C0[ 1 ] + intoT[ 1 ] * ( TH + BW2 / 2 ) + along[ 1 ] * ( TH + BW + len / 2 ) ];
+			strip( c[ 0 ], c[ 1 ], len, BW2, Math.atan2( - along[ 1 ], along[ 0 ] ) );
 
 		}
 
 		// the planter in front of it: a low wall with a blue band, its top level, plants over it
 		const BLUE = lin( [ 0.1, 0.27, 0.78 ] );
 		const Q0 = [ C0[ 0 ] + along[ 0 ] * PLANT0 - intoT[ 0 ] * PLANT_OUT, C0[ 1 ] + along[ 1 ] * PLANT0 - intoT[ 1 ] * PLANT_OUT ];
-		const Q1 = [ C1[ 0 ] - intoT[ 0 ] * PLANT_OUT, C1[ 1 ] - intoT[ 1 ] * PLANT_OUT ];
+		const Q1 = [ C0[ 0 ] + along[ 0 ] * PLANT1 - intoT[ 0 ] * PLANT_OUT, C0[ 1 ] + along[ 1 ] * PLANT1 - intoT[ 1 ] * PLANT_OUT ];
 		const plantTop = T.heightAt( ...Q0 ) + 1.5;
 		straightWall( Q0, Q1, intoT, () => plantTop, BLUE, 0.62 );
+		// its ends, back to the tall wall
 		const S0 = [ C0[ 0 ] + along[ 0 ] * PLANT0, C0[ 1 ] + along[ 1 ] * PLANT0 ];
 		straightWall( S0, [ S0[ 0 ] - intoT[ 0 ] * ( PLANT_OUT - TH ), S0[ 1 ] - intoT[ 1 ] * ( PLANT_OUT - TH ) ], along, () => plantTop, BLUE, 0.62, [ false, false ] );
+		const S1 = [ C0[ 0 ] + along[ 0 ] * ( PLANT1 - TH ), C0[ 1 ] + along[ 1 ] * ( PLANT1 - TH ) ];
+		straightWall( S1, [ S1[ 0 ] - intoT[ 0 ] * ( PLANT_OUT - TH ), S1[ 1 ] - intoT[ 1 ] * ( PLANT_OUT - TH ) ], along.map( ( v ) => - v ), () => plantTop, BLUE, 0.62, [ false, false ] );
 		quoins( Q0, along, intoT, T.heightAt( ...Q0 ) - 0.1, plantTop );
 		{
 
@@ -1621,14 +1624,28 @@ export class Walls {
 
 		{
 
-			// the black gate at its end, in the wall's line, into the terrace's garden
+			// past the planter, a small black gate in the tall wall, golden jamb stones round it: the way up
+			// into the garden on the square (its trees over the wall)
 			iron.vdata = [ 0, 0, 0, 0 ];
-			const G0 = [ Q1[ 0 ] + along[ 0 ] * 0.05, Q1[ 1 ] + along[ 1 ] * 0.05 ], GL = 1.6, g0 = T.heightAt( ...G0 );
-			const mid = [ G0[ 0 ] + along[ 0 ] * GL / 2, G0[ 1 ] + along[ 1 ] * GL / 2 ], yaw = Math.atan2( - along[ 1 ], along[ 0 ] );
-			iron.box( mid[ 0 ], g0 + 1.15, mid[ 1 ], GL, 2.3, 0.06, yaw );
-			this.colliders.addBox( new Vector3( mid[ 0 ], g0 + 1.15, mid[ 1 ] ), new Vector3( GL / 2, 1.15, 0.05 ), yaw, { walkable: false, tag: 'gate' } );
+			const GW = 1.1, GH = 2.0, at = PLANT1 + 0.6 + GW / 2;
+			const mid = [ C0[ 0 ] + along[ 0 ] * at - intoT[ 0 ] * 0.03, C0[ 1 ] + along[ 1 ] * at - intoT[ 1 ] * 0.03 ];
+			const g0 = T.heightAt( mid[ 0 ] - intoT[ 0 ] * 0.4, mid[ 1 ] - intoT[ 1 ] * 0.4 ), yaw = Math.atan2( - along[ 1 ], along[ 0 ] );
+			iron.box( mid[ 0 ], g0 + GH / 2, mid[ 1 ], GW, GH, 0.06, yaw );
+			kit.vdata = [ 0.43, 0.45, 0, 0 ];
+			kit.color = [ 1.02, 0.86, 0.6 ];
+			for ( const side of [ - 1, 1 ] ) for ( let y = g0, k = 0; y < g0 + GH; k ++ ) {
+
+				const h = Math.min( g0 + GH - y, 0.4 ), w = k % 2 ? 0.24 : 0.36, o = side * ( GW / 2 + w / 2 );
+				kit.box( mid[ 0 ] + along[ 0 ] * o - intoT[ 0 ] * 0.01, y + h / 2, mid[ 1 ] + along[ 1 ] * o - intoT[ 1 ] * 0.01, w, h - 0.02, 0.05, yaw );
+				y += h;
+
+			}
+
+			kit.box( mid[ 0 ] - intoT[ 0 ] * 0.01, g0 + GH + 0.15, mid[ 1 ] - intoT[ 1 ] * 0.01, GW + 0.5, 0.3, 0.05, yaw ); // the lintel
+			this.colliders.addBox( new Vector3( mid[ 0 ], g0 + GH / 2, mid[ 1 ] ), new Vector3( GW / 2, GH / 2, 0.05 ), yaw, { walkable: false, tag: 'gate' } );
 
 		}
+
 
 		// on the left, part way up, a pier: its foot yellow, whitewashed, a stone cap and a terracotta urn;
 		// the balustrade runs on from it up beside the flight
@@ -1655,11 +1672,14 @@ export class Walls {
 
 		}
 
-		// the two old plane trees in the bed (Trees grows them)
-		this.extraTrees = [ [ 6.5, H + TH + 2.6, 1.0 ], [ 11.8, H + TH + 3.2, 0.92 ] ].map( ( [ sv, dd, scale ] ) => {
+		// the two old plane trees in the bed, and on the square behind the corner wall a garden's trees
+		// (Trees grows them)
+		this.extraTrees = [ [ 6.5, H + TH + 2.6, 1.0, 'plane' ], [ 11.8, H + TH + 3.2, 0.92, 'plane' ],
+			[ RS0 + 2.4, - ( H + 6 ), 1.1, 'garden' ], [ RS0 + 3.2, - ( H + 10.5 ), 1.2, 'olive' ], [ RS0 + 2.2, - ( H + 13.5 ), 1.0, 'garden' ],
+			[ RS0 + 6.5, - ( H + 12 ), 1.0, 'cypress' ] ].map( ( [ sv, dd, scale, kind ] ) => {
 
 			const [ x, z ] = lanePt( sv, dd );
-			return { kind: 'plane', x, z, scale };
+			return { kind, x, z, scale };
 
 		} );
 
