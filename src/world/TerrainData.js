@@ -48,6 +48,11 @@ export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], 
 // references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
 export const PORTA_ESTE = [ 74.9, 48.5 ];
 export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
+// the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
+// Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
+// the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
+// garden's (OSM), x0 > x1, z at each end
+export const BIBLIOTECA = { north: [ [ 43.2, 67.1 ], [ 34.2, 67.6 ], [ 23.8, 67.6 ] ], south: [ [ 42.7, 72.8 ], [ 34.2, 73.6 ], [ 23.8, 73.6 ] ], xb: 42.6, xt: 27.4, xw: 23.8 };
 
 export class TerrainData {
 
@@ -90,6 +95,7 @@ export class TerrainData {
 		this._shapeWall();
 		this._portaDaVilaFloor();
 		this._travessaPoco();
+		this._escadariaBiblioteca();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -802,6 +808,49 @@ export class TerrainData {
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
 		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, length: L };
+
+	}
+
+	// The stairs by the library (BIBLIOTECA): one long flight of cobbled steps from the street's level to a
+	// landing level with the square, the ground under them a little below; paved. this.biblioteca tells Walls
+	// where the steps go.
+	_escadariaBiblioteca() {
+
+		const B = BIBLIOTECA, { res, texel, origin, heights } = this;
+		const side = ( line ) => ( x ) => {
+
+			for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+				const [ xa, za ] = line[ i ], [ xb, zb ] = line[ i + 1 ];
+				if ( x <= xa && x >= xb ) return za + ( zb - za ) * ( xa - x ) / ( xa - xb );
+
+			}
+
+			return x > line[ 0 ][ 0 ] ? line[ 0 ][ 1 ] : line[ line.length - 1 ][ 1 ];
+
+		};
+		const north = side( B.north ), south = side( B.south );
+		const zc = ( x ) => ( north( x ) + south( x ) ) / 2;
+		const yB = this.heightAt( B.xb + 0.6, zc( B.xb ) ), yT = this.heightAt( 25.5, 65.5 );
+		const N = Math.round( ( B.xb - B.xt ) / 0.42 ), tread = ( B.xb - B.xt ) / N, rise = ( yT - yB ) / N;
+		// the walking surface (on the flight, the line of its nosings)
+		const surf = ( x ) => x >= B.xb ? yB : x <= B.xt ? yT : yB + ( B.xb - x ) / ( B.xb - B.xt ) * ( yT - yB );
+		const i0 = Math.max( 0, Math.floor( ( B.xw - 1 - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( B.xb + 3 - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( 66 - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( 75 - origin ) / texel ) );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			if ( x < B.xw || z < north( x ) - 0.3 || z > south( x ) + 0.3 ) continue;
+			const k = j * res + i;
+			// (into the street's level over its last 3 m)
+			const t = 1 - smoothstep( B.xb, B.xb + 3, x );
+			heights[ k ] = lerp( heights[ k ], surf( x ) - ( x > B.xt && x < B.xb ? 0.3 : 0.02 ), t );
+			this.path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		}
+
+		this.biblioteca = { north, south, surf, yB, yT, N, tread, rise, xb: B.xb, xt: B.xt, xw: B.xw };
 
 	}
 
