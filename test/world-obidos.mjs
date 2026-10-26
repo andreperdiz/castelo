@@ -4,6 +4,7 @@
 //   - gates where the streets cross the curtain, flights of steps up onto the walls
 //   - Rua Direita can be walked from Porta da Vila to the castle end
 //   - Porta da Vila can be walked through, in by one arch and out by the other
+//   - Porta Este too, and up the flight of steps inside it
 //   - every flight of steps can be climbed onto the wall walk
 //   - on the walk the parapet holds you in; stepping off the town side drops you into the street
 //   node test/world-obidos.mjs
@@ -72,6 +73,37 @@ check( ok, `walked in through both arches of Porta da Vila to (${ P.position.x.t
 P.placeAt( - 58.5, T.heightAt( - 58.5, 231 ) + 0.2, 231 );
 const blocked = ! walkTo( - 58.5, 220, 6 );
 check( blocked, `the tower's town wall stops you going straight on (${ P.position.z.toFixed( 1 ) })` );
+
+// in through Porta Este, up the slope and the broad flight to Rua Padre Nunes Tavares
+const pe = T.portaEste;
+ok = !! pe;
+if ( ok ) {
+
+	// through the middle of the doorway (it's 1.4 m wide), then beside the handrail
+	const g = pe.gate, f = g.frame;
+	P.placeAt( g.x + f.nx * 5, T.heightAt( g.x + f.nx * 5, g.z + f.nz * 5 ) + 0.2, g.z + f.nz * 5 );
+	for ( const d of [ 2.5, 0, - 2.5 ] ) if ( ok ) ok = walkTo( g.x + f.nx * d, g.z + f.nz * d, 20, 0.4 );
+	for ( const s of [ 6, pe.SF - 0.5, ( pe.SF + pe.ST ) / 2, pe.ST + 1, pe.length - 2 ] ) if ( ok ) {
+
+		// beside the handrail, a little left of the middle
+		const p = pe.at( s );
+		ok = walkTo( p.x + p.lx * 0.8, p.z + p.lz * 0.8, 20, 0.6 );
+
+	}
+
+}
+
+check( ok && P.position.y > pe.surf( pe.ST ), `walked in through Porta Este and up its steps (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) }, y ${ P.position.y.toFixed( 1 ) })` );
+
+// and from just inside it up the short flight to the plane trees' bed
+if ( pe ) {
+
+	const sm = pe.FACE + 0.6, a = pe.at( sm ), b = pe.at( sm );
+	P.placeAt( a.x - a.lx * 0.5, pe.surf( sm ) + 0.2, a.z - a.lz * 0.5 );
+	ok = walkTo( b.x + b.lx * ( pe.HALF + 2.4 ), b.z + b.lz * ( pe.HALF + 2.4 ), 10, 0.4 );
+	check( ok && P.position.y > pe.surf( sm ) + pe.BED - 0.15, `up the steps by Porta Este onto the plane trees' bed (y ${ ( P.position.y - pe.surf( sm ) ).toFixed( 2 ) } over the lane)` );
+
+}
 
 // every flight of steps
 let climbed = 0;

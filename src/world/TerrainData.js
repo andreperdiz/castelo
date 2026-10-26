@@ -44,6 +44,10 @@ export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44
 // (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
 // holding the square up on its left
 export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], [ - 35.7, 234.9 ], [ - 31.4, 221.8 ] ];
+// Porta Este, the gate in the east curtain where Travessa do Poço comes out (photo
+// references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
+export const PORTA_ESTE = [ 74.9, 48.5 ];
+export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
 
 export class TerrainData {
 
@@ -85,6 +89,7 @@ export class TerrainData {
 		this._wallProfile();
 		this._shapeWall();
 		this._portaDaVilaFloor();
+		this._travessaPoco();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -603,6 +608,203 @@ export class TerrainData {
 
 	}
 
+	// Travessa do Poço, in through Porta Este (photo references/...-deforaportaeste): two low steps in the
+	// passage, a cobbled slope up from the arch, then a broad flight of steps between low whitewashed walls,
+	// and on up to Rua Padre Nunes Tavares. s is along the lane from the gate (out < 0 < in); the walking
+	// surface is surf( s ). this.portaEste tells Walls where the steps and the walls go.
+	_travessaPoco() {
+
+		const g = this.gates.find( ( q ) => Math.hypot( q.x - PORTA_ESTE[ 0 ], q.z - PORTA_ESTE[ 1 ] ) < 3 );
+		const w = g && this.wallNearest( g.x, g.z );
+		if ( ! w ) return;
+		const { res, texel, origin, heights } = this;
+		const nx = w.p.nx, nz = w.p.nz; // outward
+		const OUT = 6, E = TRAVESSA_POCO_END;
+		const line = [ [ g.x + nx * OUT, g.z + nz * OUT ], [ g.x, g.z ], E ];
+		const cum = [ 0, OUT, OUT + Math.hypot( E[ 0 ] - g.x, E[ 1 ] - g.z ) ];
+		const L = cum[ 2 ] - OUT;
+		// position, direction (going in) and the left at s
+		const at = ( s ) => {
+
+			const i = s < 0 ? 0 : 1, a = line[ i ], b = line[ i + 1 ], l = cum[ i + 1 ] - cum[ i ], t = ( s + OUT - cum[ i ] ) / l;
+			const dx = ( b[ 0 ] - a[ 0 ] ) / l, dz = ( b[ 1 ] - a[ 1 ] ) / l;
+			return { x: a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, z: a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t, dx, dz, lx: dz, lz: - dx };
+
+		};
+		const HALF = 2.0; // the lane between its walls
+		const FACE = 1.4; // the curtain's faces from its line (Walls' W / 2)
+		const yOut = this.heightAt( g.x + nx * FACE, g.z + nz * FACE ), yEnd = this.heightAt( E[ 0 ], E[ 1 ] );
+		// two big steps up to the threshold outside (Walls builds them), then the passage's two low steps
+		const OUT_RISE = 0.17, LOW = 0.13, y1 = yOut + 2 * OUT_RISE + LOW, y2 = y1 + LOW, STEP2 = - 0.1; // (the second at the town side's recess)
+		// the flight: sixteen steps, most of the way up the lane (photos references/...-entradaportaeste,
+		// -escadariaportaeste), a long gentle slope below it
+		const SF = 17.2, N = 16, RISE = 0.17, TREAD = 0.42, ST = SF + N * TREAD;
+		const yF0 = y2 + 0.11 * ( SF - FACE ), yF1 = yF0 + N * RISE;
+		// the walking surface (on the flight, the line of its nosings)
+		const surf = ( s ) => s < - FACE ? this.heightAt( at( s ).x, at( s ).z ) : s < STEP2 ? y1 : s < FACE ? y2
+			: s < SF ? lerp( y2, yF0, ( s - FACE ) / ( SF - FACE ) ) : s < ST ? lerp( yF0, yF1, ( s - SF ) / ( ST - SF ) )
+				: lerp( yF1, yEnd, smoothstep( 0, 1, ( s - ST ) / ( L - ST ) ) * 0.5 + 0.5 * ( s - ST ) / ( L - ST ) );
+		// the ground: under the passage's slabs and the flight's blocks a little below them
+		const groundY = ( s ) => s < FACE ? surf( s ) - 0.05 : s >= SF && s < ST ? surf( s ) - 0.25 : surf( s );
+		const SOFT = 3;
+		this._stroke( [ line[ 1 ], E ], HALF, SOFT, ( k, t ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const out = ( x - g.x ) * nx + ( z - g.z ) * nz;
+			if ( out > FACE ) return; // beyond the outer face: the threshold's stroke below
+			const [ , u ] = segmentDistance( x, z, line[ 1 ], E );
+			const s = out > 0 ? - out : u * L;
+			if ( s > L - 0.5 ) t *= clamp( ( L + 3 - s ) / 3.5, 0, 1 );
+			heights[ k ] = lerp( heights[ k ], groundY( s ), t );
+
+		} );
+		// outside, the ground comes up to the threshold
+		this._stroke( [ line[ 0 ], [ g.x + nx * FACE, g.z + nz * FACE ] ], 1.6, 2, ( k, t ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const d = ( x - g.x ) * nx + ( z - g.z ) * nz;
+			heights[ k ] = lerp( heights[ k ], lerp( yOut, heights[ k ], smoothstep( FACE, OUT, d ) ), t );
+
+		} );
+		// on the left (south) a raised bed behind the lane's wall, level with its top, the plane trees in it
+		// (photo references/...-entradaportaeste). Beside the flight it keeps the slope's grade, so the steps,
+		// steeper, catch up with its wall about half way up: the wall ends there, a gap into the bed, then an
+		// L-shaped wall level with the flight's top (a balustrade on it) runs up beside the flight's upper half
+		// and turns to the house, holding up the street above the bed (marked on a screenshot). The bed falls
+		// back to the ground beyond its back.
+		const BED = 0.9, BED_W = 6.5, BACK = 2.5, GRADE = 0.11;
+		const bedY = ( s ) => y2 + GRADE * ( Math.min( s, ST ) - FACE ) + BED;
+		const BED_WALL_END = SF + ( BED + 0.15 ) / ( RISE / TREAD - GRADE ), L_START = BED_WALL_END + 1.0, BED_END = ST;
+		const ux = ( E[ 0 ] - g.x ) / L, uz = ( E[ 1 ] - g.z ) / L, lx = uz, lz = - ux;
+		const pad = HALF + BED_W + BACK;
+		const xs = [ g.x, E[ 0 ], g.x + lx * pad, E[ 0 ] + lx * pad ], zs = [ g.z, E[ 1 ], g.z + lz * pad, E[ 1 ] + lz * pad ];
+		const i0 = Math.max( 0, Math.floor( ( Math.min( ...xs ) - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs ) - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( Math.min( ...zs ) - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs ) - origin ) / texel ) );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			const s = ( x - g.x ) * ux + ( z - g.z ) * uz, d = ( x - g.x ) * lx + ( z - g.z ) * lz;
+			if ( s < FACE + 0.2 || s > BED_END + 0.9 || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
+			const k = j * res + i;
+			// (rising behind the wall, so the 1 m texels don't lift the lane's edge in front of it; up to the
+			// L-shaped wall's turn, flat right up to it, the rise to the street above behind it)
+			const t = smoothstep( HALF + 0.4, HALF + 1.4, d ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) ) * ( 1 - smoothstep( BED_END + 0.3, BED_END + 0.9, s ) );
+			heights[ k ] = lerp( heights[ k ], bedY( s ), t );
+
+		}
+
+		// the street above the bed, beyond the L-shaped wall's turn: level with the wall's top (the flight's
+		// top) a few metres back, then back to the ground
+		const LTOP = yF1;
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			const s = ( x - g.x ) * ux + ( z - g.z ) * uz, d = ( x - g.x ) * lx + ( z - g.z ) * lz;
+			if ( s < BED_END + 0.9 || s > BED_END + 6 || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
+			const k = j * res + i;
+			const t = ( 1 - smoothstep( BED_END + 3, BED_END + 6, s ) ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) );
+			heights[ k ] = lerp( heights[ k ], LTOP - 0.03, t );
+
+		}
+
+		// on the right (north) of the flight a terrace, flat, held up by a tall wall along the flight and
+		// across its foot (photo references/...-muroescadariaportaeste); level a little over the flight's
+		// top, it falls back to the ground beyond its far sides
+		const TERRACE = { s0: SF - 1.4, s1: ST + 1.6, depth: 15, y: yF1 + 0.9 }; // (depth: as far back as the corner wall runs)
+		const largo = OSM.streets.find( ( st ) => st.name === 'Largo Doutor João Lourenço' );
+		{
+
+			const T0 = TERRACE, dIn = HALF + 0.4, dOut = HALF + T0.depth, FALL = 3;
+			const pad2 = dOut + FALL, xs2 = [], zs2 = [];
+			for ( const sv of [ T0.s0, T0.s1 + FALL ] ) for ( const dv of [ - dIn, - pad2 ] ) {
+
+				xs2.push( g.x + ux * sv + lx * dv ); zs2.push( g.z + uz * sv + lz * dv );
+
+			}
+
+			const a0 = Math.max( 0, Math.floor( ( Math.min( ...xs2 ) - origin ) / texel ) ), a1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs2 ) - origin ) / texel ) );
+			const b0 = Math.max( 0, Math.floor( ( Math.min( ...zs2 ) - origin ) / texel ) ), b1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs2 ) - origin ) / texel ) );
+			// the square on it (Largo Doutor João Lourenço, OSM), already about level with it: level it too,
+			// back from the corner wall's line
+			const sq = largo && largo.pts;
+			if ( sq ) this._fill( sq, ( k ) => {
+
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
+				if ( sv >= T0.s0 + 1.3 && dv >= dIn ) heights[ k ] = T0.y - 0.05;
+
+			} );
+			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
+				if ( sv < T0.s0 + 1.0 || sv > T0.s1 + FALL || dv < dIn || dv > pad2 ) continue;
+				if ( sq && pointInPolygon( x, z, sq ) ) continue; // (levelled above)
+				// (rising from the walls' inner faces, so the 1 m texels don't spill it out in front of them:
+				// a metre in from the corner wall, whose foot outside is far lower; Walls paves a level border
+				// along them over the rest of the rise)
+				const t = smoothstep( T0.s0 + 1.0, T0.s0 + 1.4, sv ) * smoothstep( dIn, dIn + 0.5, dv )
+					* ( 1 - smoothstep( T0.s1, T0.s1 + FALL, sv ) ) * ( 1 - smoothstep( dOut, pad2, dv ) );
+				const k = j * res + i;
+				heights[ k ] = lerp( heights[ k ], T0.y - 0.05, t );
+
+			}
+
+		}
+
+		// in front of the corner wall the verge: low, a little under the lane's edge and falling gently
+		// away from it (photo references/...-muroescadariaportaeste), back to the ground east and north
+		{
+
+			const V0 = TERRACE.s0 - 7, V1 = TERRACE.s0 + 1.0, DV = HALF + TERRACE.depth + 1, FALL = 3; // (to under the terrace's border)
+			const xs3 = [], zs3 = [];
+			for ( const sv of [ V0 - FALL, V1 ] ) for ( const dv of [ - HALF, - ( DV + FALL ) ] ) {
+
+				xs3.push( g.x + ux * sv + lx * dv ); zs3.push( g.z + uz * sv + lz * dv );
+
+			}
+
+			const a0 = Math.max( 0, Math.floor( ( Math.min( ...xs3 ) - origin ) / texel ) ), a1 = Math.min( res - 1, Math.ceil( ( Math.max( ...xs3 ) - origin ) / texel ) );
+			const b0 = Math.max( 0, Math.floor( ( Math.min( ...zs3 ) - origin ) / texel ) ), b1 = Math.min( res - 1, Math.ceil( ( Math.max( ...zs3 ) - origin ) / texel ) );
+			for ( let j = b0; j <= b1; j ++ ) for ( let i = a0; i <= a1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const sv = ( x - g.x ) * ux + ( z - g.z ) * uz, dv = - ( ( x - g.x ) * lx + ( z - g.z ) * lz );
+				if ( sv < V0 - FALL || sv > V1 - 0.1 || dv < HALF + 0.3 || dv > DV + FALL ) continue;
+				const t = smoothstep( V0 - FALL, V0, sv ) * ( 1 - smoothstep( DV, DV + FALL, dv ) ) * smoothstep( HALF + 0.3, HALF + 1.5, dv );
+				const k = j * res + i;
+				heights[ k ] = lerp( heights[ k ], surf( Math.min( sv, TERRACE.s0 ) ) - 0.05 - 0.06 * ( dv - HALF ), t );
+
+			}
+
+		}
+
+		// the garden in front of the corner wall: from the planter's lane end a low wall runs along the lane
+		// to the house, a gateway in it (marked on a screenshot); paved inside. GARDEN: s from the house's
+		// face (s0) to the planter's front (s1), d from the wall's line (front) back (back)
+		const PLANT0 = 2.6, PLANT_OUT = 1.3;
+		const GARDEN = { front: HALF + PLANT0, back: HALF + TERRACE.depth - 3.4, s1: TERRACE.s0 - PLANT_OUT, s0: null, PLANT0, PLANT_OUT };
+		for ( let sv = GARDEN.s1 - 0.5; sv > GARDEN.s1 - 16; sv -= 0.1 ) {
+
+			const p = at( sv ), x = p.x - p.lx * ( GARDEN.front + 0.3 ), z = p.z - p.lz * ( GARDEN.front + 0.3 );
+			if ( OSM.buildings.some( ( b ) => Math.abs( b.pts[ 0 ][ 0 ] - x ) < 40 && Math.abs( b.pts[ 0 ][ 1 ] - z ) < 40 && pointInPolygon( x, z, b.pts ) ) ) {
+
+				GARDEN.s0 = sv + 0.05;
+				break;
+
+			}
+
+		}
+
+		if ( GARDEN.s0 === null ) GARDEN.s0 = GARDEN.s1 - 10;
+
+		g.y = y1;
+		// the lane's frame: s along it from the gate, d across (left +)
+		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, length: L };
+
+	}
+
 	// rasterize a thick polyline: cb( k, t ) with t = 1 on the centre line .. 0 at half + soft
 	_stroke( pts, half, soft, cb ) {
 
@@ -701,6 +903,54 @@ export class TerrainData {
 			this._fill( st.pts, ( k ) => {
 
 				path[ k ] = 255;
+
+			} );
+
+		}
+
+		// by Porta Este the square is the terrace the corner wall holds up: paved over the terrace, and not
+		// in front of the corner wall (the earth verge there)
+		const pe = this.portaEste;
+		if ( pe ) {
+
+			const { res, texel, origin } = this, TR = pe.TERRACE, H = pe.HALF;
+			const at = ( k ) => pe.frame( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel );
+			// (its outline is stroked like a street too: off within that stroke's reach of it)
+			if ( pe.largo ) this._stroke( pe.largo.pts, STREET_HALF.pedestrian + 0.8, 0, ( k ) => {
+
+				const [ s, d ] = at( k );
+				if ( s < TR.s0 && - d > H + 0.2 ) path[ k ] = 0;
+
+			} );
+			if ( pe.largo ) this._fill( pe.largo.pts, ( k ) => {
+
+				const [ s, d ] = at( k );
+				if ( s < TR.s0 && - d > H + 0.2 ) path[ k ] = 0;
+
+			} );
+			const c = [ [ TR.s0, H ], [ TR.s1, H ], [ TR.s1, H + TR.depth ], [ TR.s0, H + TR.depth ] ].map( ( [ s, d ] ) => {
+
+				const p = pe.at( s );
+				return [ p.x - p.lx * d, p.z - p.lz * d ];
+
+			} );
+			this._fill( c, ( k ) => {
+
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			} );
+			// and the garden in front of the corner wall
+			const G = pe.GARDEN, gc = [ [ G.s0, G.front + 0.4 ], [ G.s1, G.front + 0.4 ], [ G.s1, G.back ], [ G.s0, G.back ] ].map( ( [ s, d ] ) => {
+
+				const p = pe.at( s );
+				return [ p.x - p.lx * d, p.z - p.lz * d ];
+
+			} );
+			this._fill( gc, ( k ) => {
+
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
 
 			} );
 

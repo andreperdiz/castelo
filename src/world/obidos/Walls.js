@@ -28,6 +28,7 @@ const PORTA_DA_VILA = [ [ - 46.95, 225.42 ], [ - 51.1, 225 ], [ - 61.2, 223.9 ],
 const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high over its floor
 const PV_EAST_FACE = - 48.6; // the tower's east side (the curtain): its face on the void
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
+const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
 const lin = ( c ) => c.map( ( v ) => ( v <= 0.04045 ? v / 12.92 : ( ( v + 0.055 ) / 1.055 ) ** 2.4 ) );
 
 export class Walls {
@@ -51,6 +52,13 @@ export class Walls {
 		const portaDaVila = terrain.gates.find( ( g ) => g.street === 'Rua Porta da Vila' );
 		// and is pointed (photo references/...-portadavila)
 		if ( portaDaVila ) Object.assign( portaDaVila, { half: 1.7, pointed: 1.6 } );
+		// Porta Este is a narrow pointed doorway, 1.4 m wide and about 3.8 m high (photos
+		// references/...-deforaportaeste, -deforaportaeste2); the wall's pieces leave a wider gap, which
+		// _portaEste closes down to it with masonry
+		const portaEste = terrain.portaEste && terrain.portaEste.gate;
+		// seen from the town it is a taller round arch as wide as the gap, the doorway set back in it (photo
+		// references/...-portaeste3)
+		if ( portaEste ) Object.assign( portaEste, { half: 0.6, pointed: 1.6, spring: 2.7, fit: true, opening: 0.7, inner: { spring: 3.15, depth: 1.5 } } );
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
 		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
@@ -130,6 +138,7 @@ export class Walls {
 		this._cemiterioWall();
 		this._ornelas( materials );
 		this._praceta();
+		this._portaEste( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -1062,6 +1071,685 @@ export class Walls {
 
 	}
 
+	// Porta Este (photo references/...-deforaportaeste): round the pointed arch on its outer face, dressed
+	// voussoirs and jamb stones of grey limestone; in the passage two low steps of setts; inside, up the
+	// cobbled slope (TerrainData shapes it), a broad flight of stone steps with an iron handrail up the
+	// middle, between low whitewashed walls with a yellow band along their foot.
+	_portaEste( materials ) {
+
+		const pe = this.terrain.portaEste, g = pe && pe.gate;
+		if ( ! g || ! g.frame || ! g.R ) return;
+		const kit = this.kit, f = g.frame, R = g.R, rr = R * g.pointed, spring = g.y + g.spring;
+		const plaster = new MeshKit(), iron = new MeshKit();
+		const yawT = Math.atan2( - f.tz, f.tx );
+		// the wall line bends a little here: its offset out (along the gate's normal) at a along the wall
+		const line = this.curtain.samples.map( ( p ) => [ ( p.x - g.x ) * f.tx + ( p.z - g.z ) * f.tz, ( p.x - g.x ) * f.nx + ( p.z - g.z ) * f.nz ] )
+			.filter( ( [ a, d ] ) => Math.abs( a ) < 5 && Math.abs( d ) < 2 ).sort( ( p, q ) => p[ 0 ] - q[ 0 ] );
+		const lineD = ( a ) => {
+
+			let k = 0;
+			while ( k < line.length - 2 && line[ k + 1 ][ 0 ] < a ) k ++;
+			const [ a0, d0 ] = line[ k ], [ a1, d1 ] = line[ k + 1 ];
+			return d0 + ( d1 - d0 ) * clamp01( ( a - a0 ) / ( a1 - a0 ) );
+
+		};
+		// a point a along the wall from the gate's centre, d out from the wall line
+		const onFace = ( a, d ) => {
+
+			const dd = d + lineD( a );
+			return [ g.x + f.tx * a + f.nx * dd, g.z + f.tz * a + f.nz * dd ];
+
+		};
+		const GREY = [ 0.92, 0.88, 0.8 ], PROUD = 0.06, FACE = pe.FACE;
+
+		// the gap the wall's pieces leave, closed down to the doorway: masonry from the floor to the
+		// springing (the soffit is level there), from the outer face back to the town side's recess
+		const SPLIT = g.inner ? - FACE + g.inner.depth : - FACE, DEEP = FACE - SPLIT;
+		if ( g.span > R + 0.01 ) {
+
+			const w = g.span - R, tone = 0.92;
+			kit.vdata = [ 0.37, 0.8, 0, 0 ];
+			kit.color = [ tone * 1.05, tone * 0.84, tone * 0.56 ];
+			for ( const side of [ - 1, 1 ] ) {
+
+				const a = side * ( R + w / 2 ), [ x, z ] = onFace( a, ( SPLIT + FACE ) / 2 ), bottom = Math.min( pe.yOut, pe.y1 ) - 0.8;
+				kit.box( x, ( spring + bottom ) / 2, z, w, spring - bottom, DEEP, yawT );
+				this.colliders.addBox( new Vector3( x, ( spring + bottom ) / 2, z ), new Vector3( w / 2, ( spring - bottom ) / 2, DEEP / 2 ), yawT, { walkable: false, tag: 'wall' } );
+
+			}
+
+		}
+
+		// a ring of voussoirs round an arch on a face (face +1 outer, -1 inner): each half an arc of radius
+		// rr struck from beyond the other jamb (rr = R: round), springing at ys; jamb stones below it
+		const voussoirs = ( face, R0, rr0, ys, ring, nv, color, jambW ) => {
+
+			kit.vdata = [ 0.43, 0.35, 0, 0 ];
+			kit.color = color;
+			const GAP = 0.012, d0 = face * FACE, d1 = face * ( FACE + PROUD );
+			const out = [ f.nx * face, 0, f.nz * face ];
+			for ( const side of [ - 1, 1 ] ) {
+
+				const c = - side * ( rr0 - R0 ), tMax = Math.acos( ( rr0 - R0 ) / rr0 );
+				const pt = ( t, r, d ) => {
+
+					const a = c + side * r * Math.cos( t ), [ x, z ] = onFace( a, d );
+					return [ x, ys + r * Math.sin( t ), z ];
+
+				};
+				for ( let i = 0; i < nv; i ++ ) {
+
+					const ta = tMax * i / nv + ( i > 0 ? GAP / rr0 : 0 ), tb = tMax * ( i + 1 ) / nv - ( i < nv - 1 ? GAP / rr0 : 0 );
+					const ia = pt( ta, rr0, d1 ), ib = pt( tb, rr0, d1 ), oa = pt( ta, rr0 + ring, d1 ), ob = pt( tb, rr0 + ring, d1 );
+					const ia0 = pt( ta, rr0, d0 ), ib0 = pt( tb, rr0, d0 ), oa0 = pt( ta, rr0 + ring, d0 ), ob0 = pt( tb, rr0 + ring, d0 );
+					const tm = ( ta + tb ) / 2;
+					const radial = [ f.tx * side * Math.cos( tm ), Math.sin( tm ), f.tz * side * Math.cos( tm ) ];
+					kit.quadFacing( ia, ib, ob, oa, out );
+					kit.quadFacing( ia0, ib0, ib, ia, radial.map( ( v ) => - v ) );
+					kit.quadFacing( oa0, ob0, ob, oa, radial );
+					// the joints: the arc's tangent at each end (pointing up the arch), backwards at the start
+					const along = ( t ) => [ - f.tx * side * Math.sin( t ), Math.cos( t ), - f.tz * side * Math.sin( t ) ];
+					kit.quadFacing( ia0, oa0, oa, ia, along( ta ).map( ( v ) => - v ) );
+					kit.quadFacing( ib0, ob0, ob, ib, along( tb ) );
+
+				}
+
+				// the jamb stones below the springing, long and short in turn, flush with the opening
+				for ( let y = g.y, k = 0; y < ys - 0.05; k ++ ) {
+
+					const h = Math.min( ys - y, k % 2 ? 0.5 : 0.62 ), w = k % 2 ? jambW[ 0 ] : jambW[ 1 ];
+					const [ x, z ] = onFace( side * ( R0 + w / 2 ), face * ( FACE + PROUD / 2 ) );
+					kit.box( x, y + h / 2, z, w - 0.02, h - 0.02, PROUD, yawT );
+					y += h;
+
+				}
+
+			}
+
+		};
+		voussoirs( 1, R, rr, spring, 0.38, 5, GREY, [ 0.36, 0.6 ] );
+		// on the town side, golden: the round arch over the recess
+		if ( g.inner ) voussoirs( - 1, g.span, g.span, g.y + g.inner.spring, 0.42, 6, [ 1.02, 0.84, 0.56 ], [ 0.4, 0.62 ] );
+
+		// the passage: two low steps of grey setts, each with a nosing of pale stone
+		const passage = ( s0, s1, top, half ) => {
+
+			const sm = ( s0 + s1 ) / 2, [ x, z ] = onFace( 0, - sm );
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.8, 0.78, 0.74 ];
+			kit.box( x, top - 0.3, z, 2 * half + 0.1, 0.6, s1 - s0, yawT );
+			this.colliders.addBox( new Vector3( x, top - 0.3, z ), new Vector3( half + 0.05, 0.3, ( s1 - s0 ) / 2 ), yawT, { walkable: true, tag: 'stair' } );
+			const [ nx, nz ] = onFace( 0, - s0 - 0.11 );
+			kit.vdata = [ 0.43, 0.5, 0, 0 ];
+			kit.color = [ 0.95, 0.9, 0.8 ];
+			kit.box( nx, top - 0.1 + 0.005, nz, 2 * half + 0.12, 0.2, 0.22, yawT );
+
+		};
+		// (the inner one under the recess, as wide as it)
+		passage( - FACE, pe.STEP2, pe.y1, R );
+		passage( pe.STEP2, FACE + 0.3, pe.y2, g.inner ? g.span : R );
+
+		// outside, two big steps of grey limestone against the wall up to the threshold, wider than the door
+		for ( let i = 0; i < 2; i ++ ) {
+
+			const d0 = FACE + i * 0.42, d1 = d0 + ( i ? 0.48 : 0.42 ), top = pe.yOut + pe.OUT_RISE * ( 2 - i ), bottom = pe.yOut - 0.5;
+			const [ x, z ] = onFace( 0, ( d0 + d1 ) / 2 );
+			kit.vdata = [ 0.43, 0.4, 0, 0 ];
+			kit.color = [ 0.84, 0.83, 0.79 ];
+			kit.box( x, ( top + bottom ) / 2, z, i ? 2.7 : 2.45, top - bottom, d1 - d0 + 0.02, yawT );
+			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( i ? 1.35 : 1.225, ( top - bottom ) / 2, ( d1 - d0 ) / 2 ), yawT, { walkable: true, tag: 'stair' } );
+
+		}
+
+		// above the door, a white marble plaque in a grey frame, five lines cut in it
+		// ("A Virgem Nossa Senhora foi concebida sem peccado original")
+		{
+
+			const crown = spring + Math.sqrt( rr * rr - ( rr - R ) * ( rr - R ) );
+			const PW = 1.15, PH = 0.72, cy = crown + 1.3 + PH / 2, a = 0;
+			const at = ( da, d ) => onFace( a + da, FACE + d );
+			const [ x, z ] = at( 0, 0.03 );
+			plaster.vdata = [ 0, 0, 0.31, 4 ];
+			plaster.color = lin( [ 0.55, 0.56, 0.55 ] );
+			plaster.box( x, cy, z, PW + 0.08, PH + 0.08, 0.06, yawT );
+			const [ x2, z2 ] = at( 0, 0.065 );
+			plaster.color = lin( [ 0.9, 0.9, 0.87 ] );
+			plaster.box( x2, cy, z2, PW, PH, 0.02, yawT );
+			plaster.color = lin( [ 0.22, 0.22, 0.22 ] );
+			const lines = [ 0.62, 0.86, 0.8, 0.88, 0.5 ];
+			lines.forEach( ( w, k ) => {
+
+				const [ x3, z3 ] = at( 0, 0.077 );
+				plaster.box( x3, cy + PH / 2 - 0.12 - k * 0.12, z3, PW * w, 0.05, 0.006, yawT );
+
+			} );
+
+		}
+
+		// the flight, across the lane between its walls
+		const yawAt = ( s ) => {
+
+			const p = pe.at( s );
+			return Math.atan2( - p.dz, p.dx );
+
+		};
+		const lanePt = ( s, d ) => {
+
+			const p = pe.at( s );
+			return [ p.x + p.lx * d, p.z + p.lz * d ];
+
+		};
+		const H = pe.HALF;
+		for ( let i = 0; i < pe.N; i ++ ) {
+
+			const s0 = pe.SF + i * pe.TREAD, top = pe.surf( pe.SF ) + ( i + 1 ) * pe.RISE, yaw = yawAt( s0 );
+			const [ x, z ] = lanePt( s0 + pe.TREAD / 2, 0 ), bottom = top - pe.RISE - 0.6;
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.84, 0.82, 0.77 ];
+			kit.box( x, ( top + bottom ) / 2, z, pe.TREAD + 0.02, top - bottom, 2 * H, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( pe.TREAD / 2 + 0.01, ( top - bottom ) / 2, H ), yaw, { walkable: true, tag: 'stair' } );
+			const [ nx, nz ] = lanePt( s0 + 0.08, 0 );
+			kit.vdata = [ 0.43, 0.5, 0, 0 ];
+			kit.color = [ 0.95, 0.9, 0.8 ];
+			kit.box( nx, top - 0.06 + 0.005, nz, 0.16, 0.12, 2 * H + 0.02, yaw );
+
+		}
+
+		// a bar of iron from a to b ([ x, y, z ]), w thick
+		const beam = ( a, b, w ) => {
+
+			const dx = b[ 0 ] - a[ 0 ], dz = b[ 2 ] - a[ 2 ], l = Math.hypot( dx, dz );
+			// (a vertical bar: any horizontal side will do)
+			const ux = l > 1e-4 ? dx / l : f.tx, uz = l > 1e-4 ? dz / l : f.tz;
+			const sx = - uz * w / 2, sz = ux * w / 2, h = w / 2;
+			const vert = l < 1e-4;
+			const c = ( p, i, j ) => vert ? [ p[ 0 ] + sx * i + ux * h * j, p[ 1 ], p[ 2 ] + sz * i + uz * h * j ] : [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
+			const ax = vert ? [ 0, Math.sign( b[ 1 ] - a[ 1 ] ), 0 ] : [ ux, 0, uz ];
+			const up = vert ? [ ux, 0, uz ] : [ 0, 1, 0 ];
+			iron.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), up );
+			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), up.map( ( v ) => - v ) );
+			iron.quadFacing( c( a, 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ sx, 0, sz ] );
+			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, - 1, 1 ), c( a, - 1, 1 ), [ - sx, 0, - sz ] );
+			iron.quadFacing( c( a, - 1, - 1 ), c( a, 1, - 1 ), c( a, 1, 1 ), c( a, - 1, 1 ), ax.map( ( v ) => - v ) );
+			iron.quadFacing( c( b, - 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( b, - 1, 1 ), ax );
+
+		};
+
+		// the handrail up the middle (photo references/...-escadariaportaeste): a round iron bar 0.9 m over
+		// the nosings' line on posts with forked heads; at each end it runs on level a little, then turns
+		// down into the ground
+		iron.vdata = [ 0, 0, 0, 0 ];
+		const RAIL = 0.9, BAR_W = 0.045;
+		const nose = ( sv ) => pe.surf( Math.min( Math.max( sv, pe.SF ), pe.ST ) );
+		const tread = ( sv ) => sv < pe.SF ? pe.surf( sv ) : sv >= pe.ST ? pe.surf( sv ) : pe.surf( pe.SF ) + ( Math.floor( ( sv - pe.SF ) / pe.TREAD ) + 1 ) * pe.RISE;
+		const P3 = ( sv, y ) => {
+
+			const [ x, z ] = lanePt( sv, 0 );
+			return [ x, y, z ];
+
+		};
+		const r0 = pe.SF + 0.1, r1 = pe.ST - 0.1, foot = pe.SF - 0.45, head = pe.ST + 0.4;
+		const yR0 = nose( r0 ) + RAIL, yR1 = nose( r1 ) + RAIL;
+		beam( P3( r0, yR0 ), P3( r1, yR1 ), BAR_W );
+		beam( P3( foot, yR0 ), P3( r0, yR0 ), BAR_W );
+		beam( P3( r1, yR1 ), P3( head, yR1 ), BAR_W );
+		beam( P3( foot, tread( foot ) - 0.05 ), P3( foot, yR0 + BAR_W / 2 ), BAR_W );
+		beam( P3( head, tread( head ) - 0.05 ), P3( head, yR1 + BAR_W / 2 ), BAR_W );
+		for ( const sv of [ foot, head ] ) {
+
+			const [ x, z ] = lanePt( sv, 0 ), y0 = tread( sv ), y1 = ( sv === foot ? yR0 : yR1 );
+			this.colliders.addBox( new Vector3( x, ( y0 + y1 ) / 2, z ), new Vector3( 0.05, ( y1 - y0 ) / 2, 0.05 ), yawAt( sv ), { walkable: false, tag: 'rail' } );
+
+		}
+
+		const NP = 5;
+		for ( let k = 0; k < NP; k ++ ) {
+
+			const sv = r0 + 0.5 + ( r1 - r0 - 1.0 ) * k / ( NP - 1 ), yr = nose( sv ) + RAIL, y0 = tread( sv ), yaw = yawAt( sv );
+			const [ x, z ] = lanePt( sv, 0 );
+			iron.box( x, ( y0 + yr - 0.12 ) / 2, z, 0.04, yr - 0.12 - y0, 0.04, yaw );
+			// the fork: two prongs either side of the bar, joined under it
+			iron.box( x, yr - 0.12, z, 0.035, 0.03, 0.15, yaw );
+			for ( const side of [ - 1, 1 ] ) {
+
+				const [ px, pz ] = lanePt( sv, side * 0.065 );
+				iron.box( px, yr - 0.05, pz, 0.03, 0.15, 0.022, yaw );
+
+			}
+
+			this.colliders.addBox( new Vector3( x, ( y0 + yr ) / 2, z ), new Vector3( 0.05, ( yr - y0 ) / 2, 0.08 ), yaw, { walkable: false, tag: 'rail' } );
+
+		}
+
+		// the lane's walls, whitewashed, a yellow band along their foot that follows the lane (photo
+		// references/...-entradaportaeste): on the left a low one with a dark coping, holding up the bed
+		// of the plane trees (TerrainData raises it), loose setts heaped at its foot; on the right only
+		// beside the flight (the slope below it has an earth verge), tall, holding up the ground behind,
+		// with stone quoins at its foot's corner and a stone balustrade along its top
+		const YELLOW = lin( [ 0.86, 0.64, 0.17 ] );
+		const TH = 0.4, BAR = 1.3; // the band's 0.55 m becomes 0.42 m
+		const T = this.terrain;
+		const STONE = [ 0.88, 0.85, 0.78 ];
+		// the cuts along the lane for things that follow its slope: every metre, and the flight's ends
+		const cutsFor = ( s0, s1 ) => {
+
+			const c = [ s0 ];
+			for ( let sv = Math.ceil( s0 ); sv < s1 - 0.3; sv ++ ) c.push( sv );
+			c.push( pe.SF, pe.ST, s1 );
+			return [ ...new Set( c.filter( ( v ) => v >= s0 && v <= s1 ).map( ( v ) => Math.round( v * 1000 ) / 1000 ) ) ].sort( ( p, q ) => p - q );
+
+		};
+		// a bar along the lane from sa to sb, d across (centre), w wide, its bottom and top at each end
+		const prism = ( k, sa, sb, d, w, ya0, ya1, yb0, yb1 ) => {
+
+			const A = lanePt( sa, d - w / 2 ), B = lanePt( sb, d - w / 2 ), A2 = lanePt( sa, d + w / 2 ), B2 = lanePt( sb, d + w / 2 );
+			const p = pe.at( ( sa + sb ) / 2 ), left = [ p.lx, 0, p.lz ];
+			k.quadFacing( [ A[ 0 ], ya1, A[ 1 ] ], [ B[ 0 ], yb1, B[ 1 ] ], [ B2[ 0 ], yb1, B2[ 1 ] ], [ A2[ 0 ], ya1, A2[ 1 ] ], [ 0, 1, 0 ] );
+			k.quadFacing( [ A[ 0 ], ya0, A[ 1 ] ], [ B[ 0 ], yb0, B[ 1 ] ], [ B2[ 0 ], yb0, B2[ 1 ] ], [ A2[ 0 ], ya0, A2[ 1 ] ], [ 0, - 1, 0 ] );
+			k.quadFacing( [ A[ 0 ], ya0, A[ 1 ] ], [ B[ 0 ], yb0, B[ 1 ] ], [ B[ 0 ], yb1, B[ 1 ] ], [ A[ 0 ], ya1, A[ 1 ] ], left.map( ( v ) => - v ) );
+			k.quadFacing( [ A2[ 0 ], ya0, A2[ 1 ] ], [ B2[ 0 ], yb0, B2[ 1 ] ], [ B2[ 0 ], yb1, B2[ 1 ] ], [ A2[ 0 ], ya1, A2[ 1 ] ], left );
+			k.quadFacing( [ A[ 0 ], ya0, A[ 1 ] ], [ A2[ 0 ], ya0, A2[ 1 ] ], [ A2[ 0 ], ya1, A2[ 1 ] ], [ A[ 0 ], ya1, A[ 1 ] ], [ - p.dx, 0, - p.dz ] );
+			k.quadFacing( [ B[ 0 ], yb0, B[ 1 ] ], [ B2[ 0 ], yb0, B2[ 1 ] ], [ B2[ 0 ], yb1, B2[ 1 ] ], [ B[ 0 ], yb1, B[ 1 ] ], [ p.dx, 0, p.dz ] );
+
+		};
+		// a stone balustrade along a wall's top (base( s )): a plinth, square balusters close together, a
+		// rail; stouter posts at its ends
+		const balustrade = ( side, s0, s1, base ) => {
+
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ]; // grey, lichened
+			const d = side * ( H + TH / 2 ), PH = 0.6, cs = cutsFor( s0, s1 );
+			for ( let i = 0; i + 1 < cs.length; i ++ ) {
+
+				const sa = cs[ i ], sb = cs[ i + 1 ], ba = base( sa ), bb = base( sb );
+				prism( kit, sa, sb, d, 0.3, ba - 0.02, ba + 0.08, bb - 0.02, bb + 0.08 );
+				prism( kit, sa, sb, d, 0.32, ba + PH, ba + PH + 0.11, bb + PH, bb + PH + 0.11 );
+				const [ cx, cz ] = lanePt( ( sa + sb ) / 2, d ), top = Math.max( ba, bb ) + PH + 0.11, bot = Math.min( ba, bb );
+				this.colliders.addBox( new Vector3( cx, ( top + bot ) / 2, cz ), new Vector3( ( sb - sa ) / 2 + 0.02, ( top - bot ) / 2, 0.16 ), yawAt( ( sa + sb ) / 2 ), { walkable: false, tag: 'wall' } );
+
+			}
+
+			for ( let sv = s0 + 0.32; sv < s1 - 0.2; sv += 0.3 ) {
+
+				const [ x, z ] = lanePt( sv, d ), b0 = base( sv ) + 0.08;
+				kit.box( x, b0 + ( PH - 0.08 ) / 2, z, 0.11, PH - 0.08, 0.13, yawAt( sv ) );
+
+			}
+
+			for ( const sv of [ s0 + 0.12, s1 - 0.12 ] ) {
+
+				const [ x, z ] = lanePt( sv, d ), b0 = base( sv ) - 0.02;
+				kit.box( x, b0 + ( PH + 0.2 ) / 2, z, 0.24, PH + 0.2, 0.34, yawAt( sv ) );
+
+			}
+
+		};
+		const wallRun = ( side, s0, s1, topAt, bar = BAR ) => {
+
+			const cs = cutsFor( s0, s1 );
+			plaster.color = YELLOW;
+			plaster.vdata = [ 20, 0, 0, 0 ];
+			for ( let i = 0; i + 1 < cs.length; i ++ ) {
+
+				const sa = cs[ i ], sb = cs[ i + 1 ], ra = pe.surf( sa ), rb = pe.surf( sb ), ta = topAt( sa ), tb = topAt( sb );
+				const A = lanePt( sa, side * H ), B = lanePt( sb, side * H ), A2 = lanePt( sa, side * ( H + TH ) ), B2 = lanePt( sb, side * ( H + TH ) );
+				const ya = Math.min( ra, T.heightAt( ...A2 ) ) - 0.5, yb = Math.min( rb, T.heightAt( ...B2 ) ) - 0.5;
+				const p = pe.at( ( sa + sb ) / 2 ), toLane = [ - p.lx * side, 0, - p.lz * side ];
+				const band = ( y, r ) => ( y - r ) * bar;
+				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], tb, B[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], toLane,
+					[ [ sa, band( ya, ra ) ], [ sb, band( yb, rb ) ], [ sb, band( tb, rb ) ], [ sa, band( ta, ra ) ] ] );
+				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], toLane.map( ( v ) => - v ),
+					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
+				plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ B[ 0 ], tb, B[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ],
+					[ [ sa, 5 ], [ sb, 5 ], [ sb, 5.4 ], [ sa, 5.4 ] ] );
+				for ( const [ end, sv, y0, r, t, dir ] of [ [ i === 0, sa, ya, ra, ta, - 1 ], [ i + 2 === cs.length, sb, yb, rb, tb, 1 ] ] ) {
+
+					if ( ! end ) continue;
+					const E1 = lanePt( sv, side * H ), E2 = lanePt( sv, side * ( H + TH ) ), q = pe.at( sv );
+					plaster.quadFacing( [ E1[ 0 ], y0, E1[ 1 ] ], [ E2[ 0 ], y0, E2[ 1 ] ], [ E2[ 0 ], t, E2[ 1 ] ], [ E1[ 0 ], t, E1[ 1 ] ], [ q.dx * dir, 0, q.dz * dir ],
+						[ [ 0, band( y0, r ) ], [ TH, band( y0, r ) ], [ TH, band( t, r ) ], [ 0, band( t, r ) ] ] );
+
+				}
+
+				const [ cx, cz ] = lanePt( ( sa + sb ) / 2, side * ( H + TH / 2 ) ), top = Math.max( ta, tb ), bottom = Math.min( ya, yb );
+				this.colliders.addBox( new Vector3( cx, ( top + bottom ) / 2, cz ), new Vector3( ( sb - sa ) / 2 + 0.02, ( top - bottom ) / 2, TH / 2 ), yawAt( ( sa + sb ) / 2 ), { walkable: false, tag: 'wall' } );
+
+			}
+
+			return cs;
+
+		};
+
+		// the left wall, its coping, the loose setts; it starts a little way in from the curtain, leaving
+		// room for a short flight up to the bed against the curtain's face (photo references/...-portaeste3):
+		// five stone steps rising away from the lane, the first standing out into it
+		const leftTop = ( sv ) => pe.bedY( sv ) + 0.15;
+		const BS0 = FACE + 0.05, BS1 = FACE + 1.15, BN = 5, BTREAD = 0.42;
+		{
+
+			const sm = ( BS0 + BS1 ) / 2, r = pe.surf( sm ), yaw = yawAt( sm );
+			for ( let k = 0; k < BN; k ++ ) {
+
+				const d0 = H - 0.35 + k * BTREAD, top = r + ( k + 1 ) * pe.BED / BN, bottom = r - 0.4;
+				const [ x, z ] = lanePt( sm, d0 + BTREAD / 2 );
+				kit.vdata = [ 0.43, 0.5, 0, 0 ];
+				kit.color = [ 0.8, 0.79, 0.74 ];
+				kit.box( x, ( top + bottom ) / 2, z, BS1 - BS0, top - bottom, BTREAD + 0.01, yaw );
+				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( ( BS1 - BS0 ) / 2, ( top - bottom ) / 2, BTREAD / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+			}
+
+		}
+
+		const ls = wallRun( 1, BS1 + 0.1, pe.BED_WALL_END, leftTop ); // (to where the steps catch up with it)
+		plaster.vdata = [ 0, 0, 0.41, 4 ];
+		plaster.color = lin( [ 0.42, 0.33, 0.27 ] );
+		for ( let i = 0; i + 1 < ls.length; i ++ ) {
+
+			// a thin strip following the wall's slope, a little proud of both faces
+			const sa = ls[ i ], sb = ls[ i + 1 ], C = 0.06, ya = leftTop( sa ) + C, yb = leftTop( sb ) + C;
+			const A = lanePt( sa, H - 0.03 ), B = lanePt( sb, H - 0.03 ), A2 = lanePt( sa, H + TH + 0.03 ), B2 = lanePt( sb, H + TH + 0.03 );
+			const p = pe.at( ( sa + sb ) / 2 ), toLane = [ - p.lx, 0, - p.lz ];
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ A2[ 0 ], ya, A2[ 1 ] ], [ 0, 1, 0 ] );
+			plaster.quadFacing( [ A[ 0 ], ya - C - 0.01, A[ 1 ] ], [ B[ 0 ], yb - C - 0.01, B[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ A[ 0 ], ya, A[ 1 ] ], toLane );
+			plaster.quadFacing( [ A2[ 0 ], ya - C - 0.01, A2[ 1 ] ], [ B2[ 0 ], yb - C - 0.01, B2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ A2[ 0 ], ya, A2[ 1 ] ], toLane.map( ( v ) => - v ) );
+
+		}
+
+		{
+
+			let seed = 11;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			for ( let i = 0; i < 70; i ++ ) {
+
+				const sv = 4.5 + rnd() * 4.5, dd = H - 0.05 - rnd() * rnd() * 0.55, sz = 0.11 + rnd() * 0.08;
+				// heaped against the wall: higher close to it
+				const [ x, z ] = lanePt( sv, dd ), y = pe.surf( sv ) + sz * 0.3 + rnd() * 0.15 * ( 1 - ( H - dd ) / 0.6 );
+				const tone = 0.7 + rnd() * 0.2;
+				kit.color = [ tone, tone * 0.98, tone * 0.93 ];
+				kit.box( x, y, z, sz, sz * 0.8, sz * ( 0.8 + rnd() * 0.4 ), rnd() * 3 );
+
+			}
+
+		}
+
+		// the right wall beside the flight holds up a flat terrace (TerrainData levels it): its top level
+		// with the terrace, so it stands ~3.5 m over the flight's foot, its yellow band tall; the balustrade
+		// along its top. At the flight's foot it turns the corner and runs back from the lane, along the
+		// verge (photo references/...-muroescadariaportaeste), quoins up the corner, and in front of it a
+		// planter with a blue band, plants spilling over, a black gate at its end.
+		const TR = pe.TERRACE, RS0 = TR.s0, rightTop = () => TR.y;
+		wallRun( - 1, RS0, TR.s1, rightTop, 0.58 );
+		balustrade( - 1, RS0, TR.s1, rightTop );
+
+		// a straight wall from P0 to P1 (world xz), thick toward `back` (unit xz), from below the ground to
+		// top( t ) (t 0..1 along it); its band (colour) follows the ground at its face
+		const straightWall = ( P0, P1, back, top, color, bar, ends = [ true, true ] ) => {
+
+			const L = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] ), n = Math.max( 1, Math.ceil( L ) );
+			const ux = ( P1[ 0 ] - P0[ 0 ] ) / L, uz = ( P1[ 1 ] - P0[ 1 ] ) / L, yaw = Math.atan2( - uz, ux );
+			plaster.color = color;
+			plaster.vdata = [ 20, 0, 0, 0 ];
+			const at = ( t, k ) => [ P0[ 0 ] + ( P1[ 0 ] - P0[ 0 ] ) * t + back[ 0 ] * k, P0[ 1 ] + ( P1[ 1 ] - P0[ 1 ] ) * t + back[ 1 ] * k ];
+			const front = [ - back[ 0 ], 0, - back[ 1 ] ];
+			for ( let i = 0; i < n; i ++ ) {
+
+				const ta = i / n, tb = ( i + 1 ) / n, A = at( ta, 0 ), B = at( tb, 0 ), A2 = at( ta, TH ), B2 = at( tb, TH );
+				const ga = T.heightAt( ...at( ta, - 0.3 ) ), gb = T.heightAt( ...at( tb, - 0.3 ) ), ya = ga - 0.6, yb = gb - 0.6, hA = top( ta ), hB = top( tb );
+				const ua = ta * L, ub = tb * L;
+				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], hB, B[ 1 ] ], [ A[ 0 ], hA, A[ 1 ] ], front,
+					[ [ ua, ( ya - ga ) * bar ], [ ub, ( yb - gb ) * bar ], [ ub, ( hB - gb ) * bar ], [ ua, ( hA - ga ) * bar ] ] );
+				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], hB, B2[ 1 ] ], [ A2[ 0 ], hA, A2[ 1 ] ], front.map( ( v ) => - v ),
+					[ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
+				plaster.quadFacing( [ A[ 0 ], hA, A[ 1 ] ], [ B[ 0 ], hB, B[ 1 ] ], [ B2[ 0 ], hB, B2[ 1 ] ], [ A2[ 0 ], hA, A2[ 1 ] ], [ 0, 1, 0 ],
+					[ [ ua, 5 ], [ ub, 5 ], [ ub, 5.4 ], [ ua, 5.4 ] ] );
+				for ( const [ end, t, E, E2, y0, h, g, dir ] of [ [ ends[ 0 ] && i === 0, ta, A, A2, ya, hA, ga, - 1 ], [ ends[ 1 ] && i === n - 1, tb, B, B2, yb, hB, gb, 1 ] ] ) {
+
+					if ( ! end ) continue;
+					plaster.quadFacing( [ E[ 0 ], y0, E[ 1 ] ], [ E2[ 0 ], y0, E2[ 1 ] ], [ E2[ 0 ], h, E2[ 1 ] ], [ E[ 0 ], h, E[ 1 ] ], [ ux * dir, 0, uz * dir ],
+						[ [ 0, ( y0 - g ) * bar ], [ TH, ( y0 - g ) * bar ], [ TH, ( h - g ) * bar ], [ 0, ( h - g ) * bar ] ] );
+
+				}
+
+				const [ cx, cz ] = at( ( ta + tb ) / 2, TH / 2 ), hi = Math.max( hA, hB ), lo = Math.min( ya, yb );
+				this.colliders.addBox( new Vector3( cx, ( hi + lo ) / 2, cz ), new Vector3( L / n / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), yaw, { walkable: false, tag: 'wall' } );
+
+			}
+
+		};
+		// quoins up a corner at P (world xz), on the faces running along u1 and u2 (unit xz, away from the corner)
+		const quoins = ( P, u1, u2, y0, y1 ) => {
+
+			kit.vdata = [ 0.43, 0.45, 0, 0 ];
+			kit.color = [ 1.02, 0.86, 0.6 ]; // golden limestone, as in the photo
+			for ( let y = y0, k = 0; y < y1 - 0.1; k ++ ) {
+
+				const h = Math.min( y1 - 0.02 - y, 0.36 ), wa = k % 2 ? 0.26 : 0.46, wb = k % 2 ? 0.46 : 0.26;
+				for ( const [ u, o, w ] of [ [ u1, u2, wa ], [ u2, u1, wb ] ] ) {
+
+					// on the face along u (its outward normal is -o), proud of it
+					kit.box( P[ 0 ] + u[ 0 ] * w / 2 - o[ 0 ] * 0.015, y + h / 2, P[ 1 ] + u[ 1 ] * w / 2 - o[ 1 ] * 0.015, w, h - 0.03, 0.03, Math.atan2( - u[ 1 ], u[ 0 ] ) );
+
+				}
+
+				y += h;
+
+			}
+
+		};
+
+		// the wall across the flight's foot, back from the lane along the verge
+		const GD = pe.GARDEN, RET = TR.depth, PLANT0 = GD.PLANT0, PLANT_OUT = GD.PLANT_OUT, PLANT1 = RET - 3.4; // its length (the terrace's depth); the planter from PLANT0 along to PLANT1, PLANT_OUT deep
+		const p0 = pe.at( RS0 ), along = [ - p0.lx, - p0.lz ], intoT = [ p0.dx, p0.dz ]; // away from the lane; into the terrace
+		const C0 = lanePt( RS0, - H ), C1 = [ C0[ 0 ] + along[ 0 ] * RET, C0[ 1 ] + along[ 1 ] * RET ];
+		straightWall( C0, C1, intoT, () => TR.y, YELLOW, 0.58, [ false, true ] );
+		{
+
+			// its balustrade, level with the terrace: posts and rail as on the flight's side
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ];
+			const mid = [ ( C0[ 0 ] + C1[ 0 ] ) / 2 + intoT[ 0 ] * TH / 2, ( C0[ 1 ] + C1[ 1 ] ) / 2 + intoT[ 1 ] * TH / 2 ], yaw = Math.atan2( - along[ 1 ], along[ 0 ] );
+			kit.box( mid[ 0 ], TR.y + 0.03, mid[ 1 ], RET, 0.1, 0.3, yaw );
+			kit.box( mid[ 0 ], TR.y + 0.655, mid[ 1 ], RET, 0.11, 0.32, yaw );
+			for ( let t = 0.3; t < RET - 0.2; t += 0.3 ) {
+
+				const x = C0[ 0 ] + along[ 0 ] * t + intoT[ 0 ] * TH / 2, z = C0[ 1 ] + along[ 1 ] * t + intoT[ 1 ] * TH / 2;
+				kit.box( x, TR.y + 0.34, z, 0.11, 0.52, 0.13, yaw );
+
+			}
+
+			this.colliders.addBox( new Vector3( mid[ 0 ], TR.y + 0.35, mid[ 1 ] ), new Vector3( RET / 2, 0.36, 0.16 ), yaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		quoins( C0, along, intoT, pe.surf( RS0 ) - 0.1, TR.y );
+
+		// on the terrace, a level border of setts along the inside of both walls, over the ground's rise
+		// from them (its 1 m texels can't step up right at a wall)
+		{
+
+			const BW = 1.0, top = TR.y - 0.04, bottom = TR.y - 1.2;
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.8, 0.78, 0.74 ];
+			const strip = ( x, z, lx, lz, yaw ) => {
+
+				kit.box( x, ( top + bottom ) / 2, z, lx, top - bottom, lz, yaw, 'bottom' );
+				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( lx / 2, ( top - bottom ) / 2, lz / 2 ), yaw, { walkable: true, tag: 'terrace' } );
+
+			};
+			// along the flight's wall (the lane's frame), in metre lengths as the lane bends a little
+			for ( let sv = RS0 + TH; sv < TR.s1 - 0.01; sv += 1 ) {
+
+				const sb = Math.min( TR.s1, sv + 1 ), [ x, z ] = lanePt( ( sv + sb ) / 2, - ( H + TH + BW / 2 ) );
+				strip( x, z, sb - sv + 0.02, BW, yawAt( ( sv + sb ) / 2 ) );
+
+			}
+
+			// along the corner wall, back from the lane: wider (the ground rises further in there)
+			const BW2 = 1.7, len = RET - TH - BW, c = [ C0[ 0 ] + intoT[ 0 ] * ( TH + BW2 / 2 ) + along[ 0 ] * ( TH + BW + len / 2 ), C0[ 1 ] + intoT[ 1 ] * ( TH + BW2 / 2 ) + along[ 1 ] * ( TH + BW + len / 2 ) ];
+			strip( c[ 0 ], c[ 1 ], len, BW2, Math.atan2( - along[ 1 ], along[ 0 ] ) );
+
+		}
+
+		// the planter in front of it: a low wall with a blue band, its top level, plants over it
+		const BLUE = lin( [ 0.1, 0.27, 0.78 ] );
+		const Q0 = [ C0[ 0 ] + along[ 0 ] * PLANT0 - intoT[ 0 ] * PLANT_OUT, C0[ 1 ] + along[ 1 ] * PLANT0 - intoT[ 1 ] * PLANT_OUT ];
+		const Q1 = [ C0[ 0 ] + along[ 0 ] * PLANT1 - intoT[ 0 ] * PLANT_OUT, C0[ 1 ] + along[ 1 ] * PLANT1 - intoT[ 1 ] * PLANT_OUT ];
+		const plantTop = T.heightAt( ...Q0 ) + 1.5;
+		straightWall( Q0, Q1, intoT, () => plantTop, BLUE, 0.62 );
+		// its ends, back to the tall wall
+		const S0 = [ C0[ 0 ] + along[ 0 ] * PLANT0, C0[ 1 ] + along[ 1 ] * PLANT0 ];
+		straightWall( S0, [ S0[ 0 ] - intoT[ 0 ] * ( PLANT_OUT - TH ), S0[ 1 ] - intoT[ 1 ] * ( PLANT_OUT - TH ) ], along, () => plantTop, BLUE, 0.62, [ false, false ] );
+		const S1 = [ C0[ 0 ] + along[ 0 ] * ( PLANT1 - TH ), C0[ 1 ] + along[ 1 ] * ( PLANT1 - TH ) ];
+		straightWall( S1, [ S1[ 0 ] - intoT[ 0 ] * ( PLANT_OUT - TH ), S1[ 1 ] - intoT[ 1 ] * ( PLANT_OUT - TH ) ], along.map( ( v ) => - v ), () => plantTop, BLUE, 0.62, [ false, false ] );
+		quoins( Q0, along, intoT, T.heightAt( ...Q0 ) - 0.1, plantTop );
+		{
+
+			let seed = 23;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < 260; i ++ ) {
+
+				const t = rnd(), o = 0.1 + rnd() * ( PLANT_OUT - 0.2 ), hang = rnd() < 0.15;
+				const x = Q0[ 0 ] + ( Q1[ 0 ] - Q0[ 0 ] ) * t + intoT[ 0 ] * ( hang ? - 0.05 : o ), z = Q0[ 1 ] + ( Q1[ 1 ] - Q0[ 1 ] ) * t + intoT[ 1 ] * ( hang ? - 0.05 : o );
+				const y = hang ? plantTop - rnd() * 0.9 : plantTop + rnd() * rnd() * 1.1;
+				const sz = 0.12 + rnd() * 0.2, flower = rnd() < 0.08;
+				plaster.color = lin( flower ? [ 0.85, 0.35, 0.15 ] : [ 0.16 + rnd() * 0.1, 0.32 + rnd() * 0.12, 0.1 ] );
+				plaster.box( x, y, z, sz, sz * 0.8, sz, rnd() * 3 );
+
+			}
+
+		}
+
+		// the garden's wall along the lane: from the planter's lane end to the house, low, whitewashed with
+		// a blue band, a gateway past its middle with quoins either side and a small black gate standing open
+		{
+
+			const u = intoT.map( ( v ) => - v ), P0 = [ Q0[ 0 ], Q0[ 1 ] ], L = GD.s1 - GD.s0;
+			const pt = ( t, o = 0 ) => [ P0[ 0 ] + u[ 0 ] * t + along[ 0 ] * o, P0[ 1 ] + u[ 1 ] * t + along[ 1 ] * o ];
+			const groundAt = ( t ) => T.heightAt( ...pt( t, - 0.3 ) );
+			const GAP = 1.6, gc = L * 0.55, g0 = gc - GAP / 2, g1 = gc + GAP / 2, WALL_H = 1.45;
+			for ( const [ t0, t1, ends ] of [ [ 0, g0, [ false, true ] ], [ g1, L, [ true, false ] ] ] ) {
+
+				straightWall( pt( t0 ), pt( t1 ), along, ( t ) => groundAt( t0 + ( t1 - t0 ) * t ) + WALL_H, BLUE, 0.62, ends );
+
+			}
+
+			// the gateway's quoins, and the gate swung in against the wall
+			for ( const t of [ g0, g1 ] ) quoins( pt( t, 0 ), t === g0 ? u.map( ( v ) => - v ) : u, along, groundAt( t ) - 0.1, groundAt( t ) + WALL_H );
+			iron.vdata = [ 0, 0, 0, 0 ];
+			const y0 = groundAt( gc ), leaf = 1.4, hinge = pt( g1, TH ), open = 1.75;
+			const dir = [ - u[ 0 ] * Math.cos( open ) + along[ 0 ] * Math.sin( open ), - u[ 1 ] * Math.cos( open ) + along[ 1 ] * Math.sin( open ) ];
+			const mid = [ hinge[ 0 ] + dir[ 0 ] * leaf / 2, hinge[ 1 ] + dir[ 1 ] * leaf / 2 ], yaw = Math.atan2( - dir[ 1 ], dir[ 0 ] );
+			iron.box( mid[ 0 ], y0 + 0.95, mid[ 1 ], leaf, 1.7, 0.05, yaw );
+			this.colliders.addBox( new Vector3( mid[ 0 ], y0 + 0.95, mid[ 1 ] ), new Vector3( leaf / 2, 0.85, 0.05 ), yaw, { walkable: false, tag: 'gate' } );
+
+		}
+
+
+
+		// on the left, past the gap into the bed, the L-shaped wall: level with the flight's top, a pier at its
+		// start (its foot yellow, whitewashed, a stone cap and a terracotta urn), along the flight's upper half
+		// with the balustrade on it, then turning away from the lane to the house, white with a yellow band on
+		// the bed's side; from the street above only its balustrade shows
+		{
+
+			const W2 = 0.56, sP = pe.L_START + W2 / 2, [ x, z ] = lanePt( sP, H + TH / 2 ), yaw = yawAt( sP ), r = pe.surf( sP );
+			const LTOP = pe.LTOP, bottom = Math.min( r, pe.bedY( sP ) ) - 0.4, top = LTOP + 0.75, band = r + 0.45;
+			plaster.vdata = [ 0, 0, 0.27, 4 ];
+			plaster.color = YELLOW;
+			plaster.box( x, ( bottom + band ) / 2, z, W2, band - bottom, W2, yaw );
+			plaster.color = lin( [ 0.93, 0.92, 0.89 ] );
+			plaster.box( x, ( band + top ) / 2, z, W2, top - band, W2, yaw, 'bottom' );
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ];
+			kit.box( x, top + 0.06, z, W2 + 0.1, 0.12, W2 + 0.1, yaw );
+			plaster.color = lin( [ 0.62, 0.33, 0.2 ] );
+			plaster.box( x, top + 0.17, z, 0.16, 0.1, 0.16, yaw );
+			for ( const turn of [ 0, Math.PI / 4 ] ) plaster.box( x, top + 0.37, z, 0.32, 0.3, 0.32, yaw + turn );
+			plaster.box( x, top + 0.55, z, 0.36, 0.06, 0.36, yaw + Math.PI / 8 );
+			plaster.color = lin( [ 0.2, 0.3, 0.12 ] );
+			plaster.box( x, top + 0.64, z, 0.3, 0.14, 0.3, yaw + 0.3 ); // a plant in it
+			this.colliders.addBox( new Vector3( x, ( bottom + top ) / 2, z ), new Vector3( W2 / 2, ( top - bottom ) / 2, W2 / 2 ), yaw, { walkable: false, tag: 'wall' } );
+
+			// along the flight
+			const s0 = sP + W2 / 2, s1 = pe.ST + TH;
+			wallRun( 1, s0, s1, () => LTOP );
+			balustrade( 1, s0, s1, () => LTOP );
+
+			// the turn: from the flight's top away from the lane to the house
+			const q = pe.at( pe.ST ), left = [ q.lx, q.lz ], back = [ q.dx, q.dz ];
+			const P0 = lanePt( pe.ST, H + TH );
+			let len = 10;
+			for ( let t = 0.5; t < 14; t += 0.1 ) {
+
+				const px = P0[ 0 ] + left[ 0 ] * t + back[ 0 ] * TH / 2, pz = P0[ 1 ] + left[ 1 ] * t + back[ 1 ] * TH / 2;
+				if ( OSM.buildings.some( ( bd ) => Math.abs( bd.pts[ 0 ][ 0 ] - px ) < 40 && Math.abs( bd.pts[ 0 ][ 1 ] - pz ) < 40 && pointInPolygon( px, pz, bd.pts ) ) ) {
+
+					len = t + 0.1;
+					break;
+
+				}
+
+			}
+
+			const P1 = [ P0[ 0 ] + left[ 0 ] * len, P0[ 1 ] + left[ 1 ] * len ];
+			straightWall( P0, P1, back, () => LTOP, YELLOW, 1.3, [ false, false ] );
+			// on the street's side, a level border of setts along it over the ground's rise from the bed
+			{
+
+				const BW = 1.0, c = [ ( P0[ 0 ] + P1[ 0 ] ) / 2 + back[ 0 ] * ( TH + BW / 2 ), ( P0[ 1 ] + P1[ 1 ] ) / 2 + back[ 1 ] * ( TH + BW / 2 ) ];
+				const yaw2 = Math.atan2( - left[ 1 ], left[ 0 ] ), top2 = LTOP - 0.02, bot2 = LTOP - 1.6;
+				kit.vdata = [ 0.29, 0.6, 0, 0 ];
+				kit.color = [ 0.8, 0.78, 0.74 ];
+				kit.box( c[ 0 ], ( top2 + bot2 ) / 2, c[ 1 ], len + TH, top2 - bot2, BW, yaw2, 'bottom' );
+				this.colliders.addBox( new Vector3( c[ 0 ], ( top2 + bot2 ) / 2, c[ 1 ] ), new Vector3( ( len + TH ) / 2, ( top2 - bot2 ) / 2, BW / 2 ), yaw2, { walkable: true, tag: 'terrace' } );
+
+			}
+			// its balustrade, level: plinth, rail, balusters
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ];
+			const mid = [ ( P0[ 0 ] + P1[ 0 ] ) / 2 + back[ 0 ] * TH / 2, ( P0[ 1 ] + P1[ 1 ] ) / 2 + back[ 1 ] * TH / 2 ], lyaw = Math.atan2( - left[ 1 ], left[ 0 ] );
+			kit.box( mid[ 0 ], LTOP + 0.03, mid[ 1 ], len, 0.1, 0.3, lyaw );
+			kit.box( mid[ 0 ], LTOP + 0.655, mid[ 1 ], len, 0.11, 0.32, lyaw );
+			for ( let t = 0.3; t < len - 0.15; t += 0.3 ) {
+
+				const bx = P0[ 0 ] + left[ 0 ] * t + back[ 0 ] * TH / 2, bz = P0[ 1 ] + left[ 1 ] * t + back[ 1 ] * TH / 2;
+				kit.box( bx, LTOP + 0.34, bz, 0.11, 0.52, 0.13, lyaw );
+
+			}
+
+			this.colliders.addBox( new Vector3( mid[ 0 ], LTOP + 0.35, mid[ 1 ] ), new Vector3( len / 2, 0.36, 0.16 ), lyaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		// the two old plane trees in the bed, and on the square behind the corner wall a garden's trees
+		// (Trees grows them)
+		this.extraTrees = [ [ 6.5, H + TH + 2.6, 1.0, 'plane' ], [ 11.8, H + TH + 3.2, 0.92, 'plane' ],
+			[ RS0 + 3.2, - ( H + 10.5 ), 1.2, 'olive' ], [ RS0 + 6.5, - ( H + 12 ), 1.0, 'cypress' ],
+			// in the paved garden in front of the corner wall
+			[ GD.s1 - 2.2, - ( GD.front + 2.6 ), 1.1, 'garden' ], [ GD.s0 + 2.0, - ( GD.front + 3.6 ), 1.0, 'garden' ], [ ( GD.s0 + GD.s1 ) / 2, - ( GD.back - 1.6 ), 1.15, 'olive' ] ].map( ( [ sv, dd, scale, kind ] ) => {
+
+			const [ x, z ] = lanePt( sv, dd );
+			return { kind, x, z, scale };
+
+		} );
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'porta-este' ], [ iron, materials.lantern, 'porta-este-rail' ] ] ) {
+
+			if ( k.empty ) continue;
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+	}
+
 	// The small square just inside Porta da Vila, between Rua Direita and the lane going down on the right
 	// (0.6 m over the street; TerrainData leaves the ground under it): a level stone floor, two high
 	// steps up from Rua Direita, a low parapet
@@ -1373,10 +2061,39 @@ export class Walls {
 
 		}
 
+		// fit: the arch centred on the opening the pieces leave (their edges needn't fall evenly about the
+		// gate's point), its radius half the opening (or opening, if narrower: span is the gap's half)
+		const span = new Map();
+		for ( let i = 0; i < n; i ++ ) {
+
+			const g = samples[ i ].gate, p = samples[ i ];
+			if ( ! g || ! g.fit ) continue;
+			const sp = span.get( g ) || { lo: Infinity, hi: - Infinity, tx: p.tx, tz: p.tz };
+			for ( const e of [ edge[ i ], edge[ i + 1 ] ] ) {
+
+				const a = ( e.x - g.x ) * sp.tx + ( e.z - g.z ) * sp.tz;
+				sp.lo = Math.min( sp.lo, a ); sp.hi = Math.max( sp.hi, a );
+
+			}
+
+			span.set( g, sp );
+
+		}
+
+		for ( const [ g, sp ] of span ) {
+
+			const mid = ( sp.lo + sp.hi ) / 2;
+			g.x += sp.tx * mid; g.z += sp.tz * mid;
+			g.span = ( sp.hi - sp.lo ) / 2;
+			arcR.set( g, Math.min( g.span, g.opening ?? Infinity ) );
+
+		}
+
+		for ( const [ g, R ] of arcR ) g.R = R;
 		const archY = ( g, p, x, z ) => {
 
 			const R = arcR.get( g ), a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz;
-			const spring = g.y + Math.max( 2.4, 4.2 - R );
+			const spring = g.y + ( g.spring ?? Math.max( 2.4, 4.2 - R ) );
 			// pointed: two arcs of radius R * pointed, each struck from beyond the opposite jamb
 			if ( g.pointed ) {
 
@@ -1386,6 +2103,14 @@ export class Walls {
 			}
 
 			return spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
+
+		};
+		// gate.inner { R, spring, depth }: on the town side, for depth from the inner face, the passage is a
+		// taller round-arched recess (Porta Este: photo references/...-portaeste3)
+		const innerY = ( g, p, x, z ) => {
+
+			const a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz, I = g.inner, R = I.R ?? g.span ?? arcR.get( g );
+			return g.y + I.spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
 
 		};
 
@@ -1414,24 +2139,27 @@ export class Walls {
 			const IA = off( A, inner ), IB = off( B, inner ), PA = off( A, PARAPET_IN ), PB = off( B, PARAPET_IN );
 			const OA = off( A, outer ), OB = off( B, outer );
 			const gate = p.gate;
+			if ( gate && ! gate.frame ) gate.frame = { tx: p.tx, tz: p.tz, nx: p.nx, nz: p.nz };
 			// soffit of the passage, sampled in slices across the piece so the arch reads as a curve
 			const SUB = 4;
 			const arch = gate ? Array.from( { length: SUB + 1 }, ( _, k ) => {
 
 				const t = k / SUB, m = { x: A.x + ( B.x - A.x ) * t, z: A.z + ( B.z - A.z ) * t, nx: A.nx + ( B.nx - A.nx ) * t, nz: A.nz + ( B.nz - A.nz ) * t };
-				return { t, m, y: archY( gate, p, m.x, m.z ) };
+				return { t, m, y: archY( gate, p, m.x, m.z ), yi: gate.inner ? innerY( gate, p, m.x, m.z ) : archY( gate, p, m.x, m.z ) };
 
 			} ) : null;
+			const split = gate && gate.inner ? inner + gate.inner.depth : null; // the recess's back, from the wall line
 			const yg = gate ? Math.min( arch[ 0 ].y, arch[ SUB ].y ) : null;
 			// a face from the arch up to yTop, at offset d from the wall line
-			const archFace = ( d, yTop, N, u0 ) => {
+			// (key: 'y' the arch, 'yi' the inner recess's)
+			const archFace = ( d, yTop, N, u0, key = 'y' ) => {
 
 				for ( let k = 0; k < SUB; k ++ ) {
 
-					const a = arch[ k ], b = arch[ k + 1 ], qa = off( a.m, d ), qb = off( b.m, d );
+					const a = arch[ k ], b = arch[ k + 1 ], qa = off( a.m, d ), qb = off( b.m, d ), ya = a[ key ], yb = b[ key ];
 					const ua = u0 + len * a.t, ub = u0 + len * b.t;
-					kit.quadFacing( [ qa[ 0 ], a.y, qa[ 1 ] ], [ qb[ 0 ], b.y, qb[ 1 ] ], [ qb[ 0 ], yTop, qb[ 1 ] ], [ qa[ 0 ], yTop, qa[ 1 ] ], N,
-						[ [ ua, a.y ], [ ub, b.y ], [ ub, yTop ], [ ua, yTop ] ] );
+					kit.quadFacing( [ qa[ 0 ], ya, qa[ 1 ] ], [ qb[ 0 ], yb, qb[ 1 ] ], [ qb[ 0 ], yTop, qb[ 1 ] ], [ qa[ 0 ], yTop, qa[ 1 ] ], N,
+						[ [ ua, ya ], [ ub, yb ], [ ub, yTop ], [ ua, yTop ] ] );
 
 				}
 
@@ -1445,7 +2173,7 @@ export class Walls {
 				[ [ u, 0 ], [ u + len, 0 ], [ u + len, W / 2 + PO ], [ u, W / 2 + PO ] ] );
 			// inner face
 			const gIn = Math.min( ground( IA ), ground( IB ) ) - FOOT;
-			if ( gate ) archFace( inner, y, inN, u );
+			if ( gate ) archFace( inner, y, inN, u, 'yi' );
 			else kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ IB[ 0 ], gIn, IB[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], [ IA[ 0 ], yA, IA[ 1 ] ], inN,
 				[ [ u, gIn ], [ u + len, gIn ], [ u + len, yB ], [ u, yA ] ] );
 			// parapet: inner face, top, outer face (down to the ground outside)
@@ -1476,19 +2204,34 @@ export class Walls {
 			// the passage: soffit and jambs
 			if ( gate ) {
 
+				// the soffit (with a recess, its own from the inner face to the recess's back, and the face
+				// stepping down from it to the arch there)
+				const mid = split ?? inner;
 				for ( let k = 0; k < SUB; k ++ ) {
 
 					const a = arch[ k ], b = arch[ k + 1 ];
-					const ia = off( a.m, inner ), ib = off( b.m, inner ), oa = off( a.m, outer ), ob = off( b.m, outer );
-					kit.quadFacing( [ ia[ 0 ], a.y, ia[ 1 ] ], [ ib[ 0 ], b.y, ib[ 1 ] ], [ ob[ 0 ], b.y, ob[ 1 ] ], [ oa[ 0 ], a.y, oa[ 1 ] ], [ 0, - 1, 0 ] );
+					const ia = off( a.m, inner ), ib = off( b.m, inner ), ma = off( a.m, mid ), mb = off( b.m, mid ), oa = off( a.m, outer ), ob = off( b.m, outer );
+					kit.quadFacing( [ ma[ 0 ], a.y, ma[ 1 ] ], [ mb[ 0 ], b.y, mb[ 1 ] ], [ ob[ 0 ], b.y, ob[ 1 ] ], [ oa[ 0 ], a.y, oa[ 1 ] ], [ 0, - 1, 0 ] );
+					if ( split !== null ) {
+
+						kit.quadFacing( [ ia[ 0 ], a.yi, ia[ 1 ] ], [ ib[ 0 ], b.yi, ib[ 1 ] ], [ mb[ 0 ], b.yi, mb[ 1 ] ], [ ma[ 0 ], a.yi, ma[ 1 ] ], [ 0, - 1, 0 ] );
+						kit.quadFacing( [ ma[ 0 ], a.y, ma[ 1 ] ], [ mb[ 0 ], b.y, mb[ 1 ] ], [ mb[ 0 ], b.yi, mb[ 1 ] ], [ ma[ 0 ], a.yi, ma[ 1 ] ], inN );
+
+					}
 
 				}
 
 				const prev = samples[ i - 1 ], next = samples[ i + 1 ];
 				const tA = [ - p.tx, 0, - p.tz ], tB = [ p.tx, 0, p.tz ];
-				const yA = arch[ 0 ].y, yB = arch[ SUB ].y;
-				if ( ! prev || prev.gate !== gate ) kit.quadFacing( [ IA[ 0 ], gIn, IA[ 1 ] ], [ OA[ 0 ], gOut, OA[ 1 ] ], [ OA[ 0 ], yA, OA[ 1 ] ], [ IA[ 0 ], yA, IA[ 1 ] ], tB );
-				if ( ! next || next.gate !== gate ) kit.quadFacing( [ IB[ 0 ], gIn, IB[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], yB, OB[ 1 ] ], [ IB[ 0 ], yB, IB[ 1 ] ], tA );
+				const MA = off( A, mid ), MB = off( B, mid );
+				const jamb = ( I, M, O, e, N ) => {
+
+					kit.quadFacing( [ M[ 0 ], gIn, M[ 1 ] ], [ O[ 0 ], gOut, O[ 1 ] ], [ O[ 0 ], e.y, O[ 1 ] ], [ M[ 0 ], e.y, M[ 1 ] ], N );
+					if ( split !== null ) kit.quadFacing( [ I[ 0 ], gIn, I[ 1 ] ], [ M[ 0 ], gIn, M[ 1 ] ], [ M[ 0 ], e.yi, M[ 1 ] ], [ I[ 0 ], e.yi, I[ 1 ] ], N );
+
+				};
+				if ( ! prev || prev.gate !== gate ) jamb( IA, MA, OA, arch[ 0 ], tB );
+				if ( ! next || next.gate !== gate ) jamb( IB, MB, OB, arch[ SUB ], tA );
 
 			}
 
