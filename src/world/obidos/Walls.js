@@ -1423,7 +1423,7 @@ export class Walls {
 		// the left wall, its coping, the loose setts; it starts a little way in from the curtain, leaving
 		// room for a short flight up to the bed against the curtain's face (photo references/...-portaeste3):
 		// five stone steps rising away from the lane, the first standing out into it
-		const leftTop = ( sv ) => pe.surf( sv ) + pe.BED + 0.15;
+		const leftTop = ( sv ) => pe.bedY( sv ) + 0.15;
 		const BS0 = FACE + 0.05, BS1 = FACE + 1.15, BN = 5, BTREAD = 0.42;
 		{
 
@@ -1441,7 +1441,7 @@ export class Walls {
 
 		}
 
-		const ls = wallRun( 1, BS1 + 0.1, pe.ST + 1.6, leftTop );
+		const ls = wallRun( 1, BS1 + 0.1, pe.BED_WALL_END, leftTop ); // (to where the steps catch up with it)
 		plaster.vdata = [ 0, 0, 0.41, 4 ];
 		plaster.color = lin( [ 0.42, 0.33, 0.27 ] );
 		for ( let i = 0; i + 1 < ls.length; i ++ ) {
@@ -1649,12 +1649,14 @@ export class Walls {
 
 
 
-		// on the left, part way up, a pier: its foot yellow, whitewashed, a stone cap and a terracotta urn;
-		// the balustrade runs on from it up beside the flight
+		// on the left, past the gap into the bed, the L-shaped wall: level with the flight's top, a pier at its
+		// start (its foot yellow, whitewashed, a stone cap and a terracotta urn), along the flight's upper half
+		// with the balustrade on it, then turning away from the lane to the house, whitewashed on the bed's
+		// side; from the street above only its balustrade shows
 		{
 
-			const sP = pe.SF + 2.4, [ x, z ] = lanePt( sP, H + TH / 2 ), yaw = yawAt( sP ), r = pe.surf( sP );
-			const bottom = r - 0.4, top = leftTop( sP ) + 0.85, band = r + 0.45, W2 = 0.56;
+			const W2 = 0.56, sP = pe.L_START + W2 / 2, [ x, z ] = lanePt( sP, H + TH / 2 ), yaw = yawAt( sP ), r = pe.surf( sP );
+			const LTOP = pe.surf( pe.ST ), bottom = Math.min( r, pe.bedY( sP ) ) - 0.4, top = LTOP + 0.75, band = r + 0.45;
 			plaster.vdata = [ 0, 0, 0.27, 4 ];
 			plaster.color = YELLOW;
 			plaster.box( x, ( bottom + band ) / 2, z, W2, band - bottom, W2, yaw );
@@ -1670,7 +1672,44 @@ export class Walls {
 			plaster.color = lin( [ 0.2, 0.3, 0.12 ] );
 			plaster.box( x, top + 0.64, z, 0.3, 0.14, 0.3, yaw + 0.3 ); // a plant in it
 			this.colliders.addBox( new Vector3( x, ( bottom + top ) / 2, z ), new Vector3( W2 / 2, ( top - bottom ) / 2, W2 / 2 ), yaw, { walkable: false, tag: 'wall' } );
-			balustrade( 1, sP + W2 / 2, pe.ST + 1.6, ( sv ) => leftTop( sv ) + 0.06 );
+
+			// along the flight
+			const s0 = sP + W2 / 2, s1 = pe.ST + TH;
+			wallRun( 1, s0, s1, () => LTOP );
+			balustrade( 1, s0, s1, () => LTOP );
+
+			// the turn: from the flight's top away from the lane to the house
+			const q = pe.at( pe.ST ), left = [ q.lx, q.lz ], back = [ q.dx, q.dz ];
+			const P0 = lanePt( pe.ST, H + TH );
+			let len = 10;
+			for ( let t = 0.5; t < 14; t += 0.1 ) {
+
+				const px = P0[ 0 ] + left[ 0 ] * t + back[ 0 ] * TH / 2, pz = P0[ 1 ] + left[ 1 ] * t + back[ 1 ] * TH / 2;
+				if ( OSM.buildings.some( ( bd ) => Math.abs( bd.pts[ 0 ][ 0 ] - px ) < 40 && Math.abs( bd.pts[ 0 ][ 1 ] - pz ) < 40 && pointInPolygon( px, pz, bd.pts ) ) ) {
+
+					len = t + 0.1;
+					break;
+
+				}
+
+			}
+
+			const P1 = [ P0[ 0 ] + left[ 0 ] * len, P0[ 1 ] + left[ 1 ] * len ];
+			straightWall( P0, P1, back, () => LTOP, lin( [ 0.93, 0.92, 0.89 ] ), 0.62, [ false, false ] );
+			// its balustrade, level: plinth, rail, balusters
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.65, 0.6 ];
+			const mid = [ ( P0[ 0 ] + P1[ 0 ] ) / 2 + back[ 0 ] * TH / 2, ( P0[ 1 ] + P1[ 1 ] ) / 2 + back[ 1 ] * TH / 2 ], lyaw = Math.atan2( - left[ 1 ], left[ 0 ] );
+			kit.box( mid[ 0 ], LTOP + 0.03, mid[ 1 ], len, 0.1, 0.3, lyaw );
+			kit.box( mid[ 0 ], LTOP + 0.655, mid[ 1 ], len, 0.11, 0.32, lyaw );
+			for ( let t = 0.3; t < len - 0.15; t += 0.3 ) {
+
+				const bx = P0[ 0 ] + left[ 0 ] * t + back[ 0 ] * TH / 2, bz = P0[ 1 ] + left[ 1 ] * t + back[ 1 ] * TH / 2;
+				kit.box( bx, LTOP + 0.34, bz, 0.11, 0.52, 0.13, lyaw );
+
+			}
+
+			this.colliders.addBox( new Vector3( mid[ 0 ], LTOP + 0.35, mid[ 1 ] ), new Vector3( len / 2, 0.36, 0.16 ), lyaw, { walkable: false, tag: 'wall' } );
 
 		}
 

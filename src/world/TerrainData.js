@@ -667,9 +667,14 @@ export class TerrainData {
 
 		} );
 		// on the left (south) a raised bed behind the lane's wall, level with its top, the plane trees in it
-		// (photo references/...-entradaportaeste), as far as the flight's top; it falls back to the ground
-		// beyond its back
-		const BED = 0.9, BED_W = 6.5, BED_END = ST + 1, BACK = 2.5;
+		// (photo references/...-entradaportaeste). Beside the flight it keeps the slope's grade, so the steps,
+		// steeper, catch up with its wall about half way up: the wall ends there, a gap into the bed, then an
+		// L-shaped wall level with the flight's top (a balustrade on it) runs up beside the flight's upper half
+		// and turns to the house, holding up the street above the bed (marked on a screenshot). The bed falls
+		// back to the ground beyond its back.
+		const BED = 0.9, BED_W = 6.5, BACK = 2.5, GRADE = 0.11;
+		const bedY = ( s ) => y2 + GRADE * ( Math.min( s, ST ) - FACE ) + BED;
+		const BED_WALL_END = SF + ( BED + 0.15 ) / ( RISE / TREAD - GRADE ), L_START = BED_WALL_END + 1.0, BED_END = ST;
 		const ux = ( E[ 0 ] - g.x ) / L, uz = ( E[ 1 ] - g.z ) / L, lx = uz, lz = - ux;
 		const pad = HALF + BED_W + BACK;
 		const xs = [ g.x, E[ 0 ], g.x + lx * pad, E[ 0 ] + lx * pad ], zs = [ g.z, E[ 1 ], g.z + lz * pad, E[ 1 ] + lz * pad ];
@@ -679,11 +684,12 @@ export class TerrainData {
 
 			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
 			const s = ( x - g.x ) * ux + ( z - g.z ) * uz, d = ( x - g.x ) * lx + ( z - g.z ) * lz;
-			if ( s < FACE + 0.2 || s > BED_END + BACK || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
+			if ( s < FACE + 0.2 || s > BED_END || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
 			const k = j * res + i;
-			// (rising behind the wall, so the 1 m texels don't lift the lane's edge in front of it)
-			const t = smoothstep( HALF + 0.4, HALF + 1.4, d ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) ) * ( 1 - smoothstep( BED_END, BED_END + BACK, s ) );
-			heights[ k ] = lerp( heights[ k ], surf( Math.min( s, ST ) ) + BED, t );
+			// (rising behind the wall, so the 1 m texels don't lift the lane's edge in front of it; up to the
+			// L-shaped wall's turn, the street above beyond it)
+			const t = smoothstep( HALF + 0.4, HALF + 1.4, d ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) ) * ( 1 - smoothstep( BED_END - 1.2, BED_END - 0.5, s ) );
+			heights[ k ] = lerp( heights[ k ], bedY( s ), t );
 
 		}
 
@@ -781,7 +787,7 @@ export class TerrainData {
 		g.y = y1;
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
-		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, TERRACE, GARDEN, length: L };
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, TERRACE, GARDEN, length: L };
 
 	}
 
