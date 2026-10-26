@@ -1651,12 +1651,12 @@ export class Walls {
 
 		// on the left, past the gap into the bed, the L-shaped wall: level with the flight's top, a pier at its
 		// start (its foot yellow, whitewashed, a stone cap and a terracotta urn), along the flight's upper half
-		// with the balustrade on it, then turning away from the lane to the house, whitewashed on the bed's
-		// side; from the street above only its balustrade shows
+		// with the balustrade on it, then turning away from the lane to the house, white with a yellow band on
+		// the bed's side; from the street above only its balustrade shows
 		{
 
 			const W2 = 0.56, sP = pe.L_START + W2 / 2, [ x, z ] = lanePt( sP, H + TH / 2 ), yaw = yawAt( sP ), r = pe.surf( sP );
-			const LTOP = pe.surf( pe.ST ), bottom = Math.min( r, pe.bedY( sP ) ) - 0.4, top = LTOP + 0.75, band = r + 0.45;
+			const LTOP = pe.LTOP, bottom = Math.min( r, pe.bedY( sP ) ) - 0.4, top = LTOP + 0.75, band = r + 0.45;
 			plaster.vdata = [ 0, 0, 0.27, 4 ];
 			plaster.color = YELLOW;
 			plaster.box( x, ( bottom + band ) / 2, z, W2, band - bottom, W2, yaw );
@@ -1695,7 +1695,18 @@ export class Walls {
 			}
 
 			const P1 = [ P0[ 0 ] + left[ 0 ] * len, P0[ 1 ] + left[ 1 ] * len ];
-			straightWall( P0, P1, back, () => LTOP, lin( [ 0.93, 0.92, 0.89 ] ), 0.62, [ false, false ] );
+			straightWall( P0, P1, back, () => LTOP, YELLOW, 1.3, [ false, false ] );
+			// on the street's side, a level border of setts along it over the ground's rise from the bed
+			{
+
+				const BW = 1.0, c = [ ( P0[ 0 ] + P1[ 0 ] ) / 2 + back[ 0 ] * ( TH + BW / 2 ), ( P0[ 1 ] + P1[ 1 ] ) / 2 + back[ 1 ] * ( TH + BW / 2 ) ];
+				const yaw2 = Math.atan2( - left[ 1 ], left[ 0 ] ), top2 = LTOP - 0.02, bot2 = LTOP - 1.6;
+				kit.vdata = [ 0.29, 0.6, 0, 0 ];
+				kit.color = [ 0.8, 0.78, 0.74 ];
+				kit.box( c[ 0 ], ( top2 + bot2 ) / 2, c[ 1 ], len + TH, top2 - bot2, BW, yaw2, 'bottom' );
+				this.colliders.addBox( new Vector3( c[ 0 ], ( top2 + bot2 ) / 2, c[ 1 ] ), new Vector3( ( len + TH ) / 2, ( top2 - bot2 ) / 2, BW / 2 ), yaw2, { walkable: true, tag: 'terrace' } );
+
+			}
 			// its balustrade, level: plinth, rail, balusters
 			kit.vdata = [ 0.43, 0.6, 0, 0 ];
 			kit.color = [ 0.66, 0.65, 0.6 ];

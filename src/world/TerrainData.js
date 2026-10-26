@@ -684,12 +684,26 @@ export class TerrainData {
 
 			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
 			const s = ( x - g.x ) * ux + ( z - g.z ) * uz, d = ( x - g.x ) * lx + ( z - g.z ) * lz;
-			if ( s < FACE + 0.2 || s > BED_END || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
+			if ( s < FACE + 0.2 || s > BED_END + 0.9 || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
 			const k = j * res + i;
 			// (rising behind the wall, so the 1 m texels don't lift the lane's edge in front of it; up to the
-			// L-shaped wall's turn, the street above beyond it)
-			const t = smoothstep( HALF + 0.4, HALF + 1.4, d ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) ) * ( 1 - smoothstep( BED_END - 1.2, BED_END - 0.5, s ) );
+			// L-shaped wall's turn, flat right up to it, the rise to the street above behind it)
+			const t = smoothstep( HALF + 0.4, HALF + 1.4, d ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) ) * ( 1 - smoothstep( BED_END + 0.3, BED_END + 0.9, s ) );
 			heights[ k ] = lerp( heights[ k ], bedY( s ), t );
+
+		}
+
+		// the street above the bed, beyond the L-shaped wall's turn: level with the wall's top (the flight's
+		// top) a few metres back, then back to the ground
+		const LTOP = yF1;
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			const s = ( x - g.x ) * ux + ( z - g.z ) * uz, d = ( x - g.x ) * lx + ( z - g.z ) * lz;
+			if ( s < BED_END + 0.9 || s > BED_END + 6 || d < HALF + 0.4 || d > HALF + BED_W + BACK ) continue;
+			const k = j * res + i;
+			const t = ( 1 - smoothstep( BED_END + 3, BED_END + 6, s ) ) * ( 1 - smoothstep( HALF + BED_W, HALF + BED_W + BACK, d ) );
+			heights[ k ] = lerp( heights[ k ], LTOP - 0.03, t );
 
 		}
 
@@ -787,7 +801,7 @@ export class TerrainData {
 		g.y = y1;
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
-		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, TERRACE, GARDEN, length: L };
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, length: L };
 
 	}
 
