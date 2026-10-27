@@ -1736,6 +1736,110 @@ export class Walls {
 
 		} );
 
+		// outside, the way up to the gate (photo references/...-acessoportaeste; TerrainData shapes the lane): a
+		// stone bollard left of the threshold's steps, a low wall along the verge on the left, whitewashed over a
+		// yellow foot, plants over it, and at the lane's foot the Chafariz Novo
+		{
+
+			const A = pe.ACCESS, at = ( t, d ) => [ A.S[ 0 ] + A.dir[ 0 ] * t + A.left[ 0 ] * d, A.S[ 1 ] + A.dir[ 1 ] * t + A.left[ 1 ] * d ];
+			const yawA = Math.atan2( - A.dir[ 1 ], A.dir[ 0 ] );
+			// the bollard
+			{
+
+				const [ x, z ] = onFace( 1.55, FACE + 0.55 ), y0 = T.heightAt( x, z );
+				kit.vdata = [ 0.43, 0.55, 0, 0 ];
+				kit.color = [ 0.82, 0.8, 0.74 ];
+				kit.box( x, y0 + 0.4, z, 0.34, 1.0, 0.34, yawT );
+				kit.box( x, y0 + 0.93, z, 0.3, 0.06, 0.3, yawT + 0.785 );
+				this.colliders.addBox( new Vector3( x, y0 + 0.45, z ), new Vector3( 0.17, 0.5, 0.17 ), yawT, { walkable: false, tag: 'bollard' } );
+
+			}
+
+			// the verge's wall, from a few metres down to where Casa da Picva begins
+			{
+
+				const d = A.HALF + A.VERGE, t0 = 3.2, t1 = 12.5, H0 = 1.05;
+				plaster.color = YELLOW;
+				plaster.vdata = [ 20, 0, 0, 0 ];
+				const toLane = [ - A.left[ 0 ], 0, - A.left[ 1 ] ];
+				const groundAt = ( t ) => A.y( t ) + 0.35;
+				for ( let t = t0; t < t1 - 0.01; t += 1 ) {
+
+					const ta = t, tb = Math.min( t1, t + 1 ), ga = groundAt( ta ), gb = groundAt( tb ), ya = ga - 0.6, yb = gb - 0.6, ha = ga + H0, hb = gb + H0;
+					const P0 = at( ta, d ), P1 = at( tb, d ), Q0 = at( ta, d + 0.35 ), Q1 = at( tb, d + 0.35 );
+					plaster.quadFacing( [ P0[ 0 ], ya, P0[ 1 ] ], [ P1[ 0 ], yb, P1[ 1 ] ], [ P1[ 0 ], hb, P1[ 1 ] ], [ P0[ 0 ], ha, P0[ 1 ] ], toLane,
+						[ [ ta, ( ya - ga ) * 1.6 ], [ tb, ( yb - gb ) * 1.6 ], [ tb, ( hb - gb ) * 1.6 ], [ ta, ( ha - ga ) * 1.6 ] ] );
+					plaster.quadFacing( [ P0[ 0 ], ha, P0[ 1 ] ], [ P1[ 0 ], hb, P1[ 1 ] ], [ Q1[ 0 ], hb, Q1[ 1 ] ], [ Q0[ 0 ], ha, Q0[ 1 ] ], [ 0, 1, 0 ], [ [ ta, 5 ], [ tb, 5 ], [ tb, 5.4 ], [ ta, 5.4 ] ] );
+					plaster.quadFacing( [ Q0[ 0 ], ya, Q0[ 1 ] ], [ Q1[ 0 ], yb, Q1[ 1 ] ], [ Q1[ 0 ], hb, Q1[ 1 ] ], [ Q0[ 0 ], ha, Q0[ 1 ] ], toLane.map( ( v ) => - v ), [ [ ta, 3 ], [ tb, 3 ], [ tb, 4 ], [ ta, 4 ] ] );
+					const [ cx, cz ] = at( ( ta + tb ) / 2, d + 0.175 );
+					this.colliders.addBox( new Vector3( cx, ( Math.max( ha, hb ) + Math.min( ya, yb ) ) / 2, cz ), new Vector3( ( tb - ta ) / 2 + 0.02, ( Math.max( ha, hb ) - Math.min( ya, yb ) ) / 2, 0.175 ), yawA, { walkable: false, tag: 'wall' } );
+
+				}
+
+				for ( const [ t, g ] of [ [ t0, groundAt( t0 ) ], [ t1, groundAt( t1 ) ] ] ) {
+
+					const E0 = at( t, d ), E1 = at( t, d + 0.35 ), n = t === t0 ? - 1 : 1;
+					plaster.quadFacing( [ E0[ 0 ], g - 0.6, E0[ 1 ] ], [ E1[ 0 ], g - 0.6, E1[ 1 ] ], [ E1[ 0 ], g + H0, E1[ 1 ] ], [ E0[ 0 ], g + H0, E0[ 1 ] ], [ A.dir[ 0 ] * n, 0, A.dir[ 1 ] * n ],
+						[ [ 0, - 0.96 ], [ 0.35, - 0.96 ], [ 0.35, H0 * 1.6 ], [ 0, H0 * 1.6 ] ] );
+
+				}
+
+				// plants over it, and spilling over the verge
+				let seed = 41;
+				const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+				plaster.vdata = [ 0, 0, 0.53, 4 ];
+				for ( let i = 0; i < 160; i ++ ) {
+
+					const t = t0 + rnd() * ( t1 - t0 ), clump = Math.sin( t * 1.7 ) * 0.5 + 0.5;
+					if ( rnd() > 0.35 + clump * 0.6 ) continue;
+					const dd = d + 0.1 + rnd() * 0.9, [ x, z ] = at( t, dd ), y = groundAt( t ) + H0 - 0.1 + rnd() * rnd() * 1.1, sz = 0.14 + rnd() * 0.22;
+					plaster.color = lin( [ 0.16 + rnd() * 0.1, 0.3 + rnd() * 0.12, 0.1 ] );
+					plaster.box( x, y, z, sz, sz * 0.8, sz, rnd() * 3 );
+
+				}
+
+			}
+
+			// the Chafariz Novo: a whitewashed front facing up the lane, a stepped gable rising over its middle,
+			// low wings either side ending in scrolls, their ends and its foot painted yellow
+			{
+
+				const F = [ 106.05, 51.5 ], fx = - 1, y0 = T.heightAt( F[ 0 ] - 0.6, F[ 1 ] ), yaw = 0;
+				const WHITE = lin( [ 0.95, 0.94, 0.91 ] );
+				plaster.vdata = [ 0, 0, 0.61, 4 ];
+				const box = ( dx, z, w, y, h, dep, color ) => {
+
+					plaster.color = color;
+					plaster.box( F[ 0 ] - fx * ( dep / 2 ) + dx, y + h / 2, z, dep, h, w, yaw );
+
+				};
+				const D = 1.2;
+				box( 0, F[ 1 ], 3.0, y0 - 0.4, 2.0, D, WHITE ); // its body
+				box( 0, F[ 1 ], 2.4, y0 + 1.6, 0.35, D - 0.1, WHITE );
+				box( 0, F[ 1 ], 1.6, y0 + 1.95, 0.3, D - 0.2, WHITE );
+				box( 0, F[ 1 ], 0.8, y0 + 2.25, 0.25, D - 0.3, WHITE );
+				box( 0, F[ 1 ], 3.04, y0 - 0.4, 0.55, D + 0.04, YELLOW ); // its foot
+				for ( const side of [ - 1, 1 ] ) {
+
+					// the wing, stepping down, and its scroll's end
+					box( 0.1, F[ 1 ] + side * 2.0, 1.0, y0 - 0.3, 1.1, D - 0.3, WHITE );
+					box( 0.15, F[ 1 ] + side * 2.75, 0.5, y0 - 0.3, 0.75, D - 0.4, WHITE );
+					box( 0.2, F[ 1 ] + side * 3.15, 0.34, y0 - 0.3, 0.55, D - 0.5, YELLOW );
+
+				}
+
+				this.colliders.addBox( new Vector3( F[ 0 ] + D / 2, y0 + 0.9, F[ 1 ] ), new Vector3( D / 2, 1.3, 3.3 ), 0, { walkable: false, tag: 'fountain' } );
+				// its basin behind, and a spout on its front
+				kit.vdata = [ 0.43, 0.5, 0, 0 ];
+				kit.color = [ 0.82, 0.8, 0.74 ];
+				kit.box( F[ 0 ] - 0.25, y0 + 0.25, F[ 1 ], 0.5, 0.5, 1.2, 0 );
+				iron.vdata = [ 0, 0, 0, 0 ];
+				iron.box( F[ 0 ] - 0.15, y0 + 0.95, F[ 1 ], 0.3, 0.05, 0.05, 0 );
+
+			}
+
+		}
+
 		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'porta-este' ], [ iron, materials.lantern, 'porta-este-rail' ] ] ) {
 
 			if ( k.empty ) continue;

@@ -798,10 +798,51 @@ export class TerrainData {
 
 		if ( GARDEN.s0 === null ) GARDEN.s0 = GARDEN.s1 - 10;
 
+		// outside, the way up to the gate (photo references/...-acessoportaeste): a cobbled lane from the foot of
+		// the threshold's steps down east to the Chafariz Novo, a raised verge of earth and grass along its left
+		// (north) side; paved
+		const ACCESS = ( () => {
+
+			const S = [ g.x + nx * ( FACE + 1.0 ), g.z + nz * ( FACE + 1.0 ) ], C = [ 104.8, 51.4 ];
+			const len = Math.hypot( C[ 0 ] - S[ 0 ], C[ 1 ] - S[ 1 ] ), dir = [ ( C[ 0 ] - S[ 0 ] ) / len, ( C[ 1 ] - S[ 1 ] ) / len ], left = [ dir[ 1 ], - dir[ 0 ] ];
+			const yS = yOut, yC = this.heightAt( ...C ), HALF2 = 2.4, VERGE = 1.6;
+			// level a little at the steps' foot, then down (steeper in the middle)
+			const y = ( t ) => lerp( yS, yC, smoothstep( 0, 1, clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) ) * 0.5 + 0.5 * clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) );
+			return { S, C, len, dir, left, y, HALF: HALF2, VERGE };
+
+		} )();
+		{
+
+			const A = ACCESS, R = A.HALF + A.VERGE + 1.5;
+			this._stroke( [ A.S, A.C ], R, 0, ( k ) => {
+
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const t = ( x - A.S[ 0 ] ) * A.dir[ 0 ] + ( z - A.S[ 1 ] ) * A.dir[ 1 ], d = ( x - A.S[ 0 ] ) * A.left[ 0 ] + ( z - A.S[ 1 ] ) * A.left[ 1 ];
+				if ( t < 0 || t > A.len ) return;
+				const yl = A.y( t );
+				if ( Math.abs( d ) <= A.HALF ) {
+
+					heights[ k ] = yl;
+					this.path[ k ] = 255;
+					this.scarp[ k ] = 255;
+
+				} else if ( d > 0 && d <= A.HALF + A.VERGE ) heights[ k ] = yl + 0.35 * smoothstep( A.HALF, A.HALF + 0.8, d );
+				else {
+
+					// back to the ground beyond (the verge's back on the left, the houses on the right)
+					const e = d > 0 ? d - A.HALF - A.VERGE : - d - A.HALF;
+					heights[ k ] = lerp( yl + ( d > 0 ? 0.35 : 0 ), heights[ k ], smoothstep( 0, 1.5, e ) );
+
+				}
+
+			} );
+
+		}
+
 		g.y = y1;
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
-		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, length: L };
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, ACCESS, length: L };
 
 	}
 
