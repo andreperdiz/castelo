@@ -1755,10 +1755,10 @@ export class Walls {
 
 			}
 
-			// the verge's wall, from a few metres down to where Casa da Picva begins
+			// the verge's wall, a short stretch near the gate (cut where marked on a screenshot)
 			{
 
-				const d = A.HALF + A.VERGE, t0 = 3.2, t1 = 12.5, H0 = 1.05;
+				const d = A.HALF + A.VERGE, t0 = 3.2, t1 = 5.8, H0 = 1.05;
 				plaster.color = YELLOW;
 				plaster.vdata = [ 20, 0, 0, 0 ];
 				const toLane = [ - A.left[ 0 ], 0, - A.left[ 1 ] ];
