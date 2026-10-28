@@ -5,6 +5,7 @@
 //   - Rua Direita can be walked from Porta da Vila to the castle end
 //   - Porta da Vila can be walked through, in by one arch and out by the other
 //   - Porta Este too, and up the flight of steps inside it
+//   - Porta do Vale, round the corner of its covered passage
 //   - every flight of steps can be climbed onto the wall walk
 //   - on the walk the parapet holds you in; stepping off the town side drops you into the street
 //   node test/world-obidos.mjs
@@ -95,6 +96,26 @@ if ( ok ) {
 }
 
 check( ok && P.position.y > pe.surf( pe.ST ), `walked in through Porta Este and up its steps (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) }, y ${ P.position.y.toFixed( 1 ) })` );
+
+// in through Porta do Vale: the arch, to the whitewashed wall ahead, then right along the covered passage
+// and out into the town (OSM's building passage)
+{
+
+	const g = T.gates.find( ( q ) => Math.hypot( q.x - 97.4, q.z + 37.3 ) < 2 );
+	ok = !! g;
+	if ( ok ) {
+
+		P.placeAt( 104, T.heightAt( 104, - 34.1 ) + 0.2, - 34.1 );
+		for ( const [ x, z ] of [ [ g.x, g.z ], [ 93.6, - 39.2 ], [ 96.1, - 44.2 ], [ 97.4, - 47 ] ] ) if ( ok ) ok = walkTo( x, z, 20, 0.6 );
+
+	}
+
+	check( ok, `walked in through Porta do Vale and round its passage (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
+	// straight on from the arch is the passage's back wall
+	if ( g ) P.placeAt( 95.5, T.heightAt( 95.5, - 38.2 ) + 0.2, - 38.2 );
+	check( g && ! walkTo( 88, - 41.8, 6 ), `the passage's back wall stops you going straight on (${ P.position.x.toFixed( 1 ) })` );
+
+}
 
 // and from just inside it up the short flight to the plane trees' bed
 if ( pe ) {

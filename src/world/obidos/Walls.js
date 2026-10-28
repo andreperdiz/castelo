@@ -199,6 +199,7 @@ export class Walls {
 		this._beneficiado( materials );
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
+		this._valePassage( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -484,6 +485,80 @@ export class Walls {
 		}
 
 		wall.length = P[ P.length - 1 ].s;
+
+	}
+
+	// Porta do Vale's covered passage (photo references/...-porta-nordeste-1; OSM's building passage): in
+	// through the arch, a whitewashed wall ahead, and the way turns right (north) along the curtain's back
+	// to come out in the town. A block of masonry round it, its top level with the wall walk; inside,
+	// whitewash over a grey foot, the ceiling higher than the arch's head, as the floor climbs.
+	_valePassage( materials ) {
+
+		const g = this.terrain.gates.find( ( q ) => Math.hypot( q.x - VALE_GATE[ 0 ], q.z - VALE_GATE[ 1 ] ) < 2 );
+		if ( ! g || ! g.frame ) return;
+		const T = this.terrain, kit = this.kit, f = g.frame;
+		// u along the curtain, north (the way the passage turns); v from its line into the town
+		const sg = f.tx * 0.44 - f.tz * 0.9 > 0 ? 1 : - 1, tx = f.tx * sg, tz = f.tz * sg, nx = f.nx, nz = f.nz;
+		const P = ( u, v ) => [ g.x + tx * u - nx * v, g.z + tz * u - nz * v ];
+		const yaw = Math.atan2( - tz, tx );
+		// the first leg as wide as the arch, its back wall's face V2 in; the second leg from V1 to V2, out at U2
+		const R = g.R, V0 = W / 2, V2 = 5.7, V1 = V2 - 2 * R, U2 = 6, TH = 1.2;
+		let walk = - Infinity;
+		for ( const p of this.curtain.samples ) if ( p.gate === g ) walk = Math.max( walk, p.y );
+		let gHi = - Infinity, gLo = Infinity;
+		for ( const [ u, v ] of [ [ 0, V0 ], [ 0, V2 ], [ - R, V2 ], [ U2, V1 ], [ U2, V2 ], [ R, V1 ] ] ) {
+
+			const y = T.heightAt( ...P( u, v ) );
+			gHi = Math.max( gHi, y ); gLo = Math.min( gLo, y );
+
+		}
+
+		const ceil = Math.max( g.y + g.spring + g.flat + 0.3, gHi + 3.2 ), top = Math.max( walk, ceil + 0.8 ), base = gLo - 0.8;
+		const box = ( u0, u1, v0, v1, y0, y1, walkable ) => {
+
+			const c = P( ( u0 + u1 ) / 2, ( v0 + v1 ) / 2 );
+			kit.box( c[ 0 ], ( y0 + y1 ) / 2, c[ 1 ], u1 - u0, y1 - y0, v1 - v0, yaw );
+			this.colliders.addBox( new Vector3( c[ 0 ], ( y0 + y1 ) / 2, c[ 1 ] ), new Vector3( ( u1 - u0 ) / 2, ( y1 - y0 ) / 2, ( v1 - v0 ) / 2 ), yaw, { walkable, tag: 'wall' } );
+
+		};
+		kit.vdata = [ 0.41, 0.8, 0, 0 ];
+		kit.color = [ 1, 1, 1 ];
+		box( - R - TH, - R, V0, V2 + TH, base, ceil, false ); // south, left as you come in
+		box( - R - TH, U2, V2, V2 + TH, base, ceil, false ); // the back, ahead
+		box( R, U2, V0, V1, base, ceil, false ); // between the second leg and the curtain
+		box( - R - TH, U2, V0, V2 + TH, ceil, top, true ); // over it all
+
+		// whitewash on the faces inside, from the floor up to the ceiling, a grey foot
+		const plaster = new MeshKit();
+		plaster.color = lin( [ 0.52, 0.5, 0.47 ] );
+		const face = ( u0, v0, u1, v1, nrm ) => {
+
+			const A = P( u0, v0 ), B = P( u1, v1 ), ya = T.heightAt( ...A ) - 0.3, yb = T.heightAt( ...B ) - 0.3, lo = Math.min( ya, yb ), L = Math.hypot( u1 - u0, v1 - v0 );
+			plaster.vdata = [ L, 0, 0.47, 0 ];
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], ceil, B[ 1 ] ], [ A[ 0 ], ceil, A[ 1 ] ], nrm,
+				[ [ 0, ya - lo ], [ L, yb - lo ], [ L, ceil - lo ], [ 0, ceil - lo ] ] );
+
+		};
+		const E = 0.01;
+		face( - R + E, V0, - R + E, V2, [ tx, 0, tz ] ); // the left wall
+		face( - R, V2 - E, U2, V2 - E, [ nx, 0, nz ] ); // ahead, and on along the second leg
+		face( R - E, V0, R - E, V1, [ - tx, 0, - tz ] ); // right of the first leg
+		face( R, V1 + E, U2, V1 + E, [ - nx, 0, - nz ] ); // right of the second leg
+		// the ceiling
+		plaster.vdata = [ 1, 0, 0.47, 0 ];
+		for ( const [ u0, u1, v0, v1 ] of [ [ - R, R, V0, V2 ], [ R, U2, V1, V2 ] ] ) {
+
+			const q = [ P( u0, v0 ), P( u1, v0 ), P( u1, v1 ), P( u0, v1 ) ].map( ( [ x, z ] ) => [ x, ceil - E, z ] );
+			plaster.quadFacing( q[ 0 ], q[ 1 ], q[ 2 ], q[ 3 ], [ 0, - 1, 0 ], [ [ u0, 9 ], [ u1, 9 ], [ u1, 9 ], [ u0, 9 ] ] );
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'vale-passage';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
 
 	}
 
