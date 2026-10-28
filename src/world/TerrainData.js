@@ -50,9 +50,10 @@ export const PORTA_ESTE = [ 74.9, 48.5 ];
 export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
 // Rua da Porta da Senhora da Graça: from Porta Este north along the curtain's foot (z from .. to)
 export const SENHORA_DA_GRACA = { street: 256341205, from: 48, to: 20 };
-// the streets outside Porta do Vale, the north-east gate: its approach, and Rua da Porta da Senhora da Graça
-// and the lane off it either side of the torreão
-export const PORTA_DO_VALE_STREETS = [ 298876450, 652293878, 256341205, 298876363 ];
+// the streets outside Porta do Vale, the north-east gate: its approach, Rua da Porta da Senhora da Graça and
+// the lane off it either side of the tower, and Rua Porta do Vale going down from there (photo
+// references/...-img-4397)
+export const PORTA_DO_VALE_STREETS = [ 298876450, 652293878, 256341205, 298876363, 64805009 ];
 // Travessa do Beneficiado Faustino das Neves, off the Calçada da Misericórdia across from the top of Porta
 // Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
 // a house on its left (south), a walled garden's tall wall on its right (north). From its foot to where

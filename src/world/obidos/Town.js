@@ -36,10 +36,17 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	299068737: [ 0.86, 0.64, 0.17 ],
 	// the house on the right going up the Calçada da Misericórdia: a charcoal foot (photo
 	// references/...-whatsapp-image-2026-10-21-at-10-05-24)
-	299064166: [ 0.27, 0.27, 0.28 ] };
+	299064166: [ 0.27, 0.27, 0.28 ],
+	// down Rua Porta do Vale from the tower by the gate (photo references/...-img-4397): on the right, between
+	// it and Rua da Porta da Senhora da Graça, red; on the left a yellow foot, then blue
+	299086795: [ 0.62, 0.13, 0.1 ],
+	299135575: [ 0.86, 0.64, 0.17 ],
+	299135581: [ 0.13, 0.27, 0.58 ] };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
-	299088208: 1 };
+	299088208: 1,
+	// the houses either side of the top of Rua Porta do Vale: one storey (photo references/...-img-4397)
+	299086795: 1, 299135575: 1, 299135581: 1 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [
