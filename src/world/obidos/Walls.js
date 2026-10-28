@@ -118,7 +118,26 @@ export class Walls {
 		// guard wall on its town side, the walk a ramp (no steps) and the walls sloping with it
 		const NE = ( p ) => p.x > - 46.6 && p.x < - 20.5 && p.z > 193 && p.z < 226.5;
 		const onTower = ( p ) => p.x > - 61.5 && p.x < - 46.6 && p.z > 226.7 && p.z < 236.5 ? 'void' : NE( p ) ? 'low' : null; // (the void from the town wall's face)
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 190, - 18, 236.5 ], adjust: westOfTower, town: onTower, ramp: NE } );
+		// over Rua da Porta da Senhora da Graça, north from Porta Este, the curtain stands a little higher than
+		// the ground alone gives it (photo references/...-img-4394), easing back at both ends
+		const senhoraDaGraca = ( samples ) => {
+
+			const RAISE = 1.3;
+			for ( const p of samples ) if ( p.x > 70 && p.x < 90 ) {
+
+				p.raised = RAISE * clamp01( ( 53 - p.z ) / 5 ) * clamp01( ( p.z - 14 ) / 6 );
+				p.top += p.raised;
+
+			}
+
+		};
+		const adjust = ( samples ) => {
+
+			westOfTower( samples );
+			senhoraDaGraca( samples );
+
+		};
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 190, - 18, 236.5 ], adjust, town: onTower, ramp: NE } );
 		// houses keep off that stretch of the curtain (the house leaning on it overlapped its town half): its
 		// line run backwards, so the town is on the left
 		const ne = this.curtain.samples.filter( NE ).sort( ( a, b ) => b.s - a.s );
@@ -3000,7 +3019,7 @@ export class Walls {
 			// not in or by Porta da Vila's tower: its way up is the L-shaped flight, beside the stepped lane
 			if ( Math.hypot( p.x + 54.5, p.z - 230 ) < 20 ) continue;
 			const fx = p.x - p.nx * 2.0, fz = p.z - p.nz * 2.0; // the stair's line, just inside
-			const rise = p.y - T.heightAt( fx, fz );
+			const rise = p.y - T.heightAt( fx, fz ) - ( p.raised || 0 ); // (a stretch raised from the photos keeps its flight)
 			if ( rise < 1.6 || rise > 6.5 ) continue;
 			cands.push( { i, rise } );
 
