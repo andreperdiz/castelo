@@ -36,7 +36,9 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the right going up the Calçada da Misericórdia: a charcoal foot (photo
 	// references/...-whatsapp-image-2026-10-21-at-10-05-24)
 	299064166: [ 0.27, 0.27, 0.28 ] };
-const STOREYS = { 298902328: 2 };
+const STOREYS = { 298902328: 2,
+	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
+	299088208: 1 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [

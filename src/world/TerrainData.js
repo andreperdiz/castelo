@@ -52,6 +52,8 @@ export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
 // Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
 // a house on its left (south), a walled garden's tall wall on its right (north). From its foot to where
 // the wall ends; the wall's line
+// Rua da Porta da Senhora da Graça: from Porta Este north along the curtain's foot (z from .. to)
+export const SENHORA_DA_GRACA = { street: 256341205, from: 48, to: 20 };
 export const BENEFICIADO = { from: [ 39.9, 39.3 ], to: [ 20.6, 41.2 ], wall: [ [ 37.4, 38.2 ], [ 20.6, 40.1 ] ] };
 // the Calçada da Misericórdia from the same corner up toward Santa Maria (photo
 // references/...-whatsapp-image-2026-10-21-at-10-05-24): an even cobbled climb between the same walled garden
@@ -99,6 +101,7 @@ export class TerrainData {
 		this._shapeWall();
 		this._portaDaVilaFloor();
 		this._travessaPoco();
+		this._senhoraDaGraca();
 		this._beneficiado();
 		this._misericordia();
 		mark( 'wall' );
@@ -395,6 +398,8 @@ export class TerrainData {
 		const { res, texel, origin, heights } = this;
 		const b = this.townBounds;
 		const R = 26;
+		// (what the ground was, for the streets along the walls' foot that keep it: _senhoraDaGraca)
+		this.unshaped = heights.slice();
 		const i0 = Math.max( 0, Math.floor( ( b.x0 - R - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( b.x1 + R - origin ) / texel ) );
 		const j0 = Math.max( 0, Math.floor( ( b.z0 - R - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( b.z1 + R - origin ) / texel ) );
 		const nz = this.noise2;
@@ -829,7 +834,7 @@ export class TerrainData {
 			const point = ( u, v = 0 ) => [ P0[ 0 ] + w[ 0 ] * u + n[ 0 ] * v, P0[ 1 ] + w[ 1 ] * u + n[ 1 ] * v ];
 			const ground = ( u ) => y( tOf( point( u, - 0.3 ) ) ) + 0.35;
 			const uS = 0.4 * WLen, topA = ground( 0 ) + 1.15, topB = topA - 0.48;
-			const WALL = { P0, P1, length: WLen, w, n, point, ground, uS, topA, topB, yard: topA - 1.0, bed: topB - 0.25, depth: 6,
+			const WALL = { P0, P1, length: WLen, w, n, point, ground, uS, topA, topB, yard: topA - 1.45, bed: topB - 0.25, depth: 6, // (the yard about level with the street beside it: cars drive in)
 				uv: ( x, z ) => [ ( x - P0[ 0 ] ) * w[ 0 ] + ( z - P0[ 1 ] ) * w[ 1 ], ( x - P0[ 0 ] ) * n[ 0 ] + ( z - P0[ 1 ] ) * n[ 1 ] ] };
 			return { S, C, len, dir, left, y, HALF: HALF2, VERGE, WALL };
 
@@ -942,6 +947,94 @@ export class TerrainData {
 
 		};
 		this.misericordia = { from: M.from, to: M.to, wall: M.wall, corner, cornerFaces: [ f( [ 32.1, 20.2 ] ), f( [ 48.7, 35.8 ] ) ], dir, length: L, y };
+
+	}
+
+	// Rua da Porta da Senhora da Graça, outside the walls north from Porta Este (photo
+	// references/...-inicio-de-rua-entre-porta-este-e-nordest): it runs along the curtain's foot, so _shapeWall
+	// pulled it down with the ground there; it keeps the real ground, from the wall's face to its far side,
+	// smoothed along it, and is paved. this.senhoraDaGraca tells Walls where.
+	_senhoraDaGraca() {
+
+		const st = OSM.streets.find( ( q ) => q.id === SENHORA_DA_GRACA.street );
+		if ( ! st || ! this.unshaped ) return;
+		const { res, texel, origin, heights } = this;
+		const pts = st.pts.filter( ( [ x, z ] ) => z <= SENHORA_DA_GRACA.from && z >= SENHORA_DA_GRACA.to );
+		pts.unshift( [ 80.2, 48.5 ] );
+		// the ground along it before the walls' shaping, averaged over a few metres
+		const cum = [ 0 ];
+		for ( let i = 1; i < pts.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( pts[ i ][ 0 ] - pts[ i - 1 ][ 0 ], pts[ i ][ 1 ] - pts[ i - 1 ][ 1 ] ) );
+		const L = cum[ cum.length - 1 ];
+		const at = ( s ) => {
+
+			let i = 0;
+			while ( i < pts.length - 2 && cum[ i + 1 ] < s ) i ++;
+			const t = clamp( ( s - cum[ i ] ) / ( cum[ i + 1 ] - cum[ i ] ), 0, 1 );
+			return [ pts[ i ][ 0 ] + ( pts[ i + 1 ][ 0 ] - pts[ i ][ 0 ] ) * t, pts[ i ][ 1 ] + ( pts[ i + 1 ][ 1 ] - pts[ i ][ 1 ] ) * t ];
+
+		};
+		const orig = ( x, z ) => {
+
+			const i = clamp( Math.floor( ( x - origin ) / texel ), 0, res - 1 ), j = clamp( Math.floor( ( z - origin ) / texel ), 0, res - 1 );
+			return this.unshaped[ j * res + i ];
+
+		};
+		const N = Math.ceil( L ), raw = [];
+		for ( let i = 0; i <= N; i ++ ) raw.push( orig( ...at( L * i / N ) ) );
+		// the start meets the threshold's level by Porta Este (which TerrainData's gate shaping set)
+		raw[ 0 ] = this.heightAt( ...pts[ 0 ] );
+		const smooth = raw.map( ( _, i ) => {
+
+			let sum = 0, w = 0;
+			for ( let k = - 3; k <= 3; k ++ ) {
+
+				const q = raw[ clamp( i + k, 0, N ) ], wk = 4 - Math.abs( k );
+				sum += q * wk; w += wk;
+
+			}
+
+			return sum / w;
+
+		} );
+		smooth[ 0 ] = raw[ 0 ];
+		const y = ( s ) => {
+
+			const f = clamp( s / L, 0, 1 ) * N, i = Math.min( N - 1, Math.floor( f ) );
+			return lerp( smooth[ i ], smooth[ i + 1 ], f - i );
+
+		};
+		const HALF = 2.6, line = Array.from( { length: N + 1 }, ( _, i ) => at( L * i / N ) );
+		this._stroke( line, HALF + 4, 0, ( k ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, line[ i ], line[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, s: L * ( i + u ) / N, i, u };
+
+			}
+
+			const a = line[ best.i ], b2 = line[ best.i + 1 ];
+			// the side: toward the wall (west, the walls' side) or away from it
+			const side = ( b2[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b2[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] );
+			const toWall = side < 0;
+			if ( best.d <= HALF || toWall ) {
+
+				// the street, and between it and the wall's foot: level across with it
+				if ( this.inside[ k ] ) return;
+				heights[ k ] = y( best.s );
+				if ( best.d <= HALF ) {
+
+					this.path[ k ] = 255;
+					this.scarp[ k ] = 255;
+
+				}
+
+			} else heights[ k ] = lerp( y( best.s ), heights[ k ], smoothstep( HALF, HALF + 4, best.d ) );
+
+		} );
+		this.senhoraDaGraca = { line, y, length: L, HALF };
 
 	}
 

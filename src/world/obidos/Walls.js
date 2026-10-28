@@ -140,6 +140,7 @@ export class Walls {
 		this._praceta();
 		this._portaEste( materials );
 		this._beneficiado( materials );
+		this._senhoraDaGraca( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -2000,6 +2001,92 @@ export class Walls {
 			const h = Math.min( y1 - 0.02 - y, 0.34 ), wa = k % 2 ? 0.28 : 0.5, wb = k % 2 ? 0.5 : 0.28;
 			for ( const [ u, o, w ] of [ [ u1, u2, wa ], [ u2, u1, wb ] ] ) kit.box( P[ 0 ] + u[ 0 ] * w / 2 - o[ 0 ] * 0.02, y + h / 2, P[ 1 ] + u[ 1 ] * w / 2 - o[ 1 ] * 0.02, w, h - 0.04, 0.04, Math.atan2( - u[ 1 ], u[ 0 ] ) );
 			y += h;
+
+		}
+
+	}
+
+	// Rua da Porta da Senhora da Graça, outside the walls north from Porta Este (photo
+	// references/...-inicio-de-rua-entre-porta-este-e-nordest; TerrainData lays the street): a no-entry sign
+	// on its right; on Casa da Picva's front, set back across the parking yard, its name in a panel of
+	// azulejos, wisteria round it.
+	_senhoraDaGraca( materials ) {
+
+		const S = this.terrain.senhoraDaGraca;
+		if ( ! S ) return;
+		const T = this.terrain, plaster = new MeshKit(), iron = new MeshKit();
+
+		// the no-entry sign: a post, a red disc with its white bar, facing back down the street
+		{
+
+			const x = 85.2, z = 41.0, y0 = T.heightAt( x, z ), yaw = Math.atan2( 0.96, 0.29 );
+			iron.vdata = [ 0, 0, 0, 0 ];
+			iron.box( x, y0 + 1.2, z, 0.06, 2.4, 0.06, yaw );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			const n = 6, r = 0.3, fx = [ 0.29 * 0.05, - 0.96 * 0.05 ]; // (toward the gate)
+			plaster.color = lin( [ 0.78, 0.1, 0.08 ] );
+			for ( let i = 0; i < n; i ++ ) {
+
+				const v0 = - r + 2 * r * i / n, v1 = v0 + 2 * r / n, vm = Math.max( Math.abs( v0 ), Math.abs( v1 ) ) * 0.85;
+				plaster.box( x + fx[ 0 ], y0 + 2.1 + ( v0 + v1 ) / 2, z + fx[ 1 ], 2 * Math.sqrt( Math.max( 0, r * r - vm * vm ) ), v1 - v0, 0.03, yaw );
+
+			}
+
+			plaster.color = lin( [ 0.95, 0.95, 0.93 ] );
+			plaster.box( x + fx[ 0 ] * 1.5, y0 + 2.1, z + fx[ 1 ] * 1.5, 0.4, 0.09, 0.02, yaw );
+			this.colliders.addBox( new Vector3( x, y0 + 1.2, z ), new Vector3( 0.05, 1.2, 0.05 ), 0, { walkable: false, tag: 'sign' } );
+
+		}
+
+		// Casa da Picva's name: a panel of azulejos on its front (OSM's face from ( 94.3, 32.7 ) to ( 89.9, 42.9 ),
+		// facing the street), white with a blue border and lettering, wisteria arching round it
+		{
+
+			const A = [ 94.3, 32.7 ], B = [ 89.9, 42.9 ], L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+			const u = [ ( B[ 0 ] - A[ 0 ] ) / L, ( B[ 1 ] - A[ 1 ] ) / L ], out = [ u[ 1 ], - u[ 0 ] ]; // (west, to the street)
+			const at = ( s, k ) => [ A[ 0 ] + u[ 0 ] * s + out[ 0 ] * k, A[ 1 ] + u[ 1 ] * s + out[ 1 ] * k ];
+			const yaw = Math.atan2( - u[ 1 ], u[ 0 ] ), sP = L * 0.62, g = T.heightAt( ...at( sP, 1 ) ), yP = g + 1.75;
+			plaster.vdata = [ 0, 0, 0.37, 4 ];
+			const [ px, pz ] = at( sP, 0.04 );
+			plaster.color = lin( [ 0.14, 0.3, 0.7 ] );
+			plaster.box( px, yP, pz, 1.3, 0.85, 0.03, yaw );
+			const [ qx, qz ] = at( sP, 0.06 );
+			plaster.color = lin( [ 0.94, 0.94, 0.9 ] );
+			plaster.box( qx, yP, qz, 1.12, 0.67, 0.02, yaw );
+			plaster.color = lin( [ 0.14, 0.3, 0.7 ] );
+			for ( let i = 0; i < 5; i ++ ) {
+
+				const [ lx, lz ] = at( sP - 0.36 + i * 0.18, 0.075 );
+				plaster.box( lx, yP + 0.12, lz, 0.13, 0.22, 0.01, yaw ); // the letters
+
+			}
+
+			const [ dx, dz ] = at( sP, 0.075 );
+			plaster.box( dx, yP - 0.18, dz, 0.8, 0.05, 0.01, yaw ); // the scroll under them
+			// the wisteria: up either side of it and over, leaves and a few mauve flowers
+			let seed = 53;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < 260; i ++ ) {
+
+				const t = rnd(), arc = t * Math.PI, ds = - Math.cos( arc ) * ( 1.05 + rnd() * 0.25 ), dy = t < 0.15 || t > 0.85 ? - 1.6 + rnd() * 2.4 : Math.sin( arc ) * 1.0 + rnd() * 0.3;
+				const [ x, z ] = at( sP + ds, 0.08 + rnd() * 0.3 ), sz = 0.1 + rnd() * 0.16;
+				plaster.color = lin( rnd() < 0.1 ? [ 0.62, 0.5, 0.78 ] : [ 0.2 + rnd() * 0.12, 0.36 + rnd() * 0.12, 0.12 ] );
+				plaster.box( x, yP + dy, z, sz, sz, sz * 0.7, rnd() * 3 );
+
+			}
+
+		}
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'senhora-da-graca' ], [ iron, materials.lantern, 'senhora-da-graca-iron' ] ] ) {
+
+			if ( k.empty ) continue;
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
 
 		}
 
