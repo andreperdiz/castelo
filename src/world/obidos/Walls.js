@@ -24,6 +24,10 @@ const STEP_RISE = 0.18;
 // Porta do Vale, where the street crosses the curtain, and the curtain's own line round the torreão left of
 // it (outside), from the corner where it juts out to past the gate
 const VALE_GATE = [ 97.4, - 37.3 ];
+// the tower there (photos references/...-porta-nordeste-1, -img-4396; OSM has only the curtain's line round
+// it): square, well over the curtain, crenellated; its outer faces 1.4 m out from that line, the Oratório
+// inside it
+const VALE_TOWER = { name: 'Torre da Porta do Vale', extra: 5, pts: [ [ 87.9, - 27.44 ], [ 94.54, - 24.11 ], [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ], [ 85.6, - 32.1 ], [ 87.9, - 27.44 ] ] };
 const VALE_TORREAO = [ [ 86.5, - 29.7 ], [ 93.9, - 26 ], [ 97.9, - 34.2 ], [ 96.3, - 35 ], [ 97.4, - 37.3 ], [ 99.8, - 42.2 ] ];
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end (at the curtain), inner arch,
@@ -84,15 +88,16 @@ export class Walls {
 		// references/...-portaeste3)
 		if ( portaEste ) Object.assign( portaEste, { half: 0.6, pointed: 1.6, spring: 2.7, fit: true, opening: 0.7, inner: { spring: 3.15, depth: 1.5 } } );
 		// Porta do Vale, the north-east gate (photo references/...-porta-nordeste-1): a low basket arch, about
-		// 3 m wide, springing at 2.9 m and rising 0.85 m more
+		// 3 m wide, springing at 2.9 m and rising 0.85 m more, right beside the tower's side (OSM's crossing
+		// is 0.7 m too far south: the tower would hide its left edge)
 		const portaDoVale = terrain.gates.find( ( g ) => Math.hypot( g.x - VALE_GATE[ 0 ], g.z - VALE_GATE[ 1 ] ) < 2 );
-		if ( portaDoVale ) Object.assign( portaDoVale, { half: 1.4, spring: 2.9, flat: 0.85 } );
+		if ( portaDoVale ) Object.assign( portaDoVale, { x: portaDoVale.x + 0.43 * 0.7, z: portaDoVale.z - 0.9 * 0.7, half: 1.4, spring: 2.9, flat: 0.85 } );
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
 		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
 		this._pvCurtainCorner( wall );
-		// left of Porta do Vale (outside) the curtain juts out in a square torreão, its corners sharp; the 2 m
-		// profile cut them
+		// left of Porta do Vale (outside) the curtain juts out round the tower there (_towers builds it), its
+		// corners sharp; the 2 m profile cut them
 		this._curtainRun( wall, VALE_TORREAO );
 		const tower = wall.pts.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
 		if ( tower.length ) {
@@ -142,20 +147,13 @@ export class Walls {
 			}
 
 		};
-		// the torreão by Porta do Vale stands higher than the curtain either side of it
-		const torreao = ( samples ) => {
-
-			for ( const p of samples ) if ( p.x > 86.8 && p.x < 99.5 && p.z > - 34.9 && p.z < - 25 ) p.top += 2.4;
-
-		};
 		const adjust = ( samples ) => {
 
 			westOfTower( samples );
 			senhoraDaGraca( samples );
-			torreao( samples );
 
 		};
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ [ - 50.5, 190, - 18, 236.5 ], [ 85, - 44, 101, - 24 ] ], corners: VALE_TORREAO.slice( 1, 4 ), adjust, town: onTower, ramp: NE } );
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ [ - 50.5, 190, - 18, 236.5 ], [ 92, - 44, 101, - 24 ] ], corners: VALE_TORREAO.slice( 1, 4 ), adjust, town: onTower, ramp: NE } );
 		// houses keep off that stretch of the curtain (the house leaning on it overlapped its town half): its
 		// line run backwards, so the town is on the left
 		const ne = this.curtain.samples.filter( NE ).sort( ( a, b ) => b.s - a.s );
@@ -3232,8 +3230,8 @@ export class Walls {
 	_towers() {
 
 		const T = this.terrain, kit = this.kit;
-		const TALL = { 'Torre de Dom Fernando': 15, 'Torre de Dom Dinis': 10, 'Torre Albarrã': 9, 'Torre do Facho': 7, 'cubelo quadrangular': 4 };
-		for ( const t of OSM.towers ) {
+		const TALL = { 'Torre de Dom Fernando': 15, 'Torre de Dom Dinis': 10, 'Torre Albarrã': 9, 'Torre do Facho': 7, 'cubelo quadrangular': 4, [ VALE_TOWER.name ]: VALE_TOWER.extra };
+		for ( const t of [ ...OSM.towers, VALE_TOWER ] ) {
 
 			let poly = t.pts.slice( 0, - 1 );
 			if ( poly.length < 3 ) continue;

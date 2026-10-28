@@ -19,8 +19,9 @@ const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
 // the Oratório inside Porta da Vila (the gate tower is open to the sky in the game), and the Passo da Porta
 // da Vila, built as a portal on the tower's face (Walls._passoPortal); the Chafariz Novo below Porta Este, a
-// fountain, not a house (Walls._portaEste)
-const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566 ] );
+// fountain, not a house (Walls._portaEste); the Oratório da Nossa Senhora da Graça, inside the tower by
+// Porta do Vale (Walls builds the tower)
+const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566, 1276297062 ] );
 // streets passing under a building (OSM building_passage) built as such: the building split along the
 // passage into its two wings, and over the passage the body joining them, arched on both sides. By the
 // building's id: the passage's street, its half width (Rua Padre António Almeida, between the two wings of
