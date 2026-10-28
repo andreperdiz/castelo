@@ -486,19 +486,23 @@ export class Walls {
 
 	}
 
-	// Porta do Vale's covered passage (photos references/...-porta-nordeste-1 and the ceiling from inside;
-	// OSM's building passage): in through the arch, a whitewashed wall ahead under a flat ceiling of boards
-	// and dark beams, and the way turns right (north) along the curtain's back into a tall whitewashed hall:
-	// a coved ceiling of boards (flat in the middle, sloping to the walls) on battens, two iron ties, a
-	// small barred window high in each side, a lantern hung on a chain, a big beam and boards where it meets
-	// the first leg, and out into the town through an arch of dressed stone with a pink keystone and a
-	// cornice. A block of masonry round it all, its top a little over the wall walk.
+	// Porta do Vale's covered passage (photos references/...-porta-nordeste-1, -img-4402, -altar and the
+	// ceiling from inside; OSM's building passage): one tall whitewashed hall behind the curtain, running
+	// north from the Oratório at its south end to an arch out into the town. In through the gate on its
+	// east side, a foot of rough stone along the west wall ahead and a balcony window high in it. A coved
+	// ceiling of boards (flat in the middle, sloping to the walls) on battens with two iron ties, a small
+	// barred window high in each side by the chapel, a lantern hung in front of it; north of the gate a
+	// loft under the ceiling, its boards and beams overhead and a row of slats along its edge. The chapel:
+	// pilasters on pink bases, an arch with a pink keystone and an entablature round its opening, a stone
+	// cornice under it over a sunk panel, a tall iron grille; inside, under a vault, the altar with a cross,
+	// the retable (columns on pink pedestals, a niche of azulejos with the image, a broken pediment and a
+	// cartouche). A block of masonry round it all, its top over the wall walk.
 	_valePassage( materials ) {
 
 		const g = this.terrain.gates.find( ( q ) => Math.hypot( q.x - VALE_GATE[ 0 ], q.z - VALE_GATE[ 1 ] ) < 2 );
 		if ( ! g || ! g.frame ) return;
 		const T = this.terrain, kit = this.kit, f = g.frame;
-		// u along the curtain, north (the way the passage turns); v from its line into the town
+		// u along the curtain, north (to the way out); v from its line into the town
 		const sg = f.tx * 0.44 - f.tz * 0.9 > 0 ? 1 : - 1, tx = f.tx * sg, tz = f.tz * sg, nx = f.nx, nz = f.nz;
 		const P = ( u, v ) => [ g.x + tx * u - nx * v, g.z + tz * u - nz * v ];
 		const V3 = ( u, y, v ) => {
@@ -511,26 +515,33 @@ export class Walls {
 		const yaw = Math.atan2( - tz, tx );
 		const alongU = [ tx, 0, tz ], intoV = [ - nx, 0, - nz ];
 		const dir = ( a, b ) => [ a[ 0 ] * b, a[ 1 ] * b, a[ 2 ] * b ];
-		// the first leg as wide as the arch, its back wall's face V2 in; the second leg from V1 to V2, out
-		// through its end wall (UE to U2)
-		const R = g.R, V0 = W / 2, V2 = 5.7, V1 = V2 - 2 * R, U2 = 6, UE = U2 - 0.5, TH = 1.2, vc = ( V1 + V2 ) / 2;
+		const north = alongU, south = dir( alongU, - 1 ), west = intoV, east = dir( intoV, - 1 );
+		// the hall from the curtain's back (V0) to its west wall (V2), from the chapel's wall (u = -R) to its
+		// end wall (UE to U2); the walls TH thick
+		const R = g.R, V0 = W / 2, V2 = 5.7, VM = ( V0 + V2 ) / 2, U2 = 6, UE = U2 - 0.5, TH = 1.2;
 		let gHi = - Infinity, gLo = Infinity;
-		for ( const [ u, v ] of [ [ 0, V0 ], [ 0, V2 ], [ - R, V2 ], [ U2, V1 ], [ U2, V2 ], [ R, V1 ] ] ) {
+		for ( const [ u, v ] of [ [ - R, V0 ], [ - R, V2 ], [ 0, V2 ], [ UE, V0 ], [ UE, V2 ] ] ) {
 
 			gHi = Math.max( gHi, ground( u, v ) ); gLo = Math.min( gLo, ground( u, v ) );
 
 		}
 
-		// the walls' height S (where the coved ceiling springs), its flat middle C (the first leg's ceiling)
-		const S = gHi + 4.2, C = S + 0.9, top = C + 0.7, base = gLo - 0.8;
+		let walk = - Infinity;
+		for ( const p of this.curtain.samples ) if ( p.gate === g ) walk = Math.max( walk, p.y );
+		// the walls' height S (where the coved ceiling springs), its flat middle C
+		const S = gHi + 6.5, C = S + 1.0, top = C + 0.7, base = gLo - 0.8;
 		const crown = g.y + g.spring + g.flat;
-		const cove = [ [ V1, S ], [ V1 + 0.3 * ( V2 - V1 ), C ], [ V2 - 0.3 * ( V2 - V1 ), C ], [ V2, S ] ];
+		const cw = V2 - V0, cove = [ [ V0, S ], [ V0 + 0.3 * cw, C ], [ V2 - 0.3 * cw, C ], [ V2, S ] ];
 		const coveY = ( v ) => {
 
 			for ( let k = 0; k + 1 < cove.length; k ++ ) if ( v <= cove[ k + 1 ][ 0 ] ) return cove[ k ][ 1 ] + ( cove[ k + 1 ][ 1 ] - cove[ k ][ 1 ] ) * ( v - cove[ k ][ 0 ] ) / ( cove[ k + 1 ][ 0 ] - cove[ k ][ 0 ] );
 			return S;
 
 		};
+
+		// the chapel: its opening hwC either side of VM, from the cornice (yF) to the pilasters' capitals (spA,
+		// where its arch springs); inside, deeper than the wall, a taller vault (springing at spR) back to uB
+		const gC = ground( - R, VM ), yF = gC + 2.5, hwC = 1.15, spA = yF + 2.12, spR = spA + 0.6, uW = - R - TH, uB = uW - 1.8;
 
 		// the masonry
 		const box = ( k, u0, u1, v0, v1, y0, y1, skip ) => {
@@ -539,26 +550,40 @@ export class Walls {
 			k.box( c[ 0 ], ( y0 + y1 ) / 2, c[ 1 ], u1 - u0, y1 - y0, v1 - v0, yaw, skip );
 
 		};
-		const solid = ( u0, u1, v0, v1, y0, y1, walkable ) => {
+		const solid = ( u0, u1, v0, v1, y0, y1, walkable = false ) => {
 
 			const c = P( ( u0 + u1 ) / 2, ( v0 + v1 ) / 2 );
 			this.colliders.addBox( new Vector3( c[ 0 ], ( y0 + y1 ) / 2, c[ 1 ] ), new Vector3( ( u1 - u0 ) / 2, ( y1 - y0 ) / 2, ( v1 - v0 ) / 2 ), yaw, { walkable, tag: 'wall' } );
 
 		};
+		const mass = ( u0, u1, v0, v1, y0, y1, collide = true ) => {
+
+			box( kit, u0, u1, v0, v1, y0, y1 );
+			if ( collide ) solid( u0, u1, v0, v1, y0, y1 );
+
+		};
 		kit.vdata = [ 0.41, 0.8, 0, 0 ];
 		kit.color = [ 1, 1, 1 ];
-		for ( const [ u0, u1, v0, v1 ] of [ [ - R - TH, - R, V0, V2 + TH ], [ - R, U2, V2, V2 + TH ], [ R, U2, V0, V1 ] ] ) {
-
-			box( kit, u0, u1, v0, v1, base, S );
-			solid( u0, u1, v0, v1, base, S, false );
-
-		}
-
-		box( kit, - R - TH, U2, V0, V2 + TH, S, top, 'bottom' );
-		solid( - R - TH, U2, V0, V2 + TH, S, top, true );
+		mass( uW, U2, V2, V2 + TH, base, S ); // west
+		mass( uW, U2, V0 - 0.6, V0, walk - 0.2, S ); // east, over the curtain's walk
+		// the chapel's wall, round its opening
+		mass( uW, - R, V0, V2 + TH, base, yF );
+		mass( uW, - R, V0, VM - hwC, yF, S );
+		mass( uW, - R, VM + hwC, V2 + TH, yF, S );
+		mass( uW, - R, VM - hwC, VM + hwC, spA + hwC, S, false );
+		// the chapel's own masonry behind it
+		const cs = hwC + 0.8;
+		mass( uB - 0.8, uW, VM - cs, VM + cs, base, yF );
+		mass( uB - 0.8, uB, VM - cs, VM + cs, yF, S, false );
+		mass( uB, uW, VM - cs, VM - hwC, yF, S, false );
+		mass( uB, uW, VM + hwC, VM + cs, yF, S, false );
+		mass( uB, uW, VM - hwC, VM + hwC, spR + hwC, S, false );
+		// the roof over it all
+		box( kit, uB - 0.8, U2, V0 - 0.6, V2 + TH, S, top, 'bottom' );
+		solid( uB - 0.8, U2, V0 - 0.6, V2 + TH, S, top, true );
 
 		const plaster = new MeshKit(), lamps = new MeshKit();
-		const WOOD = lin( [ 0.88, 0.58, 0.38 ] ), BEAM = lin( [ 0.48, 0.4, 0.32 ] ), CREAM = lin( [ 0.9, 0.87, 0.8 ] ), PINK = lin( [ 0.82, 0.5, 0.42 ] );
+		const WOOD = lin( [ 0.88, 0.58, 0.38 ] ), BEAM = lin( [ 0.48, 0.4, 0.32 ] ), CREAM = lin( [ 0.9, 0.87, 0.8 ] ), PINK = lin( [ 0.82, 0.5, 0.42 ] ), STONE = lin( [ 0.72, 0.7, 0.64 ] ), FOOT = lin( [ 0.52, 0.5, 0.47 ] );
 		const paint = ( c ) => {
 
 			plaster.vdata = [ 0, 0, 0.53, 4 ];
@@ -571,156 +596,161 @@ export class Walls {
 			plaster.color = c;
 
 		};
-
-		// whitewash over a grey foot, from the floor (a, b: [ u, v ]) up to the heights ya, yb
+		lamps.vdata = [ 0, 0, 0, 0 ];
 		const E = 0.01;
-		const wash = ( a, b, ya, yb, nrm ) => {
 
-			const ga = ground( ...a ) - 0.3, gb = ground( ...b ) - 0.3, lo = Math.min( ga, gb ), L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+		// whitewash over a grey foot, between a and b ([ u, v ]) from y0 (the floor, if null) up to y1
+		const wash = ( a, b, y0, y1, nrm ) => {
+
+			// (heights over the floor at each end, so the foot follows it)
+			const fa = ground( ...a ), fb = ground( ...b ), ga = y0 ?? fa - 0.3, gb = y0 ?? fb - 0.3, L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			const ya = typeof y1 === 'function' ? y1( a ) : y1, yb = typeof y1 === 'function' ? y1( b ) : y1;
 			plaster.vdata = [ L, 0, 0.47, 0 ];
-			plaster.color = lin( [ 0.52, 0.5, 0.47 ] );
+			plaster.color = FOOT;
 			plaster.quadFacing( V3( a[ 0 ], ga, a[ 1 ] ), V3( b[ 0 ], gb, b[ 1 ] ), V3( b[ 0 ], yb, b[ 1 ] ), V3( a[ 0 ], ya, a[ 1 ] ), nrm,
-				[ [ 0, ga - lo ], [ L, gb - lo ], [ L, yb - lo ], [ 0, ya - lo ] ] );
+				[ [ 0, ga - fa ], [ L, gb - fb ], [ L, yb - fb ], [ 0, ya - fa ] ] );
 
 		};
-		wash( [ - R + E, V0 ], [ - R + E, V2 ], C, C, alongU ); // the first leg: left
-		wash( [ - R, V2 - E ], [ R, V2 - E ], C, C, dir( intoV, - 1 ) ); // ahead
-		wash( [ R - E, V0 ], [ R - E, V1 ], C, C, dir( alongU, - 1 ) ); // right
-		wash( [ R, V2 - E ], [ UE, V2 - E ], S, S, dir( intoV, - 1 ) ); // the hall: left
-		wash( [ R, V1 + E ], [ UE, V1 + E ], S, S, intoV ); // right
-		// over the arch, on the curtain's back
-		plaster.vdata = [ 2 * R, 0, 0.47, 0 ];
-		plaster.quadFacing( V3( - R, crown, V0 + E ), V3( R, crown, V0 + E ), V3( R, C, V0 + E ), V3( - R, C, V0 + E ), intoV, [ [ 0, 5 ], [ 2 * R, 5 ], [ 2 * R, 9 ], [ 0, 9 ] ] );
+		// a wall across the hall (at u, facing nrm) from V0 to V2, up to the ceiling, with an arched hole: half
+		// width a about vh, springing at ya, its sill at ys (the floor, if null)
+		const archWall = ( u, nrm, vh, a, ya, ys, outer ) => {
 
-		// the first leg, from just inside the arch (photo references/...-img-4402). Ahead, a foot of rough stone
-		// along the wall, a slit of a window high on the left, and high up a balcony window: an arch of carved
-		// stone with a pink keystone over a dark doorway, a stone sill, a railing of wrought iron
-		const STONE = lin( [ 0.72, 0.7, 0.64 ] );
-		const back = ( u0, u1, y0, y1, k = 0.015 ) => plaster.quadFacing( V3( u0, y0, V2 - k ), V3( u1, y0, V2 - k ), V3( u1, y1, V2 - k ), V3( u0, y1, V2 - k ), dir( intoV, - 1 ) );
+			const vs = [ V0, cove[ 1 ][ 0 ], cove[ 2 ][ 0 ], V2, vh - a, vh + a ];
+			for ( let k = 1; k < 16; k ++ ) vs.push( vh - a + 2 * a * k / 16 );
+			vs.sort( ( p, q ) => p - q );
+			const archY = ( v ) => ya + Math.sqrt( Math.max( 0, a * a - ( v - vh ) ** 2 ) );
+			for ( let k = 0; k + 1 < vs.length; k ++ ) {
+
+				const va = vs[ k ], vb = vs[ k + 1 ];
+				if ( vb - va < 1e-4 ) continue;
+				const open = Math.abs( ( va + vb ) / 2 - vh ) < a;
+				if ( ! open ) wash( [ u, va ], [ u, vb ], null, ( q ) => coveY( q[ 1 ] ), nrm );
+				else {
+
+					// over the arch to the ceiling, and under it to the sill
+					const L = vb - va;
+					plaster.vdata = [ L, 0, 0.47, 0 ];
+					plaster.color = FOOT;
+					plaster.quadFacing( V3( u, archY( va ), va ), V3( u, archY( vb ), vb ), V3( u, coveY( vb ), vb ), V3( u, coveY( va ), va ), nrm, [ [ 0, 9 ], [ L, 9 ], [ L, 9 ], [ 0, 9 ] ] );
+					if ( ys !== null ) wash( [ u, va ], [ u, vb ], null, ys, nrm );
+					if ( outer ) outer( va, vb, archY( va ), archY( vb ) );
+
+				}
+
+			}
+
+		};
+
+		// the west wall, a foot of rough stone along it; the east wall, the curtain's back, over the gate
+		wash( [ - R, V2 - E ], [ UE, V2 - E ], null, S, east );
+		wash( [ R, V0 + E ], [ UE, V0 + E ], null, S, west );
+		plaster.vdata = [ 2 * R, 0, 0.47, 0 ];
+		plaster.color = FOOT;
+		plaster.quadFacing( V3( - R, crown, V0 + E ), V3( R, crown, V0 + E ), V3( R, S, V0 + E ), V3( - R, S, V0 + E ), west, [ [ 0, 5 ], [ 2 * R, 5 ], [ 2 * R, 9 ], [ 0, 9 ] ] );
 		kit.vdata = [ 0.53, 0.5, 0, 0 ];
 		for ( let u = - R; u < UE - 1e-3; u += 1 ) {
 
 			const u1 = Math.min( UE, u + 1 ), ga = ground( u, V2 ), gb = ground( u1, V2 );
-			kit.quadFacing( V3( u, ga - 0.3, V2 - 0.03 ), V3( u1, gb - 0.3, V2 - 0.03 ), V3( u1, gb + 0.45, V2 - 0.03 ), V3( u, ga + 0.45, V2 - 0.03 ), dir( intoV, - 1 ) );
+			kit.quadFacing( V3( u, ga - 0.3, V2 - 0.03 ), V3( u1, gb - 0.3, V2 - 0.03 ), V3( u1, gb + 0.45, V2 - 0.03 ), V3( u, ga + 0.45, V2 - 0.03 ), east );
 
 		}
 
-		paint( lin( [ 0.95, 0.95, 0.92 ] ) );
-		const gB = ground( 0, V2 );
-		back( - R + 0.55, - R + 0.8, gB + 3.6, gB + 4.3 );
-		const ub = 0.35, sill = gB + 2.4, hw = 0.95, spring = sill + 1.15, ro = 0.95, ri = 0.75;
-		// the opening: pale inside, a dark door at the back
-		paint( lin( [ 0.78, 0.77, 0.74 ] ) );
-		back( ub - ri, ub + ri, sill, spring, 0.016 );
-		for ( let k = 0; k < 12; k ++ ) {
+		// the balcony window high in the west wall, across from the gate: an arch of carved stone with a pink
+		// keystone over a dark door, a stone sill, a railing of wrought iron
+		{
 
-			const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( ub + r * Math.cos( t ), spring + r * Math.sin( t ), V2 - 0.016 );
-			plaster.quadFacing( p( 0, t0 ), p( ri, t0 ), p( ri, t1 ), p( 0, t1 ), dir( intoV, - 1 ) );
+			const back = ( u0, u1, y0, y1, k = 0.015 ) => plaster.quadFacing( V3( u0, y0, V2 - k ), V3( u1, y0, V2 - k ), V3( u1, y1, V2 - k ), V3( u0, y1, V2 - k ), east );
+			const ub = 0.35, gB = ground( 0, V2 ), sill = gB + 2.4, hw = 0.95, spring = sill + 1.15, ro = 0.95, ri = 0.75;
+			paint( lin( [ 0.78, 0.77, 0.74 ] ) );
+			back( ub - ri, ub + ri, sill, spring, 0.016 );
+			for ( let k = 0; k < 12; k ++ ) {
+
+				const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( ub + r * Math.cos( t ), spring + r * Math.sin( t ), V2 - 0.016 );
+				plaster.quadFacing( p( 0, t0 ), p( ri, t0 ), p( ri, t1 ), p( 0, t1 ), east );
+
+			}
+
+			paint( lin( [ 0.08, 0.08, 0.08 ] ) );
+			back( ub - 0.3, ub + 0.3, sill, sill + 1.5, 0.02 );
+			paint( STONE );
+			for ( let k = 0; k < 12; k ++ ) {
+
+				const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( ub + r * Math.cos( t ), spring + r * Math.sin( t ), V2 - 0.04 );
+				plaster.quadFacing( p( ri, t0 ), p( ro, t0 ), p( ro, t1 ), p( ri, t1 ), east );
+
+			}
+
+			box( plaster, ub - ro, ub - ri, V2 - 0.04, V2, sill, spring );
+			box( plaster, ub + ri, ub + ro, V2 - 0.04, V2, sill, spring );
+			box( plaster, ub - hw - 0.25, ub + hw + 0.25, V2 - 0.3, V2, sill - 0.14, sill );
+			paint( PINK );
+			box( plaster, ub - 0.13, ub + 0.13, V2 - 0.1, V2, spring + ri - 0.05, spring + ro + 0.12 );
+			const vr = V2 - 0.27;
+			for ( const y of [ sill + 0.05, sill + 0.55, sill + 1.05 ] ) ironBar( lamps, V3( ub - hw, y, vr ), V3( ub + hw, y, vr ), 0.025 );
+			for ( let u = ub - hw; u <= ub + hw + 1e-3; u += 0.19 ) ironBar( lamps, V3( u, sill, vr ), V3( u, sill + 1.05, vr ), 0.018 );
+			for ( const u of [ ub - hw, ub + hw ] ) ironBar( lamps, V3( u, sill + 0.05, V2 ), V3( u, sill + 0.05, vr ), 0.025 );
 
 		}
 
-		paint( lin( [ 0.08, 0.08, 0.08 ] ) );
-		back( ub - 0.3, ub + 0.3, sill, sill + 1.5, 0.02 );
-		// the carved surround, its jambs, the keystone, the sill
-		paint( STONE );
-		for ( let k = 0; k < 12; k ++ ) {
+		// a small barred window high in each side wall by the chapel
+		for ( const [ vf, nrm, s ] of [ [ V2 - E, east, - 1 ], [ V0 + E, west, 1 ] ] ) {
 
-			const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( ub + r * Math.cos( t ), spring + r * Math.sin( t ), V2 - 0.04 );
-			plaster.quadFacing( p( ri, t0 ), p( ro, t0 ), p( ro, t1 ), p( ri, t1 ), dir( intoV, - 1 ) );
+			const uw = - R + 0.7, yw = S - 1.1, d = ( k ) => vf + s * k;
+			const rect = ( hu, hy, k ) => plaster.quadFacing( V3( uw - hu, yw - hy, d( k ) ), V3( uw + hu, yw - hy, d( k ) ), V3( uw + hu, yw + hy, d( k ) ), V3( uw - hu, yw + hy, d( k ) ), nrm );
+			paint( CREAM );
+			rect( 0.38, 0.45, 0.005 );
+			paint( lin( [ 0.95, 0.95, 0.93 ] ) );
+			rect( 0.24, 0.31, 0.01 );
+			for ( const k of [ - 1, 0, 1 ] ) ironBar( lamps, V3( uw + k * 0.08, yw - 0.31, d( 0.03 ) ), V3( uw + k * 0.08, yw + 0.31, d( 0.03 ) ), 0.02 );
+			for ( const k of [ - 1, 1 ] ) ironBar( lamps, V3( uw - 0.24, yw + k * 0.1, d( 0.03 ) ), V3( uw + 0.24, yw + k * 0.1, d( 0.03 ) ), 0.02 );
 
 		}
 
-		box( plaster, ub - ro, ub - ri, V2 - 0.04, V2, sill, spring );
-		box( plaster, ub + ri, ub + ro, V2 - 0.04, V2, sill, spring );
-		box( plaster, ub - hw - 0.25, ub + hw + 0.25, V2 - 0.3, V2, sill - 0.14, sill );
-		paint( PINK );
-		box( plaster, ub - 0.13, ub + 0.13, V2 - 0.1, V2, spring + ri - 0.05, spring + ro + 0.12 );
-		lamps.vdata = [ 0, 0, 0, 0 ];
-		const vr = V2 - 0.27;
-		for ( const y of [ sill + 0.05, sill + 0.55, sill + 1.05 ] ) ironBar( lamps, V3( ub - hw, y, vr ), V3( ub + hw, y, vr ), 0.025 );
-		for ( let u = ub - hw; u <= ub + hw + 1e-3; u += 0.19 ) ironBar( lamps, V3( u, sill, vr ), V3( u, sill + 1.05, vr ), 0.018 );
-		for ( const u of [ ub - hw, ub + hw ] ) ironBar( lamps, V3( u, sill + 0.05, V2 ), V3( u, sill + 0.05, vr ), 0.025 );
-
-		// on the left, the Oratório's side: whitewash below a stone cornice, and over it a tall iron grille in
-		// front of the dim chapel
-		const gL = ground( - R, ( V0 + V2 ) / 2 ), cY = gL + 2.6, g0 = V0 + 0.5, g1 = V2 - 0.7;
-		paint( lin( [ 0.42, 0.4, 0.37 ] ) );
-		plaster.quadFacing( V3( - R + 0.02, cY + 0.25, g0 ), V3( - R + 0.02, cY + 0.25, g1 ), V3( - R + 0.02, cY + 3, g1 ), V3( - R + 0.02, cY + 3, g0 ), alongU );
-		paint( STONE );
-		box( plaster, - R, - R + 0.28, V0 + 0.2, V2, cY, cY + 0.25 );
-		box( plaster, - R, - R + 0.18, g1, g1 + 0.35, cY + 0.25, cY + 3.1 );
-		for ( let v = g0; v <= g1 + 1e-3; v += 0.13 ) ironBar( lamps, V3( - R + 0.14, cY + 0.25, v ), V3( - R + 0.14, cY + 3, v ), 0.02 );
-		for ( const y of [ cY + 0.3, cY + 1.4, cY + 2.95 ] ) ironBar( lamps, V3( - R + 0.14, y, g0 ), V3( - R + 0.14, y, g1 ), 0.03 );
-
-		// the first leg's ceiling: boards along it, two dark beams across
-		wood( WOOD );
-		plaster.quadFacing( V3( - R, C - E, V0 ), V3( R, C - E, V0 ), V3( R, C - E, V2 ), V3( - R, C - E, V2 ), [ 0, - 1, 0 ], [ [ - R, V0 ], [ R, V0 ], [ R, V2 ], [ - R, V2 ] ] );
-		wood( BEAM, 0.7 );
-		for ( const v of [ V0 + 1.5, V0 + 3 ] ) box( plaster, - R, R, v - 0.14, v + 0.14, C - 0.3, C - E, 'top' );
-
-		// the hall's coved ceiling: boards along it, battens across every 0.45 m, two iron ties
+		// the coved ceiling over the whole hall: boards along it, battens across every 0.45 m, two iron ties
 		let acc = 0;
 		for ( let k = 0; k + 1 < cove.length; k ++ ) {
 
 			const [ va, ya ] = cove[ k ], [ vb, yb ] = cove[ k + 1 ], L = Math.hypot( vb - va, yb - ya );
-			// its normal, down and in
 			let mv = - ( yb - ya ), my = vb - va;
 			if ( my > 0 ) { mv = - mv; my = - my; }
 			const nl = Math.hypot( mv, my ), nrm = [ intoV[ 0 ] * mv / nl, my / nl, intoV[ 2 ] * mv / nl ];
 			wood( WOOD );
-			plaster.quadFacing( V3( R, ya, va ), V3( UE, ya, va ), V3( UE, yb, vb ), V3( R, yb, vb ), nrm, [ [ acc, R ], [ acc, UE ], [ acc + L, UE ], [ acc + L, R ] ] );
+			plaster.quadFacing( V3( - R, ya, va ), V3( UE, ya, va ), V3( UE, yb, vb ), V3( - R, yb, vb ), nrm, [ [ acc, - R ], [ acc, UE ], [ acc + L, UE ], [ acc + L, - R ] ] );
 			acc += L;
 			wood( lin( [ 0.76, 0.5, 0.32 ] ), 0.5 );
 			const o = [ nrm[ 0 ] * 0.05, nrm[ 1 ] * 0.05, nrm[ 2 ] * 0.05 ], add = ( p ) => [ p[ 0 ] + o[ 0 ], p[ 1 ] + o[ 1 ], p[ 2 ] + o[ 2 ] ];
-			for ( let u = R + 0.3; u < UE - 0.1; u += 0.45 ) {
+			for ( let u = - R + 0.3; u < UE - 0.1; u += 0.45 ) {
 
 				const a0 = V3( u - 0.035, ya, va ), a1 = V3( u + 0.035, ya, va ), b0 = V3( u - 0.035, yb, vb ), b1 = V3( u + 0.035, yb, vb );
 				plaster.quadFacing( add( a0 ), add( a1 ), add( b1 ), add( b0 ), nrm, [ [ 0, 0 ], [ 0.07, 0 ], [ 0.07, L ], [ 0, L ] ] );
-				plaster.quadFacing( a0, add( a0 ), add( b0 ), b0, dir( alongU, - 1 ) );
-				plaster.quadFacing( a1, add( a1 ), add( b1 ), b1, alongU );
+				plaster.quadFacing( a0, add( a0 ), add( b0 ), b0, south );
+				plaster.quadFacing( a1, add( a1 ), add( b1 ), b1, north );
 
 			}
 
 		}
 
-		lamps.vdata = [ 0, 0, 0, 0 ];
-		for ( const t of [ 0.3, 0.7 ] ) {
+		for ( const u of [ - R + 1.6, R + 0.2 ] ) ironBar( lamps, V3( u, S + 0.1, V0 ), V3( u, S + 0.1, V2 ), 0.025 );
 
-			const u = R + ( UE - R ) * t;
-			ironBar( lamps, V3( u, S + 0.1, V1 ), V3( u, S + 0.1, V2 ), 0.025 );
-
-		}
-
-		// where the hall meets the first leg: a big dark beam across, boards above it to the flat ceiling
+		// north of the gate, a loft under the ceiling: boards and beams overhead, a big beam along its edge and
+		// a row of slats over it
+		const uJ = R + 0.6, yL = S - 0.6;
 		wood( WOOD, 0.6 );
-		for ( let k = 0; k + 1 < cove.length; k ++ ) {
-
-			const [ va, ya ] = cove[ k ], [ vb, yb ] = cove[ k + 1 ];
-			if ( ya < C - 1e-3 || yb < C - 1e-3 ) plaster.quadFacing( V3( R, ya, va ), V3( R, yb, vb ), V3( R, C, vb ), V3( R, C, va ), alongU, [ [ va, ya ], [ vb, yb ], [ vb, C ], [ va, C ] ] );
-
-		}
-
+		plaster.quadFacing( V3( uJ, yL, V0 ), V3( UE, yL, V0 ), V3( UE, yL, V2 ), V3( uJ, yL, V2 ), [ 0, - 1, 0 ], [ [ V0, uJ ], [ V0, UE ], [ V2, UE ], [ V2, uJ ] ] );
+		plaster.quadFacing( V3( uJ, yL + 0.12, V0 ), V3( UE, yL + 0.12, V0 ), V3( UE, yL + 0.12, V2 ), V3( uJ, yL + 0.12, V2 ), [ 0, 1, 0 ], [ [ V0, uJ ], [ V0, UE ], [ V2, UE ], [ V2, uJ ] ] );
 		wood( BEAM, 0.8 );
-		box( plaster, R, R + 0.3, V1, V2, S - 0.35, S + 0.05 );
+		box( plaster, uJ, uJ + 0.3, V0, V2, yL - 0.35, yL + 0.12 );
+		for ( const u of [ uJ + 1.4, uJ + 2.8 ] ) box( plaster, u - 0.12, u + 0.12, V0, V2, yL - 0.25, yL );
+		wood( lin( [ 0.7, 0.48, 0.32 ] ), 0.4 );
+		for ( let v = V0 + 0.1; v < V2 - 0.05; v += 0.2 ) box( plaster, uJ + 0.08, uJ + 0.14, v - 0.03, v + 0.03, yL + 0.12, yL + 0.95 );
+		box( plaster, uJ + 0.04, uJ + 0.18, V0, V2, yL + 0.95, yL + 1.03 );
+		// solid, over the heads below
+		solid( uJ, UE, V0, V2, yL - 0.35, yL + 0.12, true );
 
-		// a small barred window high in each side
-		for ( const [ vf, nrm ] of [ [ V2 - E, dir( intoV, - 1 ) ], [ V1 + E, intoV ] ] ) {
-
-			const uw = ( R + UE ) / 2, yw = S - 1.0, d = ( k ) => vf + Math.sign( nrm[ 0 ] * intoV[ 0 ] + nrm[ 2 ] * intoV[ 2 ] ) * k;
-			const rect = ( hu, hy, k ) => plaster.quadFacing( V3( uw - hu, yw - hy, d( k ) ), V3( uw + hu, yw - hy, d( k ) ), V3( uw + hu, yw + hy, d( k ) ), V3( uw - hu, yw + hy, d( k ) ), nrm );
-			paint( CREAM );
-			rect( 0.42, 0.47, 0.005 );
-			paint( lin( [ 0.86, 0.88, 0.9 ] ) );
-			rect( 0.27, 0.32, 0.01 );
-			for ( const k of [ - 1, 0, 1 ] ) ironBar( lamps, V3( uw + k * 0.09, yw - 0.32, d( 0.03 ) ), V3( uw + k * 0.09, yw + 0.32, d( 0.03 ) ), 0.02 );
-			for ( const k of [ - 1, 1 ] ) ironBar( lamps, V3( uw - 0.27, yw + k * 0.11, d( 0.03 ) ), V3( uw + 0.27, yw + k * 0.11, d( 0.03 ) ), 0.02 );
-
-		}
-
-		// the lantern, hung on a chain from the ceiling's middle
+		// the lantern, hung on a chain in front of the chapel
 		{
 
-			const ul = ( R + UE ) / 2, yl = S - 0.5, [ lx, lz ] = P( ul, vc );
+			const [ lx, lz ] = P( - R + 1.4, VM ), yl = spA + hwC + 0.3;
 			ironBar( lamps, [ lx, C, lz ], [ lx, yl + 0.4, lz ], 0.02 );
 			lamps.vdata = [ 0, 0, 0, 0 ];
 			lamps.box( lx, yl + 0.27, lz, 0.38, 0.06, 0.38, yaw + 0.5 );
@@ -728,63 +758,220 @@ export class Walls {
 			lamps.box( lx, yl - 0.27, lz, 0.26, 0.06, 0.26, yaw + 0.5 );
 			lamps.vdata = [ 1, 0, 0, 0 ];
 			lamps.box( lx, yl, lz, 0.32, 0.48, 0.32, yaw + 0.5, 'top bottom' );
+			lamps.vdata = [ 0, 0, 0, 0 ];
 			this.lights.push( { position: new Vector3( lx, yl - 0.05, lz ), color: new Color( 1.0, 0.66, 0.36 ), intensity: 8, range: 12, kind: 'lantern', flicker: 0.04 } );
 
 		}
 
-		// out through the end wall's arch: whitewash inside up to the ceiling, stone outside, a ring of
-		// dressed stone down to the floor, a pink keystone, a cornice over it
-		const gE = ground( U2, vc ), a = R - 0.35, ya = gE + 2.5;
-		const vs = [ V1, cove[ 1 ][ 0 ], cove[ 2 ][ 0 ], V2, vc - a, vc + a ];
-		for ( let k = 1; k < 16; k ++ ) vs.push( vc - a + 2 * a * k / 16 );
-		vs.sort( ( p, q ) => p - q );
-		const archY = ( v ) => ya + Math.sqrt( Math.max( 0, a * a - ( v - vc ) ** 2 ) );
-		const lo = ( v ) => ground( UE, v ) - 0.3;
-		for ( let k = 0; k + 1 < vs.length; k ++ ) {
+		// the chapel's wall, its opening from the cornice up into the arch
+		archWall( - R + E, north, VM, hwC, spA, yF );
+		// a cornice of stone under the opening, a sunk panel below it
+		const front = ( v0, v1, y0, y1, d0, d1 ) => box( plaster, - R + d0, - R + d1, v0, v1, y0, y1 );
+		paint( STONE );
+		front( V0 + 0.15, V2 - 0.15, yF - 0.18, yF, 0, 0.32 );
+		front( V0 + 0.25, V2 - 0.25, yF - 0.32, yF - 0.18, 0, 0.2 );
+		paint( lin( [ 0.8, 0.79, 0.75 ] ) );
+		const p0 = VM - 1.45, p1 = VM + 1.45, q0 = gC + 0.45, q1 = yF - 0.55;
+		front( p0, p1, q0, q0 + 0.06, 0, 0.03 );
+		front( p0, p1, q1 - 0.06, q1, 0, 0.03 );
+		front( p0, p0 + 0.06, q0, q1, 0, 0.03 );
+		front( p1 - 0.06, p1, q0, q1, 0, 0.03 );
+		// the pilasters, on pink bases, their capitals, the arch with its keystone, the entablature
+		const ent = spA + hwC + 0.45;
+		for ( const s of [ - 1, 1 ] ) {
 
-			const va = vs[ k ], vb = vs[ k + 1 ];
-			if ( vb - va < 1e-4 ) continue;
-			const open = Math.abs( ( va + vb ) / 2 - vc ) < a;
-			const ba = open ? archY( va ) : lo( va ), bb = open ? archY( vb ) : lo( vb );
-			plaster.vdata = [ V2 - V1, 0, 0.47, 0 ];
-			plaster.color = lin( [ 0.52, 0.5, 0.47 ] );
-			const fl = lo( vc );
-			plaster.quadFacing( V3( UE, ba, va ), V3( UE, bb, vb ), V3( UE, coveY( vb ), vb ), V3( UE, coveY( va ), va ), dir( alongU, - 1 ),
-				[ [ va - V1, ba - fl ], [ vb - V1, bb - fl ], [ vb - V1, coveY( vb ) - fl ], [ va - V1, coveY( va ) - fl ] ] );
-			kit.quadFacing( V3( U2, ba, va ), V3( U2, bb, vb ), V3( U2, S, vb ), V3( U2, S, va ), alongU );
-			if ( open ) {
+			const vp = VM + s * ( hwC + 0.26 );
+			paint( PINK );
+			front( vp - 0.28, vp + 0.28, yF, yF + 0.4, 0, 0.22 );
+			paint( STONE );
+			front( vp - 0.22, vp + 0.22, yF + 0.4, spA - 0.2, 0, 0.14 );
+			front( vp - 0.3, vp + 0.3, spA - 0.2, spA, 0, 0.22 );
+			front( vp - 0.2, vp + 0.2, spA, ent, 0, 0.1 );
 
-				const vm = ( va + vb ) / 2, ym = archY( vm ), rl = Math.hypot( vm - vc, ym - ya ) || 1;
-				paint( CREAM );
-				plaster.quadFacing( V3( UE, ba, va ), V3( U2, ba, va ), V3( U2, bb, vb ), V3( UE, bb, vb ), [ - intoV[ 0 ] * ( vm - vc ) / rl, - ( ym - ya ) / rl, - intoV[ 2 ] * ( vm - vc ) / rl ] );
+		}
+
+		for ( let k = 0; k < 16; k ++ ) {
+
+			const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16, p = ( r, t ) => V3( - R + 0.1, spA + r * Math.sin( t ), VM + r * Math.cos( t ) );
+			plaster.quadFacing( p( hwC, t0 ), p( hwC + 0.3, t0 ), p( hwC + 0.3, t1 ), p( hwC, t1 ), north );
+
+		}
+
+		paint( PINK );
+		front( VM - 0.15, VM + 0.15, spA + hwC - 0.05, ent, 0, 0.16 );
+		paint( STONE );
+		front( VM - hwC - 0.55, VM + hwC + 0.55, ent, ent + 0.3, 0, 0.12 );
+		front( VM - hwC - 0.65, VM + hwC + 0.65, ent + 0.3, ent + 0.45, 0, 0.24 );
+		// the tall iron grille in front of it
+		const ug = - R + 0.32, g0 = VM - hwC - 0.05, g1 = VM + hwC + 0.05, gt = yF + 2.0;
+		for ( let v = g0; v <= g1 + 1e-3; v += 0.11 ) ironBar( lamps, V3( ug, yF, v ), V3( ug, gt, v ), 0.018 );
+		for ( const y of [ yF + 0.05, yF + 0.2, yF + 1.25, gt - 0.15, gt ] ) ironBar( lamps, V3( ug, y, g0 ), V3( ug, y, g1 ), 0.025 );
+		for ( let v = g0 + 0.11; v < g1; v += 0.22 ) for ( const y of [ yF + 0.55, gt - 0.5 ] ) {
+
+			// loops between the bars
+			ironBar( lamps, V3( ug, y - 0.2, v ), V3( ug, y, v + 0.055 ), 0.012 );
+			ironBar( lamps, V3( ug, y, v + 0.055 ), V3( ug, y + 0.2, v ), 0.012 );
+
+		}
+
+		for ( let v = g0; v <= g1 + 1e-3; v += 0.33 ) ironBar( lamps, V3( ug, gt, v ), V3( ug, gt + 0.12, v ), 0.02 );
+		solid( - R, ug + 0.05, g0, g1, yF, gt );
+
+		// inside: the floor, whitewashed sides and vaults (the opening's through the wall, the chapel's taller)
+		paint( STONE );
+		plaster.quadFacing( V3( uB, yF, VM - hwC ), V3( - R, yF, VM - hwC ), V3( - R, yF, VM + hwC ), V3( uB, yF, VM + hwC ), [ 0, 1, 0 ] );
+		const inner = ( u0, u1, sp ) => {
+
+			plaster.vdata = [ 1, 0, 0.47, 0 ];
+			plaster.color = lin( [ 0.85, 0.84, 0.8 ] );
+			for ( const s of [ - 1, 1 ] ) plaster.quadFacing( V3( u0, yF, VM + s * hwC ), V3( u1, yF, VM + s * hwC ), V3( u1, sp, VM + s * hwC ), V3( u0, sp, VM + s * hwC ), dir( intoV, - s ), [ [ u0, 9 ], [ u1, 9 ], [ u1, 9 ], [ u0, 9 ] ] );
+			for ( let k = 0; k < 16; k ++ ) {
+
+				const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16, tm = ( t0 + t1 ) / 2;
+				const p = ( u, t ) => V3( u, sp + hwC * Math.sin( t ), VM + hwC * Math.cos( t ) );
+				plaster.quadFacing( p( u0, t0 ), p( u1, t0 ), p( u1, t1 ), p( u0, t1 ), [ - intoV[ 0 ] * Math.cos( tm ), - Math.sin( tm ), - intoV[ 2 ] * Math.cos( tm ) ], [ [ u0, 9 ], [ u1, 9 ], [ u1, 9 ], [ u0, 9 ] ] );
 
 			}
+
+		};
+		inner( uW, - R, spA );
+		inner( uB, uW, spR );
+		// the band between the two vaults, facing in
+		for ( let k = 0; k < 16; k ++ ) {
+
+			const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16;
+			const p = ( y, t ) => V3( uW, y + hwC * Math.sin( t ), VM + hwC * Math.cos( t ) );
+			plaster.quadFacing( p( spA, t0 ), p( spR, t0 ), p( spR, t1 ), p( spA, t1 ), south, [ [ 0, 9 ], [ 0, 9 ], [ 0, 9 ], [ 0, 9 ] ] );
+
+		}
+
+		// the back wall, up into the vault
+		const bw = uB + E;
+		plaster.vdata = [ 2 * hwC, 0, 0.47, 0 ];
+		plaster.color = lin( [ 0.85, 0.84, 0.8 ] );
+		plaster.quadFacing( V3( bw, yF, VM - hwC ), V3( bw, yF, VM + hwC ), V3( bw, spR, VM + hwC ), V3( bw, spR, VM - hwC ), north, [ [ 0, 9 ], [ 2 * hwC, 9 ], [ 2 * hwC, 9 ], [ 0, 9 ] ] );
+		for ( let k = 0; k < 16; k ++ ) {
+
+			const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16;
+			plaster.quadFacing( V3( bw, spR, VM ), V3( bw, spR + hwC * Math.sin( t0 ), VM + hwC * Math.cos( t0 ) ), V3( bw, spR + hwC * Math.sin( t1 ), VM + hwC * Math.cos( t1 ) ), V3( bw, spR, VM ), north, [ [ 0, 9 ], [ 0, 9 ], [ 0, 9 ], [ 0, 9 ] ] );
+
+		}
+
+		// the retable against it: on a base, two columns on pink pedestals, between them a niche of azulejos
+		// with the image; an entablature, a broken pediment and a cartouche over it. The altar before it, a
+		// cross on its front, flowers and candles on it
+		const rb = ( v0, v1, y0, y1, d0, d1 ) => box( plaster, uB + d0, uB + d1, v0, v1, y0, y1 );
+		paint( STONE );
+		rb( VM - hwC + 0.08, VM + hwC - 0.08, yF, yF + 1.2, 0, 0.3 );
+		for ( const s of [ - 1, 1 ] ) {
+
+			const vc = VM + s * 0.72;
+			paint( PINK );
+			rb( vc - 0.17, vc + 0.17, yF + 1.2, yF + 1.55, 0, 0.45 );
+			paint( STONE );
+			rb( vc - 0.11, vc + 0.11, yF + 1.55, yF + 2.75, 0.12, 0.36 );
+			for ( let y = yF + 1.75; y < yF + 2.7; y += 0.3 ) rb( vc - 0.125, vc + 0.125, y, y + 0.04, 0.11, 0.37 );
+			rb( vc - 0.17, vc + 0.17, yF + 2.75, yF + 2.9, 0, 0.45 );
+			// the broken pediment's ends, rising outward to scrolls
+			rb( vc - 0.25 + s * 0.05, vc + 0.25 + s * 0.05, yF + 3.08, yF + 3.18, 0, 0.35 );
+			rb( vc - 0.1 + s * 0.15, vc + 0.1 + s * 0.15, yF + 3.18, yF + 3.4, 0, 0.3 );
+			paint( PINK );
+			rb( vc - 0.1 + s * 0.15, vc + 0.1 + s * 0.15, yF + 3.22, yF + 3.32, 0.3, 0.32 );
+
+		}
+
+		paint( STONE );
+		rb( VM - 1.0, VM + 1.0, yF + 2.9, yF + 3.08, 0, 0.5 );
+		rb( VM - 0.22, VM + 0.22, yF + 3.08, yF + 3.65, 0, 0.18 );
+		paint( PINK );
+		rb( VM - 0.12, VM + 0.12, yF + 3.25, yF + 3.5, 0.18, 0.2 );
+		// the niche: its arch of stone round azulejos, the image of Our Lady in it
+		const nh = 0.42, ny = yF + 2.25, nd = 0.02;
+		paint( STONE );
+		for ( let k = 0; k < 12; k ++ ) {
+
+			const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( uB + 0.04, ny + r * Math.sin( t ), VM + r * Math.cos( t ) );
+			plaster.quadFacing( p( nh, t0 ), p( nh + 0.12, t0 ), p( nh + 0.12, t1 ), p( nh, t1 ), north );
+
+		}
+
+		plaster.vdata = [ yF + 1.2, yF + 2.7, 0.61, 2 ];
+		plaster.color = [ 1, 1, 1 ];
+		plaster.quadFacing( V3( uB + nd, yF + 1.2, VM - nh ), V3( uB + nd, yF + 1.2, VM + nh ), V3( uB + nd, ny, VM + nh ), V3( uB + nd, ny, VM - nh ), north, [ [ VM - nh, yF + 1.2 ], [ VM + nh, yF + 1.2 ], [ VM + nh, ny ], [ VM - nh, ny ] ] );
+		for ( let k = 0; k < 12; k ++ ) {
+
+			const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( t ) => V3( uB + nd, ny + nh * Math.sin( t ), VM + nh * Math.cos( t ) );
+			plaster.quadFacing( V3( uB + nd, ny, VM ), p( t0 ), p( t1 ), V3( uB + nd, ny, VM ), north, [ [ VM, ny ], [ VM + nh * Math.cos( t0 ), ny + nh * Math.sin( t0 ) ], [ VM + nh * Math.cos( t1 ), ny + nh * Math.sin( t1 ) ], [ VM, ny ] ] );
+
+		}
+
+		paint( lin( [ 0.22, 0.3, 0.55 ] ) );
+		rb( VM - 0.13, VM + 0.13, yF + 1.25, yF + 1.95, 0.08, 0.28 );
+		paint( lin( [ 0.75, 0.2, 0.18 ] ) );
+		rb( VM - 0.08, VM + 0.08, yF + 1.45, yF + 1.9, 0.27, 0.3 );
+		paint( lin( [ 0.85, 0.7, 0.58 ] ) );
+		rb( VM - 0.055, VM + 0.055, yF + 1.95, yF + 2.07, 0.14, 0.24 );
+		paint( lin( [ 0.85, 0.66, 0.25 ] ) );
+		rb( VM - 0.07, VM + 0.07, yF + 2.07, yF + 2.13, 0.13, 0.25 );
+		// the altar
+		paint( STONE );
+		rb( VM - 0.75, VM + 0.75, yF, yF + 0.95, 0.3, 1.0 );
+		rb( VM - 0.8, VM + 0.8, yF + 0.95, yF + 1.0, 0.27, 1.05 );
+		paint( lin( [ 0.6, 0.58, 0.54 ] ) );
+		rb( VM - 0.03, VM + 0.03, yF + 0.2, yF + 0.75, 1.0, 1.02 );
+		rb( VM - 0.17, VM + 0.17, yF + 0.55, yF + 0.61, 1.0, 1.02 );
+		for ( const [ dv, c ] of [ [ - 0.6, [ 0.75, 0.35, 0.6 ] ], [ - 0.42, [ 0.45, 0.4, 0.75 ] ], [ 0.42, [ 0.9, 0.55, 0.7 ] ], [ 0.6, [ 0.95, 0.95, 0.9 ] ] ] ) {
+
+			paint( lin( [ 0.25, 0.42, 0.2 ] ) );
+			rb( VM + dv - 0.02, VM + dv + 0.02, yF + 1.0, yF + 1.22, 0.55, 0.59 );
+			paint( lin( c ) );
+			rb( VM + dv - 0.09, VM + dv + 0.09, yF + 1.2, yF + 1.36, 0.48, 0.66 );
+
+		}
+
+		paint( lin( [ 0.95, 0.94, 0.88 ] ) );
+		for ( const dv of [ - 0.22, 0.22 ] ) rb( VM + dv - 0.025, VM + dv + 0.025, yF + 1.0, yF + 1.3, 0.55, 0.6 );
+
+		// out through the end wall's arch: whitewash inside up to the ceiling, stone outside, a ring of
+		// dressed stone down to the floor, a pink keystone, a cornice over it
+		const vE = V2 - R, gE = ground( U2, vE ), a = R - 0.35, ya = gE + 2.5;
+		const lo = ( v ) => ground( UE, v ) - 0.3;
+		archWall( UE, south, vE, a, ya, null, ( va, vb, ba, bb ) => {
+
+			const vm = ( va + vb ) / 2, ym = ya + Math.sqrt( Math.max( 0, a * a - ( vm - vE ) ** 2 ) ), rl = Math.hypot( vm - vE, ym - ya ) || 1;
+			paint( CREAM );
+			plaster.quadFacing( V3( UE, ba, va ), V3( U2, ba, va ), V3( U2, bb, vb ), V3( UE, bb, vb ), [ - intoV[ 0 ] * ( vm - vE ) / rl, - ( ym - ya ) / rl, - intoV[ 2 ] * ( vm - vE ) / rl ] );
+			kit.quadFacing( V3( U2, ba, va ), V3( U2, bb, vb ), V3( U2, S, vb ), V3( U2, S, va ), north );
+
+		} );
+		for ( const [ v0, v1 ] of [ [ V0, vE - a ], [ vE + a, V2 ] ] ) {
+
+			kit.quadFacing( V3( U2, lo( v0 ), v0 ), V3( U2, lo( v1 ), v1 ), V3( U2, S, v1 ), V3( U2, S, v0 ), north );
+			solid( UE, U2, v0, v1, base, S );
 
 		}
 
 		paint( CREAM );
 		for ( const s of [ - 1, 1 ] ) {
 
-			const v = vc + s * a;
+			const v = vE + s * a;
 			plaster.quadFacing( V3( UE, lo( v ), v ), V3( U2, lo( v ), v ), V3( U2, ya, v ), V3( UE, ya, v ), dir( intoV, - s ) );
-			// the pilaster under the ring, on the hall's side
-			plaster.quadFacing( V3( UE - 0.02, lo( v ), v ), V3( UE - 0.02, lo( v ), v + s * 0.22 ), V3( UE - 0.02, ya, v + s * 0.22 ), V3( UE - 0.02, ya, v ), dir( alongU, - 1 ) );
-			solid( UE, U2, s < 0 ? V1 : v, s < 0 ? v : V2, base, S, false );
+			plaster.quadFacing( V3( UE - 0.02, lo( v ), v ), V3( UE - 0.02, lo( v ), v + s * 0.22 ), V3( UE - 0.02, ya, v + s * 0.22 ), V3( UE - 0.02, ya, v ), south );
 
 		}
 
 		for ( let k = 0; k < 16; k ++ ) {
 
 			const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16, r0 = a, r1 = a + 0.22;
-			const p = ( r, t ) => V3( UE - 0.02, ya + r * Math.sin( t ), vc + r * Math.cos( t ) );
-			plaster.quadFacing( p( r0, t0 ), p( r1, t0 ), p( r1, t1 ), p( r0, t1 ), dir( alongU, - 1 ) );
+			const p = ( r, t ) => V3( UE - 0.02, ya + r * Math.sin( t ), vE + r * Math.cos( t ) );
+			plaster.quadFacing( p( r0, t0 ), p( r1, t0 ), p( r1, t1 ), p( r0, t1 ), south );
 
 		}
 
 		paint( PINK );
-		box( plaster, UE - 0.08, UE, vc - 0.13, vc + 0.13, ya + a - 0.1, ya + a + 0.35 );
+		box( plaster, UE - 0.08, UE, vE - 0.13, vE + 0.13, ya + a - 0.1, ya + a + 0.35 );
 		paint( CREAM );
-		box( plaster, UE - 0.14, UE, V1, V2, ya + a + 0.45, ya + a + 0.6 );
+		box( plaster, UE - 0.14, UE, V0, V2, ya + a + 0.45, ya + a + 0.6 );
 
 		for ( const [ k, mat, name, shadow ] of [ [ plaster, materials.plaster, 'vale-passage', true ], [ lamps, materials.lantern, 'vale-passage-iron', false ] ] ) {
 
