@@ -48,6 +48,22 @@ export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], 
 // references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
 export const PORTA_ESTE = [ 74.9, 48.5 ];
 export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
+// Rua da Porta da Senhora da Graça: from Porta Este north along the curtain's foot (z from .. to)
+export const SENHORA_DA_GRACA = { street: 256341205, from: 48, to: 20 };
+// Travessa do Beneficiado Faustino das Neves, off the Calçada da Misericórdia across from the top of Porta
+// Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
+// a house on its left (south), a walled garden's tall wall on its right (north). From its foot to where
+// the wall ends; the wall's line
+export const BENEFICIADO = { from: [ 39.9, 39.3 ], to: [ 20.6, 41.2 ], wall: [ [ 37.4, 38.2 ], [ 20.6, 40.1 ] ] };
+// the Calçada da Misericórdia from the same corner up toward Santa Maria (photo
+// references/...-whatsapp-image-2026-10-21-at-10-05-24): an even cobbled climb between the same walled garden
+// (west) and a house (east); the garden's east wall, and the house's corner with its faces
+export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ [ 37.4, 38.2 ], [ 32.5, 30.3 ] ], corner: [ 37.8, 33.5 ] };
+// the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
+// Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
+// the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
+// garden's (OSM), x0 > x1, z at each end
+export const BIBLIOTECA = { north: [ [ 43.2, 67.1 ], [ 34.2, 67.6 ], [ 23.8, 67.6 ] ], south: [ [ 42.7, 72.8 ], [ 34.2, 73.6 ], [ 23.8, 73.6 ] ], xb: 42.6, xt: 27.4, xw: 23.8 };
 
 export class TerrainData {
 
@@ -90,6 +106,10 @@ export class TerrainData {
 		this._shapeWall();
 		this._portaDaVilaFloor();
 		this._travessaPoco();
+		this._senhoraDaGraca();
+		this._beneficiado();
+		this._misericordia();
+		this._escadariaBiblioteca();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -384,6 +404,8 @@ export class TerrainData {
 		const { res, texel, origin, heights } = this;
 		const b = this.townBounds;
 		const R = 26;
+		// (what the ground was, for the streets along the walls' foot that keep it: _senhoraDaGraca)
+		this.unshaped = heights.slice();
 		const i0 = Math.max( 0, Math.floor( ( b.x0 - R - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( b.x1 + R - origin ) / texel ) );
 		const j0 = Math.max( 0, Math.floor( ( b.z0 - R - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( b.z1 + R - origin ) / texel ) );
 		const nz = this.noise2;
@@ -798,10 +820,270 @@ export class TerrainData {
 
 		if ( GARDEN.s0 === null ) GARDEN.s0 = GARDEN.s1 - 10;
 
+		// outside, the way up to the gate (photo references/...-acessoportaeste): a cobbled lane from the foot of
+		// the threshold's steps down east to the Chafariz Novo, a raised verge of earth and grass along its left
+		// (north) side; paved
+		const ACCESS = ( () => {
+
+			const S = [ g.x + nx * ( FACE + 1.0 ), g.z + nz * ( FACE + 1.0 ) ], C = [ 104.8, 51.4 ];
+			const len = Math.hypot( C[ 0 ] - S[ 0 ], C[ 1 ] - S[ 1 ] ), dir = [ ( C[ 0 ] - S[ 0 ] ) / len, ( C[ 1 ] - S[ 1 ] ) / len ], left = [ dir[ 1 ], - dir[ 0 ] ];
+			const yS = yOut, yC = this.heightAt( ...C ), HALF2 = 2.4, VERGE = 1.6;
+			// level a little at the steps' foot, then down (steeper in the middle)
+			const y = ( t ) => lerp( yS, yC, smoothstep( 0, 1, clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) ) * 0.5 + 0.5 * clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) );
+			// the verge's wall (photo references/...-img-4392): straight from the street lamp's corner to the corner of
+			// Casa da Picva (marked on a screenshot), its top level, stepping down part way along; behind it a small
+			// parking yard level with its higher part, then a garden bed under its lower part. u along it from P0,
+			// v back from it (north, away from the lane)
+			const P0 = [ 83.2, 46.55 ], P1 = [ 98.5, 46.15 ], WLen = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] );
+			const w = [ ( P1[ 0 ] - P0[ 0 ] ) / WLen, ( P1[ 1 ] - P0[ 1 ] ) / WLen ], n = [ w[ 1 ], - w[ 0 ] ];
+			const tOf = ( P ) => ( P[ 0 ] - S[ 0 ] ) * dir[ 0 ] + ( P[ 1 ] - S[ 1 ] ) * dir[ 1 ];
+			const point = ( u, v = 0 ) => [ P0[ 0 ] + w[ 0 ] * u + n[ 0 ] * v, P0[ 1 ] + w[ 1 ] * u + n[ 1 ] * v ];
+			const ground = ( u ) => y( tOf( point( u, - 0.3 ) ) ) + 0.35;
+			const uS = 0.4 * WLen, topA = ground( 0 ) + 1.15, topB = topA - 0.48;
+			const WALL = { P0, P1, length: WLen, w, n, point, ground, uS, topA, topB, yard: topA - 1.45, bed: topB - 0.25, depth: 6, // (the yard about level with the street beside it: cars drive in)
+				uv: ( x, z ) => [ ( x - P0[ 0 ] ) * w[ 0 ] + ( z - P0[ 1 ] ) * w[ 1 ], ( x - P0[ 0 ] ) * n[ 0 ] + ( z - P0[ 1 ] ) * n[ 1 ] ] };
+			return { S, C, len, dir, left, y, HALF: HALF2, VERGE, WALL };
+
+		} )();
+		{
+
+			const A = ACCESS, R = A.HALF + A.VERGE + A.WALL.depth + 0.5;
+			this._stroke( [ A.S, A.C ], R, 0, ( k ) => {
+
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const t = ( x - A.S[ 0 ] ) * A.dir[ 0 ] + ( z - A.S[ 1 ] ) * A.dir[ 1 ], d = ( x - A.S[ 0 ] ) * A.left[ 0 ] + ( z - A.S[ 1 ] ) * A.left[ 1 ];
+				if ( t < 0 || t > A.len ) return;
+				const yl = A.y( t ), W = A.WALL, [ wu, wv ] = W.uv( x, z );
+				if ( wu > 0.3 && wu < W.length - 0.2 && wv > 1.6 && wv < W.depth ) {
+
+					// behind the wall: the yard, level, paved; the garden bed (from a little way back, so the 1 m
+					// texels don't lift the verge in front of the wall; Walls covers the strip behind it)
+					heights[ k ] = wu < W.uS ? W.yard : W.bed;
+					if ( wu < W.uS ) {
+
+						this.path[ k ] = 255;
+						this.scarp[ k ] = 255;
+
+					}
+
+				} else if ( Math.abs( d ) <= A.HALF ) {
+
+					heights[ k ] = yl;
+					this.path[ k ] = 255;
+					this.scarp[ k ] = 255;
+
+				} else if ( d > 0 && d <= A.HALF + A.VERGE ) heights[ k ] = yl + 0.35 * smoothstep( A.HALF, A.HALF + 0.8, d );
+
+				else {
+
+					// back to the ground beyond (the verge's back on the left, the houses on the right)
+					const e = d > 0 ? d - A.HALF - A.VERGE : - d - A.HALF;
+					heights[ k ] = lerp( yl + ( d > 0 ? 0.35 : 0 ), heights[ k ], smoothstep( 0, 1.5, e ) );
+
+				}
+
+			} );
+
+		}
+
 		g.y = y1;
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
-		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, length: L };
+		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, ACCESS, length: L };
+
+	}
+
+	// Travessa do Beneficiado (BENEFICIADO): an even climb from the Calçada to the wall's end, paved; Walls lays
+	// the steps' stone edges on it. this.beneficiado tells Walls where.
+	_beneficiado() {
+
+		const B = BENEFICIADO, { res, texel, origin, heights } = this;
+		const L = Math.hypot( B.to[ 0 ] - B.from[ 0 ], B.to[ 1 ] - B.from[ 1 ] );
+		const dir = [ ( B.to[ 0 ] - B.from[ 0 ] ) / L, ( B.to[ 1 ] - B.from[ 1 ] ) / L ];
+		const y0 = this.heightAt( ...B.from ), y1 = this.heightAt( ...B.to );
+		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
+		const HALF = 1.5;
+		this._stroke( [ B.from, B.to ], HALF, 1.0, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - B.from[ 0 ] ) * dir[ 0 ] + ( z - B.from[ 1 ] ) * dir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], y( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+		this.beneficiado = { from: B.from, to: B.to, wall: B.wall, dir, length: L, y, HALF };
+
+	}
+
+	// the Calçada da Misericórdia (MISERICORDIA): an even climb, paved. this.misericordia tells Walls where.
+	_misericordia() {
+
+		const M = MISERICORDIA, { res, texel, origin, heights } = this;
+		const L = Math.hypot( M.to[ 0 ] - M.from[ 0 ], M.to[ 1 ] - M.from[ 1 ] );
+		const dir = [ ( M.to[ 0 ] - M.from[ 0 ] ) / L, ( M.to[ 1 ] - M.from[ 1 ] ) / L ];
+		const y0 = this.heightAt( ...M.from ), y1 = this.heightAt( ...M.to );
+		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
+		this._stroke( [ M.from, M.to ], 1.8, 1.2, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - M.from[ 0 ] ) * dir[ 0 ] + ( z - M.from[ 1 ] ) * dir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], y( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+		// the house's corner, where Town puts it (it pushes footprint corners 1.5 m back from a lane's centre
+		// line), and its faces from there: up the street, and along Travessa do Poço's line
+		const [ dc, tc ] = segmentDistance( M.corner[ 0 ], M.corner[ 1 ], M.from, M.to );
+		const foot = [ M.from[ 0 ] + ( M.to[ 0 ] - M.from[ 0 ] ) * tc, M.from[ 1 ] + ( M.to[ 1 ] - M.from[ 1 ] ) * tc ];
+		const corner = dc >= 1.5 ? M.corner : [ foot[ 0 ] + ( M.corner[ 0 ] - foot[ 0 ] ) / dc * 1.5, foot[ 1 ] + ( M.corner[ 1 ] - foot[ 1 ] ) / dc * 1.5 ];
+		const f = ( P ) => {
+
+			const l = Math.hypot( P[ 0 ] - corner[ 0 ], P[ 1 ] - corner[ 1 ] );
+			return [ ( P[ 0 ] - corner[ 0 ] ) / l, ( P[ 1 ] - corner[ 1 ] ) / l ];
+
+		};
+		this.misericordia = { from: M.from, to: M.to, wall: M.wall, corner, cornerFaces: [ f( [ 32.1, 20.2 ] ), f( [ 48.7, 35.8 ] ) ], dir, length: L, y };
+
+	}
+
+	// Rua da Porta da Senhora da Graça, outside the walls north from Porta Este (photo
+	// references/...-inicio-de-rua-entre-porta-este-e-nordest): it runs along the curtain's foot, so _shapeWall
+	// pulled it down with the ground there; it keeps the real ground, from the wall's face to its far side,
+	// smoothed along it, and is paved. this.senhoraDaGraca tells Walls where.
+	_senhoraDaGraca() {
+
+		const st = OSM.streets.find( ( q ) => q.id === SENHORA_DA_GRACA.street );
+		if ( ! st || ! this.unshaped ) return;
+		const { res, texel, origin, heights } = this;
+		const pts = st.pts.filter( ( [ x, z ] ) => z <= SENHORA_DA_GRACA.from && z >= SENHORA_DA_GRACA.to );
+		pts.unshift( [ 80.2, 48.5 ] );
+		// the ground along it before the walls' shaping, averaged over a few metres
+		const cum = [ 0 ];
+		for ( let i = 1; i < pts.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( pts[ i ][ 0 ] - pts[ i - 1 ][ 0 ], pts[ i ][ 1 ] - pts[ i - 1 ][ 1 ] ) );
+		const L = cum[ cum.length - 1 ];
+		const at = ( s ) => {
+
+			let i = 0;
+			while ( i < pts.length - 2 && cum[ i + 1 ] < s ) i ++;
+			const t = clamp( ( s - cum[ i ] ) / ( cum[ i + 1 ] - cum[ i ] ), 0, 1 );
+			return [ pts[ i ][ 0 ] + ( pts[ i + 1 ][ 0 ] - pts[ i ][ 0 ] ) * t, pts[ i ][ 1 ] + ( pts[ i + 1 ][ 1 ] - pts[ i ][ 1 ] ) * t ];
+
+		};
+		const orig = ( x, z ) => {
+
+			const i = clamp( Math.floor( ( x - origin ) / texel ), 0, res - 1 ), j = clamp( Math.floor( ( z - origin ) / texel ), 0, res - 1 );
+			return this.unshaped[ j * res + i ];
+
+		};
+		const N = Math.ceil( L ), raw = [];
+		for ( let i = 0; i <= N; i ++ ) raw.push( orig( ...at( L * i / N ) ) );
+		// the start meets the threshold's level by Porta Este (which TerrainData's gate shaping set)
+		raw[ 0 ] = this.heightAt( ...pts[ 0 ] );
+		const smooth = raw.map( ( _, i ) => {
+
+			let sum = 0, w = 0;
+			for ( let k = - 3; k <= 3; k ++ ) {
+
+				const q = raw[ clamp( i + k, 0, N ) ], wk = 4 - Math.abs( k );
+				sum += q * wk; w += wk;
+
+			}
+
+			return sum / w;
+
+		} );
+		smooth[ 0 ] = raw[ 0 ];
+		const y = ( s ) => {
+
+			const f = clamp( s / L, 0, 1 ) * N, i = Math.min( N - 1, Math.floor( f ) );
+			return lerp( smooth[ i ], smooth[ i + 1 ], f - i );
+
+		};
+		const HALF = 2.6, line = Array.from( { length: N + 1 }, ( _, i ) => at( L * i / N ) );
+		this._stroke( line, HALF + 4, 0, ( k ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, line[ i ], line[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, s: L * ( i + u ) / N, i, u };
+
+			}
+
+			const a = line[ best.i ], b2 = line[ best.i + 1 ];
+			// the side: toward the wall (west, the walls' side) or away from it
+			const side = ( b2[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b2[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] );
+			const toWall = side < 0;
+			if ( best.d <= HALF || toWall ) {
+
+				// the street, and between it and the wall's foot: level across with it
+				if ( this.inside[ k ] ) return;
+				heights[ k ] = y( best.s );
+				if ( best.d <= HALF ) {
+
+					this.path[ k ] = 255;
+					this.scarp[ k ] = 255;
+
+				}
+
+			} else heights[ k ] = lerp( y( best.s ), heights[ k ], smoothstep( HALF, HALF + 4, best.d ) );
+
+		} );
+		this.senhoraDaGraca = { line, y, length: L, HALF };
+
+	}
+
+	// The stairs by the library (BIBLIOTECA): one long flight of cobbled steps from the street's level to a
+	// landing level with the square, the ground under them a little below; paved. this.biblioteca tells Walls
+	// where the steps go.
+	_escadariaBiblioteca() {
+
+		const B = BIBLIOTECA, { res, texel, origin, heights } = this;
+		const side = ( line ) => ( x ) => {
+
+			for ( let i = 0; i + 1 < line.length; i ++ ) {
+
+				const [ xa, za ] = line[ i ], [ xb, zb ] = line[ i + 1 ];
+				if ( x <= xa && x >= xb ) return za + ( zb - za ) * ( xa - x ) / ( xa - xb );
+
+			}
+
+			return x > line[ 0 ][ 0 ] ? line[ 0 ][ 1 ] : line[ line.length - 1 ][ 1 ];
+
+		};
+		const north = side( B.north ), south = side( B.south );
+		const zc = ( x ) => ( north( x ) + south( x ) ) / 2;
+		const yB = this.heightAt( B.xb + 0.6, zc( B.xb ) ), yT = this.heightAt( 25.5, 65.5 );
+		const N = Math.round( ( B.xb - B.xt ) / 0.42 ), tread = ( B.xb - B.xt ) / N, rise = ( yT - yB ) / N;
+		// the walking surface (on the flight, the line of its nosings)
+		const surf = ( x ) => x >= B.xb ? yB : x <= B.xt ? yT : yB + ( B.xb - x ) / ( B.xb - B.xt ) * ( yT - yB );
+		const i0 = Math.max( 0, Math.floor( ( B.xw - 1 - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( B.xb + 3 - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( 66 - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( 75 - origin ) / texel ) );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			if ( x < B.xw || z < north( x ) - 0.3 || z > south( x ) + 0.3 ) continue;
+			const k = j * res + i;
+			// (into the street's level over its last 3 m)
+			const t = 1 - smoothstep( B.xb, B.xb + 3, x );
+			heights[ k ] = lerp( heights[ k ], surf( x ) - ( x > B.xt && x < B.xb ? 0.3 : 0.02 ), t );
+			this.path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		}
+
+		this.biblioteca = { north, south, surf, yB, yT, N, tread, rise, xb: B.xb, xt: B.xt, xw: B.xw };
 
 	}
 
@@ -867,7 +1149,7 @@ export class TerrainData {
 		for ( const st of OSM.streets ) {
 
 			const half = STREET_HALF[ st.highway ];
-			if ( ! half || st.tunnel ) continue;
+			if ( ! half || ( st.tunnel && st.tunnel !== 'building_passage' ) ) continue; // (paved under the buildings it passes)
 			const paved = ! UNPAVED.has( st.surface ) && ! ( ( st.highway === 'track' || st.highway === 'path' ) && ! st.surface );
 			const v = paved ? 255 : 130;
 			this._stroke( st.pts, half, 0.8, ( k, t ) => {

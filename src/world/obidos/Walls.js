@@ -29,6 +29,26 @@ const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high 
 const PV_EAST_FACE = - 48.6; // the tower's east side (the curtain): its face on the void
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
+
+// a bar of iron into kit from a to b ([ x, y, z ]), w thick (square in section)
+function ironBar( kit, a, b, w ) {
+
+	const dx = b[ 0 ] - a[ 0 ], dz = b[ 2 ] - a[ 2 ], l = Math.hypot( dx, dz );
+	const vert = l < 1e-4;
+	// (a vertical bar: any horizontal side will do)
+	const ux = vert ? 1 : dx / l, uz = vert ? 0 : dz / l;
+	const sx = - uz * w / 2, sz = ux * w / 2, h = w / 2;
+	const c = ( p, i, j ) => vert ? [ p[ 0 ] + sx * i + ux * h * j, p[ 1 ], p[ 2 ] + sz * i + uz * h * j ] : [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
+	const ax = vert ? [ 0, Math.sign( b[ 1 ] - a[ 1 ] ), 0 ] : [ ux, 0, uz ];
+	const up = vert ? [ ux, 0, uz ] : [ 0, 1, 0 ];
+	kit.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), up );
+	kit.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), up.map( ( v ) => - v ) );
+	kit.quadFacing( c( a, 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ sx, 0, sz ] );
+	kit.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, - 1, 1 ), c( a, - 1, 1 ), [ - sx, 0, - sz ] );
+	kit.quadFacing( c( a, - 1, - 1 ), c( a, 1, - 1 ), c( a, 1, 1 ), c( a, - 1, 1 ), ax.map( ( v ) => - v ) );
+	kit.quadFacing( c( b, - 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( b, - 1, 1 ), ax );
+
+}
 const lin = ( c ) => c.map( ( v ) => ( v <= 0.04045 ? v / 12.92 : ( ( v + 0.055 ) / 1.055 ) ** 2.4 ) );
 
 export class Walls {
@@ -139,6 +159,9 @@ export class Walls {
 		this._ornelas( materials );
 		this._praceta();
 		this._portaEste( materials );
+		this._beneficiado( materials );
+		this._senhoraDaGraca( materials );
+		this._escadariaBiblioteca( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -1255,25 +1278,7 @@ export class Walls {
 
 		}
 
-		// a bar of iron from a to b ([ x, y, z ]), w thick
-		const beam = ( a, b, w ) => {
-
-			const dx = b[ 0 ] - a[ 0 ], dz = b[ 2 ] - a[ 2 ], l = Math.hypot( dx, dz );
-			// (a vertical bar: any horizontal side will do)
-			const ux = l > 1e-4 ? dx / l : f.tx, uz = l > 1e-4 ? dz / l : f.tz;
-			const sx = - uz * w / 2, sz = ux * w / 2, h = w / 2;
-			const vert = l < 1e-4;
-			const c = ( p, i, j ) => vert ? [ p[ 0 ] + sx * i + ux * h * j, p[ 1 ], p[ 2 ] + sz * i + uz * h * j ] : [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
-			const ax = vert ? [ 0, Math.sign( b[ 1 ] - a[ 1 ] ), 0 ] : [ ux, 0, uz ];
-			const up = vert ? [ ux, 0, uz ] : [ 0, 1, 0 ];
-			iron.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), up );
-			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), up.map( ( v ) => - v ) );
-			iron.quadFacing( c( a, 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ sx, 0, sz ] );
-			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, - 1, 1 ), c( a, - 1, 1 ), [ - sx, 0, - sz ] );
-			iron.quadFacing( c( a, - 1, - 1 ), c( a, 1, - 1 ), c( a, 1, 1 ), c( a, - 1, 1 ), ax.map( ( v ) => - v ) );
-			iron.quadFacing( c( b, - 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( b, - 1, 1 ), ax );
-
-		};
+		const beam = ( a, b, w ) => ironBar( iron, a, b, w );
 
 		// the handrail up the middle (photo references/...-escadariaportaeste): a round iron bar 0.9 m over
 		// the nosings' line on posts with forked heads; at each end it runs on level a little, then turns
@@ -1736,6 +1741,171 @@ export class Walls {
 
 		} );
 
+		// outside, the way up to the gate (photo references/...-acessoportaeste; TerrainData shapes the lane): a
+		// stone bollard left of the threshold's steps, a low wall along the verge on the left, whitewashed over a
+		// yellow foot, plants over it, and at the lane's foot the Chafariz Novo
+		{
+
+			const A = pe.ACCESS, at = ( t, d ) => [ A.S[ 0 ] + A.dir[ 0 ] * t + A.left[ 0 ] * d, A.S[ 1 ] + A.dir[ 1 ] * t + A.left[ 1 ] * d ];
+			const yawA = Math.atan2( - A.dir[ 1 ], A.dir[ 0 ] );
+			// the bollard
+			{
+
+				const [ x, z ] = onFace( 1.55, FACE + 0.55 ), y0 = T.heightAt( x, z );
+				kit.vdata = [ 0.43, 0.55, 0, 0 ];
+				kit.color = [ 0.82, 0.8, 0.74 ];
+				kit.box( x, y0 + 0.4, z, 0.34, 1.0, 0.34, yawT );
+				kit.box( x, y0 + 0.93, z, 0.3, 0.06, 0.3, yawT + 0.785 );
+				this.colliders.addBox( new Vector3( x, y0 + 0.45, z ), new Vector3( 0.17, 0.5, 0.17 ), yawT, { walkable: false, tag: 'bollard' } );
+
+			}
+
+			// the verge's wall (photo references/...-img-4392): straight from the street lamp's corner, clear of the
+			// street along the walls, to the corner of Casa da Picva (marked on a screenshot); whitewashed over a
+			// yellow foot that follows the ground, its top level, stepping down part way along in four small
+			// steps, a coping of brick; an iron street lamp on its corner, the parking yard behind its higher part
+			// (TerrainData levels it) with a "P" sign, a garden of tall shrubs behind its lower part
+			{
+
+				const W = A.WALL, TW = 0.35, pw = W.point, groundAt = W.ground, L = W.length;
+				const toLane = [ - W.n[ 0 ], 0, - W.n[ 1 ] ], yawW = Math.atan2( - W.w[ 1 ], W.w[ 0 ] );
+				// its stretches, each with a level top: the higher, the four steps, the lower
+				const segs = [ [ 0, W.uS, W.topA ] ];
+				for ( let i = 0; i < 4; i ++ ) segs.push( [ W.uS + i * 0.25, W.uS + ( i + 1 ) * 0.25, W.topA - ( i + 1 ) * ( W.topA - W.topB ) / 4 ] );
+				segs.push( [ W.uS + 1, L, W.topB ] );
+				const BAR = 1.6;
+				for ( const [ s0, s1, top ] of segs ) for ( let ua = s0; ua < s1 - 0.01; ua += 1 ) {
+
+					const ub = Math.min( s1, ua + 1 ), ga = groundAt( ua ), gb = groundAt( ub ), ya = ga - 0.6, yb = gb - 0.6;
+					const P0 = pw( ua ), P1 = pw( ub ), Q0 = pw( ua, TW ), Q1 = pw( ub, TW );
+					plaster.color = YELLOW;
+					plaster.vdata = [ 20, 0, 0, 0 ];
+					plaster.quadFacing( [ P0[ 0 ], ya, P0[ 1 ] ], [ P1[ 0 ], yb, P1[ 1 ] ], [ P1[ 0 ], top, P1[ 1 ] ], [ P0[ 0 ], top, P0[ 1 ] ], toLane,
+						[ [ ua, ( ya - ga ) * BAR ], [ ub, ( yb - gb ) * BAR ], [ ub, ( top - gb ) * BAR ], [ ua, ( top - ga ) * BAR ] ] );
+					plaster.quadFacing( [ Q0[ 0 ], ya, Q0[ 1 ] ], [ Q1[ 0 ], yb, Q1[ 1 ] ], [ Q1[ 0 ], top, Q1[ 1 ] ], [ Q0[ 0 ], top, Q0[ 1 ] ], toLane.map( ( v ) => - v ), [ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
+					// the brick coping
+					plaster.color = lin( [ 0.66, 0.34, 0.22 ] );
+					plaster.vdata = [ 0, 0, 0.19, 4 ];
+					const [ cx, cz ] = pw( ( ua + ub ) / 2, TW / 2 );
+					plaster.box( cx, top + 0.04, cz, ub - ua + 0.01, 0.08, TW + 0.06, yawW );
+					this.colliders.addBox( new Vector3( cx, ( top + Math.min( ya, yb ) ) / 2, cz ), new Vector3( ( ub - ua ) / 2 + 0.02, ( top - Math.min( ya, yb ) ) / 2, TW / 2 ), yawW, { walkable: false, tag: 'wall' } );
+
+				}
+
+				// its ends, and the risers where its top steps down
+				plaster.color = YELLOW;
+				plaster.vdata = [ 20, 0, 0, 0 ];
+				for ( const [ u, top, sgn ] of [ [ 0, W.topA, - 1 ], [ L, W.topB, 1 ] ] ) {
+
+					const g = groundAt( u ), E0 = pw( u ), E1 = pw( u, TW );
+					plaster.quadFacing( [ E0[ 0 ], g - 0.6, E0[ 1 ] ], [ E1[ 0 ], g - 0.6, E1[ 1 ] ], [ E1[ 0 ], top, E1[ 1 ] ], [ E0[ 0 ], top, E0[ 1 ] ], [ W.w[ 0 ] * sgn, 0, W.w[ 1 ] * sgn ],
+						[ [ 0, - 0.96 ], [ TW, - 0.96 ], [ TW, ( top - g ) * BAR ], [ 0, ( top - g ) * BAR ] ] );
+
+				}
+
+				for ( let i = 1; i < segs.length; i ++ ) {
+
+					const u = segs[ i ][ 0 ], hi = segs[ i - 1 ][ 2 ], lo = segs[ i ][ 2 ], E0 = pw( u ), E1 = pw( u, TW );
+					plaster.quadFacing( [ E0[ 0 ], lo, E0[ 1 ] ], [ E1[ 0 ], lo, E1[ 1 ] ], [ E1[ 0 ], hi, E1[ 1 ] ], [ E0[ 0 ], hi, E0[ 1 ] ], [ W.w[ 0 ], 0, W.w[ 1 ] ],
+						[ [ 0, 5 ], [ TW, 5 ], [ TW, 5.2 ], [ 0, 5.2 ] ] );
+
+				}
+
+				// level behind it, over the ground's rise to the yard and the bed: paving, then earth
+				for ( const [ s0, s1, y, color, tag ] of [ [ 0, W.uS, W.yard, [ 0.8, 0.78, 0.74 ], 'yard' ], [ W.uS, L, W.bed, [ 0.42, 0.33, 0.22 ], 'bed' ] ] ) {
+
+					const [ cx, cz ] = pw( ( s0 + s1 ) / 2, TW + 0.8 ), bottom = Math.min( groundAt( s1 ), y ) - 0.6;
+					kit.vdata = [ 0.29, 0.6, 0, 0 ];
+					kit.color = color;
+					kit.box( cx, ( y + bottom ) / 2, cz, s1 - s0, y - bottom, 1.6, yawW, 'bottom' );
+					this.colliders.addBox( new Vector3( cx, ( y + bottom ) / 2, cz ), new Vector3( ( s1 - s0 ) / 2, ( y - bottom ) / 2, 0.8 ), yawW, { walkable: true, tag } );
+
+				}
+
+				// the street lamp on its corner: a fluted cast-iron post, a lantern on top
+				{
+
+					const [ x, z ] = pw( 0.25, TW / 2 ), y0 = W.topA + 0.08, warm = new Color( 1.0, 0.66, 0.36 );
+					iron.vdata = [ 0, 0, 0, 0 ];
+					iron.box( x, y0 + 0.2, z, 0.26, 0.4, 0.26, yawW );
+					iron.box( x, y0 + 1.6, z, 0.11, 2.6, 0.11, yawW );
+					iron.box( x, y0 + 2.95, z, 0.2, 0.1, 0.2, yawW );
+					iron.box( x, y0 + 3.62, z, 0.46, 0.08, 0.46, yawW + 0.785 );
+					iron.box( x, y0 + 3.72, z, 0.18, 0.14, 0.18, yawW );
+					iron.vdata = [ 1, 0, 0, 0 ];
+					iron.box( x, y0 + 3.28, z, 0.34, 0.6, 0.34, yawW, 'top bottom' );
+					this.lights.push( { position: new Vector3( x, y0 + 3.25, z ), color: warm, intensity: 10, range: 16, kind: 'lantern', flicker: 0.04 } );
+					this.colliders.addBox( new Vector3( x, y0 + 1.6, z ), new Vector3( 0.13, 1.6, 0.13 ), yawW, { walkable: false, tag: 'lamp' } );
+
+				}
+
+				// the parking sign in the yard: a post, a blue panel with a white P
+				{
+
+					const [ x, z ] = pw( W.uS - 0.5, 1.1 ), y0 = W.yard;
+					iron.vdata = [ 0, 0, 0, 0 ];
+					iron.box( x, y0 + 1.1, z, 0.05, 2.2, 0.05, yawW );
+					plaster.vdata = [ 0, 0, 0.71, 4 ];
+					plaster.color = lin( [ 0.1, 0.27, 0.66 ] );
+					plaster.box( x, y0 + 2.05, z, 0.32, 0.5, 0.03, yawW );
+					plaster.color = lin( [ 0.95, 0.95, 0.93 ] );
+					const toward = [ - W.n[ 0 ] * 0.02, - W.n[ 1 ] * 0.02 ];
+					plaster.box( x + toward[ 0 ] - W.w[ 0 ] * 0.04, y0 + 2.1, z + toward[ 1 ] - W.w[ 1 ] * 0.04, 0.05, 0.26, 0.012, yawW );
+					plaster.box( x + toward[ 0 ] + W.w[ 0 ] * 0.02, y0 + 2.18, z + toward[ 1 ] + W.w[ 1 ] * 0.02, 0.1, 0.1, 0.012, yawW );
+
+				}
+
+				// tall shrubs in the garden behind its lower part (Trees grows them)
+				this.extraTrees = this.extraTrees || [];
+				for ( const [ u, v, kind, scale ] of [ [ W.uS + 1.6, 1.4, 'cypress', 0.42 ], [ W.uS + 2.6, 2.4, 'cypress', 0.5 ], [ W.uS + 4.2, 1.6, 'garden', 0.7 ], [ L - 1.5, 1.8, 'garden', 0.6 ] ] ) {
+
+					const [ x, z ] = pw( u, v );
+					this.extraTrees.push( { kind, x, z, scale } );
+
+				}
+
+			}
+
+			// the Chafariz Novo: a whitewashed front facing up the lane, a stepped gable rising over its middle,
+			// low wings either side ending in scrolls, their ends and its foot painted yellow
+			{
+
+				const F = [ 106.05, 51.5 ], fx = - 1, y0 = T.heightAt( F[ 0 ] - 0.6, F[ 1 ] ), yaw = 0;
+				const WHITE = lin( [ 0.95, 0.94, 0.91 ] );
+				plaster.vdata = [ 0, 0, 0.61, 4 ];
+				const box = ( dx, z, w, y, h, dep, color ) => {
+
+					plaster.color = color;
+					plaster.box( F[ 0 ] - fx * ( dep / 2 ) + dx, y + h / 2, z, dep, h, w, yaw );
+
+				};
+				const D = 1.2;
+				box( 0, F[ 1 ], 3.0, y0 - 0.4, 2.0, D, WHITE ); // its body
+				box( 0, F[ 1 ], 2.4, y0 + 1.6, 0.35, D - 0.1, WHITE );
+				box( 0, F[ 1 ], 1.6, y0 + 1.95, 0.3, D - 0.2, WHITE );
+				box( 0, F[ 1 ], 0.8, y0 + 2.25, 0.25, D - 0.3, WHITE );
+				box( 0, F[ 1 ], 3.04, y0 - 0.4, 0.55, D + 0.04, YELLOW ); // its foot
+				for ( const side of [ - 1, 1 ] ) {
+
+					// the wing, stepping down, and its scroll's end
+					box( 0.1, F[ 1 ] + side * 2.0, 1.0, y0 - 0.3, 1.1, D - 0.3, WHITE );
+					box( 0.15, F[ 1 ] + side * 2.75, 0.5, y0 - 0.3, 0.75, D - 0.4, WHITE );
+					box( 0.2, F[ 1 ] + side * 3.15, 0.34, y0 - 0.3, 0.55, D - 0.5, YELLOW );
+
+				}
+
+				this.colliders.addBox( new Vector3( F[ 0 ] + D / 2, y0 + 0.9, F[ 1 ] ), new Vector3( D / 2, 1.3, 3.3 ), 0, { walkable: false, tag: 'fountain' } );
+				// its basin behind, and a spout on its front
+				kit.vdata = [ 0.43, 0.5, 0, 0 ];
+				kit.color = [ 0.82, 0.8, 0.74 ];
+				kit.box( F[ 0 ] - 0.25, y0 + 0.25, F[ 1 ], 0.5, 0.5, 1.2, 0 );
+				iron.vdata = [ 0, 0, 0, 0 ];
+				iron.box( F[ 0 ] - 0.15, y0 + 0.95, F[ 1 ], 0.3, 0.05, 0.05, 0 );
+
+			}
+
+		}
+
 		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'porta-este' ], [ iron, materials.lantern, 'porta-este-rail' ] ] ) {
 
 			if ( k.empty ) continue;
@@ -1747,6 +1917,364 @@ export class Walls {
 			this.group.add( mesh );
 
 		}
+
+	}
+
+	// An old garden wall from W0 to W1 into plaster: weathered white over a faded yellow foot, its front on
+	// the street (side +1: the street to the left going W0 -> W1, -1 to the right), thick away from it; from
+	// streetY( [ x, z ] ) up H0 at W0 to H1 at W1. Ivy over its top and hanging down; flowers: roses and
+	// shrubs at its foot.
+	_oldWall( plaster, W0, W1, side, streetY, H0, H1, seed, flowers = false ) {
+
+		const WL = Math.hypot( W1[ 0 ] - W0[ 0 ], W1[ 1 ] - W0[ 1 ] );
+		const wu = [ ( W1[ 0 ] - W0[ 0 ] ) / WL, ( W1[ 1 ] - W0[ 1 ] ) / WL ];
+		const back = side > 0 ? [ - wu[ 1 ], wu[ 0 ] ] : [ wu[ 1 ], - wu[ 0 ] ]; // away from the street
+		const TH = 0.5, FADED = lin( [ 0.8, 0.62, 0.26 ] ), BAR = 0.75;
+		plaster.color = FADED;
+		plaster.vdata = [ 20, 0, 0.47, 0 ];
+		const pt = ( u, k = 0 ) => [ W0[ 0 ] + wu[ 0 ] * u + back[ 0 ] * k, W0[ 1 ] + wu[ 1 ] * u + back[ 1 ] * k ];
+		const topAt = ( u ) => streetY( pt( u ) ) + H0 + ( H1 - H0 ) * u / WL;
+		const n = Math.ceil( WL ), yaw = Math.atan2( - wu[ 1 ], wu[ 0 ] );
+		for ( let i = 0; i < n; i ++ ) {
+
+			const ua = WL * i / n, ub = WL * ( i + 1 ) / n, A = pt( ua ), Bp = pt( ub ), A2 = pt( ua, TH ), B2 = pt( ub, TH );
+			const ga = streetY( A ), gb = streetY( Bp ), ya = ga - 0.6, yb = gb - 0.6, ta = topAt( ua ), tb = topAt( ub );
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ Bp[ 0 ], yb, Bp[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], [ - back[ 0 ], 0, - back[ 1 ] ],
+				[ [ ua, ( ya - ga ) * BAR ], [ ub, ( yb - gb ) * BAR ], [ ub, ( tb - gb ) * BAR ], [ ua, ( ta - ga ) * BAR ] ] );
+			plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ], [ [ ua, 5 ], [ ub, 5 ], [ ub, 5.5 ], [ ua, 5.5 ] ] );
+			plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ back[ 0 ], 0, back[ 1 ] ], [ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
+			const c = pt( ( ua + ub ) / 2, TH / 2 ), hi = Math.max( ta, tb ), lo = Math.min( ya, yb );
+			this.colliders.addBox( new Vector3( c[ 0 ], ( hi + lo ) / 2, c[ 1 ] ), new Vector3( ( ub - ua ) / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), yaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		for ( const u of [ 0, WL ] ) {
+
+			// its ends
+			const E = pt( u ), E2 = pt( u, TH ), g = streetY( E ), tt = topAt( u ), dir = u === 0 ? - 1 : 1;
+			plaster.quadFacing( [ E[ 0 ], g - 0.6, E[ 1 ] ], [ E2[ 0 ], g - 0.6, E2[ 1 ] ], [ E2[ 0 ], tt, E2[ 1 ] ], [ E[ 0 ], tt, E[ 1 ] ], [ wu[ 0 ] * dir, 0, wu[ 1 ] * dir ],
+				[ [ 0, - 0.45 ], [ TH, - 0.45 ], [ TH, ( tt - g ) * BAR ], [ 0, ( tt - g ) * BAR ] ] );
+
+		}
+
+		// ivy over its top, strands hanging down its face
+		let s = seed;
+		const rnd = () => ( ( s = ( s * 16807 ) % 2147483647 ) / 2147483647 );
+		plaster.vdata = [ 0, 0, 0.53, 4 ];
+		for ( let i = 0; i < 26 * WL; i ++ ) {
+
+			const u = rnd() * WL, dense = 0.5 + 0.5 * Math.sin( u * 0.9 + seed );
+			if ( rnd() > 0.3 + 0.7 * dense ) continue;
+			const hang = rnd() < 0.55, drop = hang ? rnd() * rnd() * ( topAt( u ) - streetY( pt( u ) ) ) * 0.9 : 0;
+			const P = pt( u, hang ? - 0.06 : rnd() * TH * 1.6 ), y = topAt( u ) - drop + ( hang ? 0 : rnd() * 0.5 ), sz = 0.1 + rnd() * 0.16;
+			plaster.color = lin( [ 0.14 + rnd() * 0.1, 0.26 + rnd() * 0.12, 0.09 ] );
+			plaster.box( P[ 0 ], y, P[ 1 ], hang ? sz * 0.6 : sz, sz, hang ? 0.05 : sz, rnd() * 3 );
+
+		}
+
+		if ( ! flowers ) return;
+		// shrubs and roses at its foot, in a narrow kerbed bed along it
+		for ( let i = 0; i < 40 * WL; i ++ ) {
+
+			const u = 0.3 + rnd() * ( WL - 0.6 ), k = - 0.05 - rnd() * 0.55, P = pt( u, k ), g = streetY( P );
+			if ( rnd() > 0.55 + 0.45 * Math.sin( u * 0.7 ) ) continue;
+			const y = g + rnd() * rnd() * 1.8, sz = 0.12 + rnd() * 0.2, bloom = rnd();
+			plaster.color = lin( bloom < 0.12 ? [ 0.92, 0.6, 0.66 ] : bloom < 0.2 ? [ 0.9, 0.35, 0.15 ] : [ 0.15 + rnd() * 0.1, 0.3 + rnd() * 0.15, 0.1 ] );
+			plaster.box( P[ 0 ], y, P[ 1 ], sz, sz * 0.8, sz, rnd() * 3 );
+
+		}
+
+		this.kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		this.kit.color = [ 0.8, 0.78, 0.72 ];
+		const kc = pt( WL / 2, - 0.62 );
+		this.kit.box( kc[ 0 ], streetY( kc ) + 0.02, kc[ 1 ], WL - 0.4, 0.2, 0.12, yaw ); // the bed's kerb
+
+	}
+
+	// golden quoins up a corner at P (world xz), on the two faces running along faces[ 0 ] and faces[ 1 ]
+	// (unit xz, away from the corner), from y0 to y1
+	_quoinCorner( P, faces, y0, y1 ) {
+
+		const kit = this.kit;
+		kit.vdata = [ 0.43, 0.45, 0, 0 ];
+		kit.color = [ 1.02, 0.86, 0.6 ];
+		const [ u1, u2 ] = faces;
+		for ( let y = y0, k = 0; y < y1 - 0.1; k ++ ) {
+
+			const h = Math.min( y1 - 0.02 - y, 0.34 ), wa = k % 2 ? 0.28 : 0.5, wb = k % 2 ? 0.5 : 0.28;
+			for ( const [ u, o, w ] of [ [ u1, u2, wa ], [ u2, u1, wb ] ] ) kit.box( P[ 0 ] + u[ 0 ] * w / 2 - o[ 0 ] * 0.02, y + h / 2, P[ 1 ] + u[ 1 ] * w / 2 - o[ 1 ] * 0.02, w, h - 0.04, 0.04, Math.atan2( - u[ 1 ], u[ 0 ] ) );
+			y += h;
+
+		}
+
+	}
+
+	// Rua da Porta da Senhora da Graça, outside the walls north from Porta Este (photo
+	// references/...-inicio-de-rua-entre-porta-este-e-nordest; TerrainData lays the street): a no-entry sign
+	// on its right; on Casa da Picva's front, set back across the parking yard, its name in a panel of
+	// azulejos, wisteria round it.
+	_senhoraDaGraca( materials ) {
+
+		const S = this.terrain.senhoraDaGraca;
+		if ( ! S ) return;
+		const T = this.terrain, plaster = new MeshKit(), iron = new MeshKit();
+
+		// the no-entry sign: a post, a red disc with its white bar, facing back down the street
+		{
+
+			const x = 85.2, z = 41.0, y0 = T.heightAt( x, z ), yaw = Math.atan2( 0.96, 0.29 );
+			iron.vdata = [ 0, 0, 0, 0 ];
+			iron.box( x, y0 + 1.2, z, 0.06, 2.4, 0.06, yaw );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			const n = 6, r = 0.3, fx = [ 0.29 * 0.05, - 0.96 * 0.05 ]; // (toward the gate)
+			plaster.color = lin( [ 0.78, 0.1, 0.08 ] );
+			for ( let i = 0; i < n; i ++ ) {
+
+				const v0 = - r + 2 * r * i / n, v1 = v0 + 2 * r / n, vm = Math.max( Math.abs( v0 ), Math.abs( v1 ) ) * 0.85;
+				plaster.box( x + fx[ 0 ], y0 + 2.1 + ( v0 + v1 ) / 2, z + fx[ 1 ], 2 * Math.sqrt( Math.max( 0, r * r - vm * vm ) ), v1 - v0, 0.03, yaw );
+
+			}
+
+			plaster.color = lin( [ 0.95, 0.95, 0.93 ] );
+			plaster.box( x + fx[ 0 ] * 1.5, y0 + 2.1, z + fx[ 1 ] * 1.5, 0.4, 0.09, 0.02, yaw );
+			this.colliders.addBox( new Vector3( x, y0 + 1.2, z ), new Vector3( 0.05, 1.2, 0.05 ), 0, { walkable: false, tag: 'sign' } );
+
+		}
+
+		// Casa da Picva's name: a panel of azulejos on its front (OSM's face from ( 94.3, 32.7 ) to ( 89.9, 42.9 ),
+		// facing the street), white with a blue border and lettering, wisteria arching round it
+		{
+
+			const A = [ 94.3, 32.7 ], B = [ 89.9, 42.9 ], L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+			const u = [ ( B[ 0 ] - A[ 0 ] ) / L, ( B[ 1 ] - A[ 1 ] ) / L ], out = [ u[ 1 ], - u[ 0 ] ]; // (west, to the street)
+			const at = ( s, k ) => [ A[ 0 ] + u[ 0 ] * s + out[ 0 ] * k, A[ 1 ] + u[ 1 ] * s + out[ 1 ] * k ];
+			const yaw = Math.atan2( - u[ 1 ], u[ 0 ] ), sP = L * 0.62, g = T.heightAt( ...at( sP, 1 ) ), yP = g + 1.75;
+			plaster.vdata = [ 0, 0, 0.37, 4 ];
+			const [ px, pz ] = at( sP, 0.04 );
+			plaster.color = lin( [ 0.14, 0.3, 0.7 ] );
+			plaster.box( px, yP, pz, 1.3, 0.85, 0.03, yaw );
+			const [ qx, qz ] = at( sP, 0.06 );
+			plaster.color = lin( [ 0.94, 0.94, 0.9 ] );
+			plaster.box( qx, yP, qz, 1.12, 0.67, 0.02, yaw );
+			plaster.color = lin( [ 0.14, 0.3, 0.7 ] );
+			for ( let i = 0; i < 5; i ++ ) {
+
+				const [ lx, lz ] = at( sP - 0.36 + i * 0.18, 0.075 );
+				plaster.box( lx, yP + 0.12, lz, 0.13, 0.22, 0.01, yaw ); // the letters
+
+			}
+
+			const [ dx, dz ] = at( sP, 0.075 );
+			plaster.box( dx, yP - 0.18, dz, 0.8, 0.05, 0.01, yaw ); // the scroll under them
+			// the wisteria: up either side of it and over, leaves and a few mauve flowers
+			let seed = 53;
+			const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < 260; i ++ ) {
+
+				const t = rnd(), arc = t * Math.PI, ds = - Math.cos( arc ) * ( 1.05 + rnd() * 0.25 ), dy = t < 0.15 || t > 0.85 ? - 1.6 + rnd() * 2.4 : Math.sin( arc ) * 1.0 + rnd() * 0.3;
+				const [ x, z ] = at( sP + ds, 0.08 + rnd() * 0.3 ), sz = 0.1 + rnd() * 0.16;
+				plaster.color = lin( rnd() < 0.1 ? [ 0.62, 0.5, 0.78 ] : [ 0.2 + rnd() * 0.12, 0.36 + rnd() * 0.12, 0.12 ] );
+				plaster.box( x, yP + dy, z, sz, sz, sz * 0.7, rnd() * 3 );
+
+			}
+
+		}
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'senhora-da-graca' ], [ iron, materials.lantern, 'senhora-da-graca-iron' ] ] ) {
+
+			if ( k.empty ) continue;
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+	}
+
+	// The stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca; TerrainData shapes the
+	// ground): one long flight of steps, cobbled treads with nosings of worn limestone, up from Rua Padre Nunes
+	// Tavares to a landing at São Pedro's front. On the right the library yard's tall wall, whitewashed with a
+	// deep blue band along its foot, a barred window in it and a blue border up its far end; on the left a low
+	// weathered wall with a dark foot, the church garden behind it with two clipped round bushes, a taller
+	// stretch of it at its top by the church. An iron handrail up the left of the middle, on posts with forked
+	// heads, running on level at the foot and turning down into the ground.
+	_escadariaBiblioteca( materials ) {
+
+		const B = this.terrain.biblioteca;
+		if ( ! B ) return;
+		const kit = this.kit, T = this.terrain;
+		const plaster = new MeshKit(), iron = new MeshKit();
+		const TH = 0.4;
+
+		// the steps
+		for ( let i = 0; i < B.N; i ++ ) {
+
+			const x0 = B.xb - i * B.tread, x1 = x0 - B.tread, xc = ( x0 + x1 ) / 2, top = B.yB + ( i + 1 ) * B.rise, bottom = top - B.rise - 0.5;
+			const zn = B.north( xc ), zs = B.south( xc ), zc = ( zn + zs ) / 2, w = zs - zn;
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.84, 0.81, 0.73 ];
+			kit.box( xc, ( top + bottom ) / 2, zc, B.tread + 0.02, top - bottom, w, 0, 'bottom' );
+			this.colliders.addBox( new Vector3( xc, ( top + bottom ) / 2, zc ), new Vector3( B.tread / 2 + 0.01, ( top - bottom ) / 2, w / 2 ), 0, { walkable: true, tag: 'stair' } );
+			kit.vdata = [ 0.43, 0.55, 0, 0 ];
+			kit.color = [ 0.9, 0.86, 0.76 ];
+			kit.box( x0 - 0.09, top - 0.07 + 0.005, zc, 0.18, 0.14, w + 0.02, 0 );
+
+		}
+
+		// a wall along one side from x0 down to x1 (x0 > x1), on the line z( x ), thick away from the steps (dir
+		// -1 north, +1 south), top( x ); its band from the surface beside it, scaled by bar
+		const wallAlong = ( z, dir, x0, x1, top, color, bar ) => {
+
+			plaster.color = color;
+			plaster.vdata = [ 20, 0, 0.13, 0 ];
+			const cuts = [ x0 ];
+			for ( let x = Math.floor( x0 ); x > x1 + 0.3; x -= 1 ) if ( x < x0 - 0.05 ) cuts.push( x );
+			cuts.push( x1 );
+			for ( let i = 0; i + 1 < cuts.length; i ++ ) {
+
+				const xa = cuts[ i ], xb = cuts[ i + 1 ], za = z( xa ), zb = z( xb ), ra = B.surf( xa ), rb = B.surf( xb );
+				const ya = Math.min( ra, T.heightAt( xa, za + dir * ( TH + 0.3 ) ) ) - 0.6, yb = Math.min( rb, T.heightAt( xb, zb + dir * ( TH + 0.3 ) ) ) - 0.6;
+				const ta = top( xa ), tb = top( xb ), toSteps = [ 0, 0, - dir ];
+				const A = [ xa, za ], Bp = [ xb, zb ], A2 = [ xa, za + dir * TH ], B2 = [ xb, zb + dir * TH ];
+				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ Bp[ 0 ], yb, Bp[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], toSteps,
+					[ [ xa, ( ya - ra ) * bar ], [ xb, ( yb - rb ) * bar ], [ xb, ( tb - rb ) * bar ], [ xa, ( ta - ra ) * bar ] ] );
+				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 0, dir ],
+					[ [ xa, 2 ], [ xb, 2 ], [ xb, 3 ], [ xa, 3 ] ] );
+				plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ],
+					[ [ xa, 5 ], [ xb, 5 ], [ xb, 5.4 ], [ xa, 5.4 ] ] );
+				for ( const [ end, x, E, E2, y0, h, r, nx ] of [ [ i === 0, xa, A, A2, ya, ta, ra, 1 ], [ i + 2 === cuts.length, xb, Bp, B2, yb, tb, rb, - 1 ] ] ) {
+
+					if ( ! end ) continue;
+					plaster.quadFacing( [ E[ 0 ], y0, E[ 1 ] ], [ E2[ 0 ], y0, E2[ 1 ] ], [ E2[ 0 ], h, E2[ 1 ] ], [ E[ 0 ], h, E[ 1 ] ], [ nx, 0, 0 ],
+						[ [ 0, ( y0 - r ) * bar ], [ TH, ( y0 - r ) * bar ], [ TH, ( h - r ) * bar ], [ 0, ( h - r ) * bar ] ] );
+
+				}
+
+				const xm = ( xa + xb ) / 2, zm = ( za + zb ) / 2 + dir * TH / 2, hi = Math.max( ta, tb ), lo = Math.min( ya, yb );
+				this.colliders.addBox( new Vector3( xm, ( hi + lo ) / 2, zm ), new Vector3( ( xa - xb ) / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), Math.atan2( zb - za, xa - xb ), { walkable: false, tag: 'wall' } );
+
+			}
+
+		};
+
+		// the library yard's wall (right, north): tall, its blue band deep
+		const BLUE = lin( [ 0.1, 0.27, 0.78 ] ), WHITE = lin( [ 0.93, 0.92, 0.89 ] ), DARK = lin( [ 0.2, 0.2, 0.19 ] );
+		const xYard = B.xt + 6.8; // where the yard ends and the library begins (its own walls)
+		wallAlong( B.north, - 1, B.xb + 1.2, xYard, () => B.yT + 1.6, BLUE, 0.55 );
+		// a blue border up its far end, and a barred window
+		{
+
+			const z = B.north( xYard ) + 0.01, y0 = B.surf( xYard ), y1 = B.yT + 1.6;
+			plaster.color = BLUE;
+			plaster.vdata = [ 0, 0, 0.21, 4 ];
+			plaster.box( xYard + 0.15, ( y0 + y1 ) / 2, z + 0.01, 0.3, y1 - y0, 0.02, 0 );
+			const xw = xYard + 3.2, zw = B.north( xw ) + 0.02, yw = B.surf( xw ) + 2.4;
+			plaster.color = lin( [ 0.12, 0.12, 0.13 ] );
+			plaster.box( xw, yw, zw, 0.7, 1.1, 0.02, 0 );
+			plaster.color = lin( [ 0.8, 0.77, 0.7 ] );
+			for ( const [ dx, dy, sx, sy ] of [ [ 0, 0.62, 0.92, 0.12 ], [ 0, - 0.62, 0.92, 0.12 ], [ 0.41, 0, 0.12, 1.36 ], [ - 0.41, 0, 0.12, 1.36 ] ] ) plaster.box( xw + dx, yw + dy, zw, sx, sy, 0.04, 0 );
+			iron.vdata = [ 0, 0, 0, 0 ];
+			for ( let k = - 2; k <= 2; k ++ ) iron.box( xw + k * 0.14, yw, zw + 0.06, 0.025, 1.1, 0.025, 0 );
+			for ( const dy of [ - 0.35, 0.05, 0.4 ] ) iron.box( xw, yw + dy, zw + 0.06, 0.7, 0.025, 0.025, 0 );
+
+		}
+
+		// the garden's wall (left, south): low, weathered white over a dark foot, taller by the church
+		const xLow = B.xt + 7.6;
+		wallAlong( B.south, 1, B.xb + 0.3, xLow, ( x ) => B.surf( x ) + 0.85, DARK, 1.6 );
+		wallAlong( B.south, 1, xLow, xLow - 1.6, () => B.surf( xLow ) + 2.3, WHITE, 1.6 );
+		// two clipped round bushes in the garden behind it (Trees grows them)
+		this.extraTrees = this.extraTrees || [];
+		for ( const [ x, dz, scale ] of [ [ xLow + 1.5, 2.2, 0.62 ], [ xLow + 3.4, 2.8, 0.55 ] ] ) this.extraTrees.push( { kind: 'garden', x, z: B.south( x ) + dz, scale } );
+
+		// the handrail, a third of the way across from the left
+		iron.vdata = [ 0, 0, 0, 0 ];
+		const zr = ( x ) => B.south( x ) - ( B.south( x ) - B.north( x ) ) * 0.33;
+		const RAIL = 0.9, W = 0.045;
+		const tread = ( x ) => x >= B.xb ? B.yB : x <= B.xt ? B.yT : B.yB + ( Math.floor( ( B.xb - x ) / B.tread ) + 1 ) * B.rise;
+		const P = ( x, y ) => [ x, y, zr( x ) ];
+		const r0 = B.xb - 0.1, r1 = B.xt + 0.1, foot = B.xb + 0.5, head = B.xt - 0.4;
+		const y0 = B.surf( r0 ) + RAIL, y1 = B.surf( r1 ) + RAIL;
+		ironBar( iron, P( r0, y0 ), P( r1, y1 ), W );
+		ironBar( iron, P( foot, y0 ), P( r0, y0 ), W );
+		ironBar( iron, P( r1, y1 ), P( head, y1 ), W );
+		ironBar( iron, P( foot, tread( foot ) - 0.05 ), P( foot, y0 + W / 2 ), W );
+		ironBar( iron, P( head, tread( head ) - 0.05 ), P( head, y1 + W / 2 ), W );
+		const NP = Math.max( 3, Math.round( ( r0 - r1 ) / 2.3 ) );
+		for ( let k = 0; k <= NP; k ++ ) {
+
+			const x = r0 - 0.4 - ( r0 - r1 - 0.8 ) * k / NP, yr = B.surf( x ) + RAIL, yb = tread( x ), z = zr( x );
+			iron.box( x, ( yb + yr - 0.12 ) / 2, z, 0.04, yr - 0.12 - yb, 0.04, 0 );
+			iron.box( x, yr - 0.12, z, 0.035, 0.03, 0.15, 0 );
+			for ( const side of [ - 1, 1 ] ) iron.box( x, yr - 0.05, z + side * 0.065, 0.03, 0.15, 0.022, 0 );
+			this.colliders.addBox( new Vector3( x, ( yb + yr ) / 2, z ), new Vector3( 0.05, ( yr - yb ) / 2, 0.08 ), 0, { walkable: false, tag: 'rail' } );
+
+		}
+
+		for ( const [ x, y ] of [ [ foot, y0 ], [ head, y1 ] ] ) this.colliders.addBox( new Vector3( x, ( tread( x ) + y ) / 2, zr( x ) ), new Vector3( 0.05, ( y - tread( x ) ) / 2, 0.05 ), 0, { walkable: false, tag: 'rail' } );
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'escadaria-biblioteca' ], [ iron, materials.lantern, 'escadaria-biblioteca-rail' ] ] ) {
+
+			if ( k.empty ) continue;
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+	}
+
+	// Travessa do Beneficiado (photo references/...-ruaperpendiculara; TerrainData lays the climb): the long
+	// steps' edges, rows of worn stones across the alley every metre and a third; on the right the walled
+	// garden's tall old wall, weathered white over a faded yellow foot, ivy hanging over its top.
+	_beneficiado( materials ) {
+
+		const B = this.terrain.beneficiado;
+		if ( ! B ) return;
+		const kit = this.kit, T = this.terrain;
+		const plaster = new MeshKit();
+		const yaw = Math.atan2( - B.dir[ 1 ], B.dir[ 0 ] ), left = [ B.dir[ 1 ], - B.dir[ 0 ] ];
+		const at = ( t, d = 0 ) => [ B.from[ 0 ] + B.dir[ 0 ] * t + left[ 0 ] * d, B.from[ 1 ] + B.dir[ 1 ] * t + left[ 1 ] * d ];
+
+		// the steps' edges
+		kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		kit.color = [ 0.78, 0.76, 0.7 ];
+		for ( let t = 1.2; t < B.length - 0.4; t += 1.35 ) {
+
+			const [ x, z ] = at( t ), y = B.y( t );
+			kit.box( x, y - 0.06, z, 0.26, 0.2, 2 * B.HALF + 0.4, yaw );
+
+		}
+
+		// the garden's wall: tall over the alley at its foot, less so up the hill
+		const alleyY = ( P ) => B.y( ( P[ 0 ] - B.from[ 0 ] ) * B.dir[ 0 ] + ( P[ 1 ] - B.from[ 1 ] ) * B.dir[ 1 ] );
+		this._oldWall( plaster, B.wall[ 0 ], B.wall[ 1 ], 1, alleyY, 3.4, 2.3, 17 );
+
+		// the same garden's east wall, along the Calçada da Misericórdia up toward Santa Maria (photo
+		// references/...-whatsapp-image-2026-10-21-at-10-05-24): as tall, roses and shrubs at its foot
+		const M = this.terrain.misericordia;
+		if ( M ) {
+
+			const calY = ( P ) => M.y( ( P[ 0 ] - M.from[ 0 ] ) * M.dir[ 0 ] + ( P[ 1 ] - M.from[ 1 ] ) * M.dir[ 1 ] );
+			this._oldWall( plaster, M.wall[ 0 ], M.wall[ 1 ], - 1, calY, 3.6, 3.2, 29, true );
+			// golden quoins up the corner of the house opposite, its foot charcoal (Town paints it)
+			this._quoinCorner( M.corner, M.cornerFaces, calY( M.corner ) - 0.2, calY( M.corner ) + 5.6 );
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'beneficiado';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
 
 	}
 

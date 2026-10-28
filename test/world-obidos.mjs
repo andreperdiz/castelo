@@ -36,6 +36,7 @@ check( T.isInsideTown( - 30, 60 ) && ! T.isInsideTown( - 300, 0 ), 'the curtain 
 check( T.gates.length >= 4, `gates where streets cross the curtain: ${ T.gates.length }` );
 check( W.stairs.length >= 5, `flights of steps up onto the walls: ${ W.stairs.length }` );
 check( town.buildings.length > 600, `houses: ${ town.buildings.length }` );
+check( town.buildings.filter( ( b ) => b.id === 299064346 ).length === 2, 'the house over Rua Padre António Almeida in two wings' );
 
 const keys = new Set();
 const input = { down: ( k ) => keys.has( k ), hit: () => false, consumeLook: () => ( { x: 0, y: 0 } ) };
@@ -102,6 +103,48 @@ if ( pe ) {
 	P.placeAt( a.x - a.lx * 0.5, pe.surf( sm ) + 0.2, a.z - a.lz * 0.5 );
 	ok = walkTo( b.x + b.lx * ( pe.HALF + 2.4 ), b.z + b.lz * ( pe.HALF + 2.4 ), 10, 0.4 );
 	check( ok && P.position.y > pe.surf( sm ) + pe.BED - 0.15, `up the steps by Porta Este onto the plane trees' bed (y ${ ( P.position.y - pe.surf( sm ) ).toFixed( 2 ) } over the lane)` );
+
+}
+
+// up Travessa do Beneficiado, from the Calçada da Misericórdia to the garden wall's end
+const ben = T.beneficiado;
+if ( ben ) {
+
+	const at = ( t ) => [ ben.from[ 0 ] + ben.dir[ 0 ] * t, ben.from[ 1 ] + ben.dir[ 1 ] * t ];
+	const [ x0, z0 ] = at( 0.5 );
+	P.placeAt( x0, ben.y( 0.5 ) + 0.2, z0 );
+	ok = walkTo( ...at( ben.length - 0.5 ), 25, 0.5 );
+	check( ok && P.position.y > ben.y( ben.length ) - 0.4, `up Travessa do Beneficiado (y ${ P.position.y.toFixed( 1 ) } of ${ ben.y( ben.length ).toFixed( 1 ) })` );
+
+}
+
+// up the Calçada da Misericórdia toward Santa Maria
+const mis = T.misericordia;
+if ( mis ) {
+
+	const at = ( t ) => [ mis.from[ 0 ] + mis.dir[ 0 ] * t, mis.from[ 1 ] + mis.dir[ 1 ] * t ];
+	const [ x0, z0 ] = at( 0.5 );
+	P.placeAt( x0, mis.y( 0.5 ) + 0.2, z0 );
+	ok = walkTo( ...at( mis.length - 0.5 ), 25, 0.5 );
+	check( ok && P.position.y > mis.y( mis.length ) - 0.4, `up the Calçada da Misericórdia (y ${ P.position.y.toFixed( 1 ) } of ${ mis.y( mis.length ).toFixed( 1 ) })` );
+
+}
+
+// along Rua Padre António Almeida under the house it passes through, toward the Calçada da Misericórdia
+P.placeAt( 13.9, T.heightAt( 13.9, 25.2 ) + 0.2, 25.2 );
+ok = true;
+for ( const [ x, z ] of [ [ 16.1, 19.2 ], [ 16.8, 17.2 ], [ 19.5, 9.5 ] ] ) if ( ok ) ok = walkTo( x, z, 20, 0.6 );
+check( ok, `through the passage under the house on Rua Padre António Almeida (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
+
+// up the stairs by the Biblioteca Municipal, from Rua Padre Nunes Tavares to the landing at São Pedro
+const bib = T.biblioteca;
+if ( bib ) {
+
+	const zc = ( x ) => ( bib.north( x ) + bib.south( x ) ) / 2 - 0.6;
+	P.placeAt( bib.xb + 1.5, bib.yB + 0.2, zc( bib.xb ) );
+	ok = true;
+	for ( const x of [ bib.xb - 3, ( bib.xb + bib.xt ) / 2, bib.xt - 1 ] ) if ( ok ) ok = walkTo( x, zc( x ), 25, 0.5 );
+	check( ok && P.position.y > bib.yT - 0.3, `up the stairs by the library (y ${ P.position.y.toFixed( 1 ) } of ${ bib.yT.toFixed( 1 ) })` );
 
 }
 
