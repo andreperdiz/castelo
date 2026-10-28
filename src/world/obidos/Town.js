@@ -25,7 +25,9 @@ const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566 ] );
 // terrace along Rua Direita: Walls._casaDaMusicaTerrace)
 const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };
 // as in the photos: the Casa da Música is white with strong blue trim, two storeys
-const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ] };
+const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
+	// the house on the left going up Travessa do Beneficiado: yellow (photo references/...-ruaperpendiculara)
+	299068737: [ 0.86, 0.64, 0.17 ] };
 const STOREYS = { 298902328: 2 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey

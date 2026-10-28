@@ -139,6 +139,7 @@ export class Walls {
 		this._ornelas( materials );
 		this._praceta();
 		this._portaEste( materials );
+		this._beneficiado( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -1852,6 +1853,84 @@ export class Walls {
 			this.group.add( mesh );
 
 		}
+
+	}
+
+	// Travessa do Beneficiado (photo references/...-ruaperpendiculara; TerrainData lays the climb): the long
+	// steps' edges, rows of worn stones across the alley every metre and a third; on the right the walled
+	// garden's tall old wall, weathered white over a faded yellow foot, ivy hanging over its top.
+	_beneficiado( materials ) {
+
+		const B = this.terrain.beneficiado;
+		if ( ! B ) return;
+		const kit = this.kit, T = this.terrain;
+		const plaster = new MeshKit();
+		const yaw = Math.atan2( - B.dir[ 1 ], B.dir[ 0 ] ), left = [ B.dir[ 1 ], - B.dir[ 0 ] ];
+		const at = ( t, d = 0 ) => [ B.from[ 0 ] + B.dir[ 0 ] * t + left[ 0 ] * d, B.from[ 1 ] + B.dir[ 1 ] * t + left[ 1 ] * d ];
+
+		// the steps' edges
+		kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		kit.color = [ 0.78, 0.76, 0.7 ];
+		for ( let t = 1.2; t < B.length - 0.4; t += 1.35 ) {
+
+			const [ x, z ] = at( t ), y = B.y( t );
+			kit.box( x, y - 0.06, z, 0.26, 0.2, 2 * B.HALF + 0.4, yaw );
+
+		}
+
+		// the garden's wall: tall over the alley at its foot, less so up the hill
+		const [ W0, W1 ] = B.wall, WL = Math.hypot( W1[ 0 ] - W0[ 0 ], W1[ 1 ] - W0[ 1 ] );
+		const wu = [ ( W1[ 0 ] - W0[ 0 ] ) / WL, ( W1[ 1 ] - W0[ 1 ] ) / WL ], back = [ - wu[ 1 ], wu[ 0 ] ]; // (into the garden: north)
+		const alleyY = ( P ) => B.y( ( P[ 0 ] - B.from[ 0 ] ) * B.dir[ 0 ] + ( P[ 1 ] - B.from[ 1 ] ) * B.dir[ 1 ] );
+		const TH = 0.5, FADED = lin( [ 0.8, 0.62, 0.26 ] );
+		plaster.color = FADED;
+		plaster.vdata = [ 20, 0, 0.47, 0 ];
+		const n = Math.ceil( WL );
+		const pt = ( u, k = 0 ) => [ W0[ 0 ] + wu[ 0 ] * u + back[ 0 ] * k, W0[ 1 ] + wu[ 1 ] * u + back[ 1 ] * k ];
+		const topAt = ( u ) => alleyY( pt( u ) ) + 3.4 - 1.1 * u / WL;
+		for ( let i = 0; i < n; i ++ ) {
+
+			const ua = WL * i / n, ub = WL * ( i + 1 ) / n, A = pt( ua ), Bp = pt( ub ), A2 = pt( ua, TH ), B2 = pt( ub, TH );
+			const ga = alleyY( A ), gb = alleyY( Bp ), ya = ga - 0.6, yb = gb - 0.6, ta = topAt( ua ), tb = topAt( ub ), BAR = 0.75;
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ Bp[ 0 ], yb, Bp[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], [ - back[ 0 ], 0, - back[ 1 ] ],
+				[ [ ua, ( ya - ga ) * BAR ], [ ub, ( yb - gb ) * BAR ], [ ub, ( tb - gb ) * BAR ], [ ua, ( ta - ga ) * BAR ] ] );
+			plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ], [ [ ua, 5 ], [ ub, 5 ], [ ub, 5.5 ], [ ua, 5.5 ] ] );
+			plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ back[ 0 ], 0, back[ 1 ] ], [ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
+			const c = pt( ( ua + ub ) / 2, TH / 2 ), hi = Math.max( ta, tb ), lo = Math.min( ya, yb );
+			this.colliders.addBox( new Vector3( c[ 0 ], ( hi + lo ) / 2, c[ 1 ] ), new Vector3( ( ub - ua ) / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), Math.atan2( - wu[ 1 ], wu[ 0 ] ), { walkable: false, tag: 'wall' } );
+
+		}
+
+		{
+
+			// its end at the alley's foot
+			const E = pt( 0 ), E2 = pt( 0, TH ), g = alleyY( E ), tt = topAt( 0 );
+			plaster.quadFacing( [ E[ 0 ], g - 0.6, E[ 1 ] ], [ E2[ 0 ], g - 0.6, E2[ 1 ] ], [ E2[ 0 ], tt, E2[ 1 ] ], [ E[ 0 ], tt, E[ 1 ] ], [ - wu[ 0 ], 0, - wu[ 1 ] ],
+				[ [ 0, - 0.45 ], [ TH, - 0.45 ], [ TH, ( tt - g ) * 0.75 ], [ 0, ( tt - g ) * 0.75 ] ] );
+
+		}
+
+		// ivy over its top, strands hanging down its face
+		let seed = 17;
+		const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
+		plaster.vdata = [ 0, 0, 0.53, 4 ];
+		for ( let i = 0; i < 420; i ++ ) {
+
+			const u = rnd() * WL, dense = 0.5 + 0.5 * Math.sin( u * 0.9 + 1 );
+			if ( rnd() > 0.3 + 0.7 * dense ) continue;
+			const hang = rnd() < 0.55, drop = hang ? rnd() * rnd() * ( topAt( u ) - alleyY( pt( u ) ) ) * 0.9 : 0;
+			const P = pt( u, hang ? - 0.06 : rnd() * TH * 1.6 ), y = topAt( u ) - drop + ( hang ? 0 : rnd() * 0.5 ), sz = 0.1 + rnd() * 0.16;
+			plaster.color = lin( [ 0.14 + rnd() * 0.1, 0.26 + rnd() * 0.12, 0.09 ] );
+			plaster.box( P[ 0 ], y, P[ 1 ], hang ? sz * 0.6 : sz, sz, hang ? 0.05 : sz, rnd() * 3 );
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'beneficiado';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
 
 	}
 

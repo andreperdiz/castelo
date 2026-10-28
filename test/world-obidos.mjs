@@ -105,6 +105,18 @@ if ( pe ) {
 
 }
 
+// up Travessa do Beneficiado, from the Calçada da Misericórdia to the garden wall's end
+const ben = T.beneficiado;
+if ( ben ) {
+
+	const at = ( t ) => [ ben.from[ 0 ] + ben.dir[ 0 ] * t, ben.from[ 1 ] + ben.dir[ 1 ] * t ];
+	const [ x0, z0 ] = at( 0.5 );
+	P.placeAt( x0, ben.y( 0.5 ) + 0.2, z0 );
+	ok = walkTo( ...at( ben.length - 0.5 ), 25, 0.5 );
+	check( ok && P.position.y > ben.y( ben.length ) - 0.4, `up Travessa do Beneficiado (y ${ P.position.y.toFixed( 1 ) } of ${ ben.y( ben.length ).toFixed( 1 ) })` );
+
+}
+
 // every flight of steps
 let climbed = 0;
 for ( const st of W.stairs ) {

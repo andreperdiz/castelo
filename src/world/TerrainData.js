@@ -48,6 +48,11 @@ export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], 
 // references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
 export const PORTA_ESTE = [ 74.9, 48.5 ];
 export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
+// Travessa do Beneficiado Faustino das Neves, off the Calçada da Misericórdia across from the top of Porta
+// Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
+// a house on its left (south), a walled garden's tall wall on its right (north). From its foot to where
+// the wall ends; the wall's line
+export const BENEFICIADO = { from: [ 39.9, 39.3 ], to: [ 20.6, 41.2 ], wall: [ [ 37.4, 38.2 ], [ 20.6, 40.1 ] ] };
 
 export class TerrainData {
 
@@ -90,6 +95,7 @@ export class TerrainData {
 		this._shapeWall();
 		this._portaDaVilaFloor();
 		this._travessaPoco();
+		this._beneficiado();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -843,6 +849,33 @@ export class TerrainData {
 		// the lane's frame: s along it from the gate, d across (left +)
 		const frame = ( x, z ) => [ ( x - g.x ) * ux + ( z - g.z ) * uz, ( x - g.x ) * lx + ( z - g.z ) * lz ];
 		this.portaEste = { gate: g, at, surf, frame, largo, HALF, FACE, STEP2, yOut, OUT_RISE, y1, y2, SF, ST, N, RISE, TREAD, BED, bedY, BED_WALL_END, L_START, LTOP, TERRACE, GARDEN, ACCESS, length: L };
+
+	}
+
+	// Travessa do Beneficiado (BENEFICIADO): an even climb from the Calçada to the wall's end, paved; Walls lays
+	// the steps' stone edges on it. this.beneficiado tells Walls where.
+	_beneficiado() {
+
+		const B = BENEFICIADO, { res, texel, origin, heights } = this;
+		const L = Math.hypot( B.to[ 0 ] - B.from[ 0 ], B.to[ 1 ] - B.from[ 1 ] );
+		const dir = [ ( B.to[ 0 ] - B.from[ 0 ] ) / L, ( B.to[ 1 ] - B.from[ 1 ] ) / L ];
+		const y0 = this.heightAt( ...B.from ), y1 = this.heightAt( ...B.to );
+		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
+		const HALF = 1.5;
+		this._stroke( [ B.from, B.to ], HALF, 1.0, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - B.from[ 0 ] ) * dir[ 0 ] + ( z - B.from[ 1 ] ) * dir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], y( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+		this.beneficiado = { from: B.from, to: B.to, wall: B.wall, dir, length: L, y, HALF };
 
 	}
 
