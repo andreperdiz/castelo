@@ -1856,6 +1856,95 @@ export class Walls {
 
 	}
 
+	// An old garden wall from W0 to W1 into plaster: weathered white over a faded yellow foot, its front on
+	// the street (side +1: the street to the left going W0 -> W1, -1 to the right), thick away from it; from
+	// streetY( [ x, z ] ) up H0 at W0 to H1 at W1. Ivy over its top and hanging down; flowers: roses and
+	// shrubs at its foot.
+	_oldWall( plaster, W0, W1, side, streetY, H0, H1, seed, flowers = false ) {
+
+		const WL = Math.hypot( W1[ 0 ] - W0[ 0 ], W1[ 1 ] - W0[ 1 ] );
+		const wu = [ ( W1[ 0 ] - W0[ 0 ] ) / WL, ( W1[ 1 ] - W0[ 1 ] ) / WL ];
+		const back = side > 0 ? [ - wu[ 1 ], wu[ 0 ] ] : [ wu[ 1 ], - wu[ 0 ] ]; // away from the street
+		const TH = 0.5, FADED = lin( [ 0.8, 0.62, 0.26 ] ), BAR = 0.75;
+		plaster.color = FADED;
+		plaster.vdata = [ 20, 0, 0.47, 0 ];
+		const pt = ( u, k = 0 ) => [ W0[ 0 ] + wu[ 0 ] * u + back[ 0 ] * k, W0[ 1 ] + wu[ 1 ] * u + back[ 1 ] * k ];
+		const topAt = ( u ) => streetY( pt( u ) ) + H0 + ( H1 - H0 ) * u / WL;
+		const n = Math.ceil( WL ), yaw = Math.atan2( - wu[ 1 ], wu[ 0 ] );
+		for ( let i = 0; i < n; i ++ ) {
+
+			const ua = WL * i / n, ub = WL * ( i + 1 ) / n, A = pt( ua ), Bp = pt( ub ), A2 = pt( ua, TH ), B2 = pt( ub, TH );
+			const ga = streetY( A ), gb = streetY( Bp ), ya = ga - 0.6, yb = gb - 0.6, ta = topAt( ua ), tb = topAt( ub );
+			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ Bp[ 0 ], yb, Bp[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], [ - back[ 0 ], 0, - back[ 1 ] ],
+				[ [ ua, ( ya - ga ) * BAR ], [ ub, ( yb - gb ) * BAR ], [ ub, ( tb - gb ) * BAR ], [ ua, ( ta - ga ) * BAR ] ] );
+			plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ], [ [ ua, 5 ], [ ub, 5 ], [ ub, 5.5 ], [ ua, 5.5 ] ] );
+			plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ back[ 0 ], 0, back[ 1 ] ], [ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
+			const c = pt( ( ua + ub ) / 2, TH / 2 ), hi = Math.max( ta, tb ), lo = Math.min( ya, yb );
+			this.colliders.addBox( new Vector3( c[ 0 ], ( hi + lo ) / 2, c[ 1 ] ), new Vector3( ( ub - ua ) / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), yaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		for ( const u of [ 0, WL ] ) {
+
+			// its ends
+			const E = pt( u ), E2 = pt( u, TH ), g = streetY( E ), tt = topAt( u ), dir = u === 0 ? - 1 : 1;
+			plaster.quadFacing( [ E[ 0 ], g - 0.6, E[ 1 ] ], [ E2[ 0 ], g - 0.6, E2[ 1 ] ], [ E2[ 0 ], tt, E2[ 1 ] ], [ E[ 0 ], tt, E[ 1 ] ], [ wu[ 0 ] * dir, 0, wu[ 1 ] * dir ],
+				[ [ 0, - 0.45 ], [ TH, - 0.45 ], [ TH, ( tt - g ) * BAR ], [ 0, ( tt - g ) * BAR ] ] );
+
+		}
+
+		// ivy over its top, strands hanging down its face
+		let s = seed;
+		const rnd = () => ( ( s = ( s * 16807 ) % 2147483647 ) / 2147483647 );
+		plaster.vdata = [ 0, 0, 0.53, 4 ];
+		for ( let i = 0; i < 26 * WL; i ++ ) {
+
+			const u = rnd() * WL, dense = 0.5 + 0.5 * Math.sin( u * 0.9 + seed );
+			if ( rnd() > 0.3 + 0.7 * dense ) continue;
+			const hang = rnd() < 0.55, drop = hang ? rnd() * rnd() * ( topAt( u ) - streetY( pt( u ) ) ) * 0.9 : 0;
+			const P = pt( u, hang ? - 0.06 : rnd() * TH * 1.6 ), y = topAt( u ) - drop + ( hang ? 0 : rnd() * 0.5 ), sz = 0.1 + rnd() * 0.16;
+			plaster.color = lin( [ 0.14 + rnd() * 0.1, 0.26 + rnd() * 0.12, 0.09 ] );
+			plaster.box( P[ 0 ], y, P[ 1 ], hang ? sz * 0.6 : sz, sz, hang ? 0.05 : sz, rnd() * 3 );
+
+		}
+
+		if ( ! flowers ) return;
+		// shrubs and roses at its foot, in a narrow kerbed bed along it
+		for ( let i = 0; i < 40 * WL; i ++ ) {
+
+			const u = 0.3 + rnd() * ( WL - 0.6 ), k = - 0.05 - rnd() * 0.55, P = pt( u, k ), g = streetY( P );
+			if ( rnd() > 0.55 + 0.45 * Math.sin( u * 0.7 ) ) continue;
+			const y = g + rnd() * rnd() * 1.8, sz = 0.12 + rnd() * 0.2, bloom = rnd();
+			plaster.color = lin( bloom < 0.12 ? [ 0.92, 0.6, 0.66 ] : bloom < 0.2 ? [ 0.9, 0.35, 0.15 ] : [ 0.15 + rnd() * 0.1, 0.3 + rnd() * 0.15, 0.1 ] );
+			plaster.box( P[ 0 ], y, P[ 1 ], sz, sz * 0.8, sz, rnd() * 3 );
+
+		}
+
+		this.kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		this.kit.color = [ 0.8, 0.78, 0.72 ];
+		const kc = pt( WL / 2, - 0.62 );
+		this.kit.box( kc[ 0 ], streetY( kc ) + 0.02, kc[ 1 ], WL - 0.4, 0.2, 0.12, yaw ); // the bed's kerb
+
+	}
+
+	// golden quoins up a corner at P (world xz), on the two faces running along faces[ 0 ] and faces[ 1 ]
+	// (unit xz, away from the corner), from y0 to y1
+	_quoinCorner( P, faces, y0, y1 ) {
+
+		const kit = this.kit;
+		kit.vdata = [ 0.43, 0.45, 0, 0 ];
+		kit.color = [ 1.02, 0.86, 0.6 ];
+		const [ u1, u2 ] = faces;
+		for ( let y = y0, k = 0; y < y1 - 0.1; k ++ ) {
+
+			const h = Math.min( y1 - 0.02 - y, 0.34 ), wa = k % 2 ? 0.28 : 0.5, wb = k % 2 ? 0.5 : 0.28;
+			for ( const [ u, o, w ] of [ [ u1, u2, wa ], [ u2, u1, wb ] ] ) kit.box( P[ 0 ] + u[ 0 ] * w / 2 - o[ 0 ] * 0.02, y + h / 2, P[ 1 ] + u[ 1 ] * w / 2 - o[ 1 ] * 0.02, w, h - 0.04, 0.04, Math.atan2( - u[ 1 ], u[ 0 ] ) );
+			y += h;
+
+		}
+
+	}
+
 	// Travessa do Beneficiado (photo references/...-ruaperpendiculara; TerrainData lays the climb): the long
 	// steps' edges, rows of worn stones across the alley every metre and a third; on the right the walled
 	// garden's tall old wall, weathered white over a faded yellow foot, ivy hanging over its top.
@@ -1879,49 +1968,18 @@ export class Walls {
 		}
 
 		// the garden's wall: tall over the alley at its foot, less so up the hill
-		const [ W0, W1 ] = B.wall, WL = Math.hypot( W1[ 0 ] - W0[ 0 ], W1[ 1 ] - W0[ 1 ] );
-		const wu = [ ( W1[ 0 ] - W0[ 0 ] ) / WL, ( W1[ 1 ] - W0[ 1 ] ) / WL ], back = [ - wu[ 1 ], wu[ 0 ] ]; // (into the garden: north)
 		const alleyY = ( P ) => B.y( ( P[ 0 ] - B.from[ 0 ] ) * B.dir[ 0 ] + ( P[ 1 ] - B.from[ 1 ] ) * B.dir[ 1 ] );
-		const TH = 0.5, FADED = lin( [ 0.8, 0.62, 0.26 ] );
-		plaster.color = FADED;
-		plaster.vdata = [ 20, 0, 0.47, 0 ];
-		const n = Math.ceil( WL );
-		const pt = ( u, k = 0 ) => [ W0[ 0 ] + wu[ 0 ] * u + back[ 0 ] * k, W0[ 1 ] + wu[ 1 ] * u + back[ 1 ] * k ];
-		const topAt = ( u ) => alleyY( pt( u ) ) + 3.4 - 1.1 * u / WL;
-		for ( let i = 0; i < n; i ++ ) {
+		this._oldWall( plaster, B.wall[ 0 ], B.wall[ 1 ], 1, alleyY, 3.4, 2.3, 17 );
 
-			const ua = WL * i / n, ub = WL * ( i + 1 ) / n, A = pt( ua ), Bp = pt( ub ), A2 = pt( ua, TH ), B2 = pt( ub, TH );
-			const ga = alleyY( A ), gb = alleyY( Bp ), ya = ga - 0.6, yb = gb - 0.6, ta = topAt( ua ), tb = topAt( ub ), BAR = 0.75;
-			plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ Bp[ 0 ], yb, Bp[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], [ - back[ 0 ], 0, - back[ 1 ] ],
-				[ [ ua, ( ya - ga ) * BAR ], [ ub, ( yb - gb ) * BAR ], [ ub, ( tb - gb ) * BAR ], [ ua, ( ta - ga ) * BAR ] ] );
-			plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ], [ [ ua, 5 ], [ ub, 5 ], [ ub, 5.5 ], [ ua, 5.5 ] ] );
-			plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ back[ 0 ], 0, back[ 1 ] ], [ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
-			const c = pt( ( ua + ub ) / 2, TH / 2 ), hi = Math.max( ta, tb ), lo = Math.min( ya, yb );
-			this.colliders.addBox( new Vector3( c[ 0 ], ( hi + lo ) / 2, c[ 1 ] ), new Vector3( ( ub - ua ) / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), Math.atan2( - wu[ 1 ], wu[ 0 ] ), { walkable: false, tag: 'wall' } );
+		// the same garden's east wall, along the Calçada da Misericórdia up toward Santa Maria (photo
+		// references/...-whatsapp-image-2026-10-21-at-10-05-24): as tall, roses and shrubs at its foot
+		const M = this.terrain.misericordia;
+		if ( M ) {
 
-		}
-
-		{
-
-			// its end at the alley's foot
-			const E = pt( 0 ), E2 = pt( 0, TH ), g = alleyY( E ), tt = topAt( 0 );
-			plaster.quadFacing( [ E[ 0 ], g - 0.6, E[ 1 ] ], [ E2[ 0 ], g - 0.6, E2[ 1 ] ], [ E2[ 0 ], tt, E2[ 1 ] ], [ E[ 0 ], tt, E[ 1 ] ], [ - wu[ 0 ], 0, - wu[ 1 ] ],
-				[ [ 0, - 0.45 ], [ TH, - 0.45 ], [ TH, ( tt - g ) * 0.75 ], [ 0, ( tt - g ) * 0.75 ] ] );
-
-		}
-
-		// ivy over its top, strands hanging down its face
-		let seed = 17;
-		const rnd = () => ( ( seed = ( seed * 16807 ) % 2147483647 ) / 2147483647 );
-		plaster.vdata = [ 0, 0, 0.53, 4 ];
-		for ( let i = 0; i < 420; i ++ ) {
-
-			const u = rnd() * WL, dense = 0.5 + 0.5 * Math.sin( u * 0.9 + 1 );
-			if ( rnd() > 0.3 + 0.7 * dense ) continue;
-			const hang = rnd() < 0.55, drop = hang ? rnd() * rnd() * ( topAt( u ) - alleyY( pt( u ) ) ) * 0.9 : 0;
-			const P = pt( u, hang ? - 0.06 : rnd() * TH * 1.6 ), y = topAt( u ) - drop + ( hang ? 0 : rnd() * 0.5 ), sz = 0.1 + rnd() * 0.16;
-			plaster.color = lin( [ 0.14 + rnd() * 0.1, 0.26 + rnd() * 0.12, 0.09 ] );
-			plaster.box( P[ 0 ], y, P[ 1 ], hang ? sz * 0.6 : sz, sz, hang ? 0.05 : sz, rnd() * 3 );
+			const calY = ( P ) => M.y( ( P[ 0 ] - M.from[ 0 ] ) * M.dir[ 0 ] + ( P[ 1 ] - M.from[ 1 ] ) * M.dir[ 1 ] );
+			this._oldWall( plaster, M.wall[ 0 ], M.wall[ 1 ], - 1, calY, 3.6, 3.2, 29, true );
+			// golden quoins up the corner of the house opposite, its foot charcoal (Town paints it)
+			this._quoinCorner( M.corner, M.cornerFaces, calY( M.corner ) - 0.2, calY( M.corner ) + 5.6 );
 
 		}
 

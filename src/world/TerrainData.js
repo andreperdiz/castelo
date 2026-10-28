@@ -53,6 +53,10 @@ export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
 // a house on its left (south), a walled garden's tall wall on its right (north). From its foot to where
 // the wall ends; the wall's line
 export const BENEFICIADO = { from: [ 39.9, 39.3 ], to: [ 20.6, 41.2 ], wall: [ [ 37.4, 38.2 ], [ 20.6, 40.1 ] ] };
+// the Calçada da Misericórdia from the same corner up toward Santa Maria (photo
+// references/...-whatsapp-image-2026-10-21-at-10-05-24): an even cobbled climb between the same walled garden
+// (west) and a house (east); the garden's east wall, and the house's corner with its faces
+export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ [ 37.4, 38.2 ], [ 32.5, 30.3 ] ], corner: [ 37.8, 33.5 ] };
 
 export class TerrainData {
 
@@ -96,6 +100,7 @@ export class TerrainData {
 		this._portaDaVilaFloor();
 		this._travessaPoco();
 		this._beneficiado();
+		this._misericordia();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -876,6 +881,42 @@ export class TerrainData {
 
 		} );
 		this.beneficiado = { from: B.from, to: B.to, wall: B.wall, dir, length: L, y, HALF };
+
+	}
+
+	// the Calçada da Misericórdia (MISERICORDIA): an even climb, paved. this.misericordia tells Walls where.
+	_misericordia() {
+
+		const M = MISERICORDIA, { res, texel, origin, heights } = this;
+		const L = Math.hypot( M.to[ 0 ] - M.from[ 0 ], M.to[ 1 ] - M.from[ 1 ] );
+		const dir = [ ( M.to[ 0 ] - M.from[ 0 ] ) / L, ( M.to[ 1 ] - M.from[ 1 ] ) / L ];
+		const y0 = this.heightAt( ...M.from ), y1 = this.heightAt( ...M.to );
+		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
+		this._stroke( [ M.from, M.to ], 1.8, 1.2, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - M.from[ 0 ] ) * dir[ 0 ] + ( z - M.from[ 1 ] ) * dir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], y( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+		// the house's corner, where Town puts it (it pushes footprint corners 1.5 m back from a lane's centre
+		// line), and its faces from there: up the street, and along Travessa do Poço's line
+		const [ dc, tc ] = segmentDistance( M.corner[ 0 ], M.corner[ 1 ], M.from, M.to );
+		const foot = [ M.from[ 0 ] + ( M.to[ 0 ] - M.from[ 0 ] ) * tc, M.from[ 1 ] + ( M.to[ 1 ] - M.from[ 1 ] ) * tc ];
+		const corner = dc >= 1.5 ? M.corner : [ foot[ 0 ] + ( M.corner[ 0 ] - foot[ 0 ] ) / dc * 1.5, foot[ 1 ] + ( M.corner[ 1 ] - foot[ 1 ] ) / dc * 1.5 ];
+		const f = ( P ) => {
+
+			const l = Math.hypot( P[ 0 ] - corner[ 0 ], P[ 1 ] - corner[ 1 ] );
+			return [ ( P[ 0 ] - corner[ 0 ] ) / l, ( P[ 1 ] - corner[ 1 ] ) / l ];
+
+		};
+		this.misericordia = { from: M.from, to: M.to, wall: M.wall, corner, cornerFaces: [ f( [ 32.1, 20.2 ] ), f( [ 48.7, 35.8 ] ) ], dir, length: L, y };
 
 	}
 

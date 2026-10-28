@@ -117,6 +117,18 @@ if ( ben ) {
 
 }
 
+// up the Calçada da Misericórdia toward Santa Maria
+const mis = T.misericordia;
+if ( mis ) {
+
+	const at = ( t ) => [ mis.from[ 0 ] + mis.dir[ 0 ] * t, mis.from[ 1 ] + mis.dir[ 1 ] * t ];
+	const [ x0, z0 ] = at( 0.5 );
+	P.placeAt( x0, mis.y( 0.5 ) + 0.2, z0 );
+	ok = walkTo( ...at( mis.length - 0.5 ), 25, 0.5 );
+	check( ok && P.position.y > mis.y( mis.length ) - 0.4, `up the Calçada da Misericórdia (y ${ P.position.y.toFixed( 1 ) } of ${ mis.y( mis.length ).toFixed( 1 ) })` );
+
+}
+
 // every flight of steps
 let climbed = 0;
 for ( const st of W.stairs ) {

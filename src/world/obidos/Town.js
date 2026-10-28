@@ -27,7 +27,10 @@ const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 1
 // as in the photos: the Casa da Música is white with strong blue trim, two storeys
 const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the left going up Travessa do Beneficiado: yellow (photo references/...-ruaperpendiculara)
-	299068737: [ 0.86, 0.64, 0.17 ] };
+	299068737: [ 0.86, 0.64, 0.17 ],
+	// the house on the right going up the Calçada da Misericórdia: a charcoal foot (photo
+	// references/...-whatsapp-image-2026-10-21-at-10-05-24)
+	299064166: [ 0.27, 0.27, 0.28 ] };
 const STOREYS = { 298902328: 2 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
