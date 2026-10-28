@@ -3019,7 +3019,7 @@ export class Walls {
 			// not in or by Porta da Vila's tower: its way up is the L-shaped flight, beside the stepped lane
 			if ( Math.hypot( p.x + 54.5, p.z - 230 ) < 20 ) continue;
 			const fx = p.x - p.nx * 2.0, fz = p.z - p.nz * 2.0; // the stair's line, just inside
-			const rise = p.y - T.heightAt( fx, fz ) - ( p.raised || 0 ); // (a stretch raised from the photos keeps its flight)
+			const rise = p.y - T.heightAt( fx, fz ) - ( p.raised || 0 ); // (as before a stretch was raised from the photos)
 			if ( rise < 1.6 || rise > 6.5 ) continue;
 			cands.push( { i, rise } );
 
@@ -3033,6 +3033,15 @@ export class Walls {
 		for ( const c of cands ) {
 
 			if ( chosen.some( ( o ) => Math.abs( S[ o.i ].s - S[ c.i ].s ) < SPACING ) ) continue;
+			// either side of Porta Este there is no flight up onto the walls; the stretch north of it, where
+			// one used to stand, keeps the others at their spacing
+			const p = S[ c.i ];
+			if ( p.x > 60 && p.x < 95 && p.z > 12 && p.z < 85 ) {
+
+				if ( p.z < 40 ) chosen.push( { i: c.i, dir: 0 } );
+				continue;
+
+			}
 			for ( const dir of [ - 1, 1 ] ) {
 
 				const st = this._stairAt( c.i, dir, true );
@@ -3047,7 +3056,7 @@ export class Walls {
 
 		}
 
-		for ( const c of chosen ) this._stairAt( c.i, c.dir, false );
+		for ( const c of chosen ) if ( c.dir ) this._stairAt( c.i, c.dir, false );
 
 	}
 
