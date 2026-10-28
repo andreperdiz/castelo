@@ -136,6 +136,18 @@ ok = true;
 for ( const [ x, z ] of [ [ 16.1, 19.2 ], [ 16.8, 17.2 ], [ 19.5, 9.5 ] ] ) if ( ok ) ok = walkTo( x, z, 20, 0.6 );
 check( ok, `through the passage under the house on Rua Padre António Almeida (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
 
+// up the stairs by the Biblioteca Municipal, from Rua Padre Nunes Tavares to the landing at São Pedro
+const bib = T.biblioteca;
+if ( bib ) {
+
+	const zc = ( x ) => ( bib.north( x ) + bib.south( x ) ) / 2 - 0.6;
+	P.placeAt( bib.xb + 1.5, bib.yB + 0.2, zc( bib.xb ) );
+	ok = true;
+	for ( const x of [ bib.xb - 3, ( bib.xb + bib.xt ) / 2, bib.xt - 1 ] ) if ( ok ) ok = walkTo( x, zc( x ), 25, 0.5 );
+	check( ok && P.position.y > bib.yT - 0.3, `up the stairs by the library (y ${ P.position.y.toFixed( 1 ) } of ${ bib.yT.toFixed( 1 ) })` );
+
+}
+
 // every flight of steps
 let climbed = 0;
 for ( const st of W.stairs ) {

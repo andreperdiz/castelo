@@ -29,6 +29,26 @@ const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high 
 const PV_EAST_FACE = - 48.6; // the tower's east side (the curtain): its face on the void
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
+
+// a bar of iron into kit from a to b ([ x, y, z ]), w thick (square in section)
+function ironBar( kit, a, b, w ) {
+
+	const dx = b[ 0 ] - a[ 0 ], dz = b[ 2 ] - a[ 2 ], l = Math.hypot( dx, dz );
+	const vert = l < 1e-4;
+	// (a vertical bar: any horizontal side will do)
+	const ux = vert ? 1 : dx / l, uz = vert ? 0 : dz / l;
+	const sx = - uz * w / 2, sz = ux * w / 2, h = w / 2;
+	const c = ( p, i, j ) => vert ? [ p[ 0 ] + sx * i + ux * h * j, p[ 1 ], p[ 2 ] + sz * i + uz * h * j ] : [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
+	const ax = vert ? [ 0, Math.sign( b[ 1 ] - a[ 1 ] ), 0 ] : [ ux, 0, uz ];
+	const up = vert ? [ ux, 0, uz ] : [ 0, 1, 0 ];
+	kit.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), up );
+	kit.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), up.map( ( v ) => - v ) );
+	kit.quadFacing( c( a, 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ sx, 0, sz ] );
+	kit.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, - 1, 1 ), c( a, - 1, 1 ), [ - sx, 0, - sz ] );
+	kit.quadFacing( c( a, - 1, - 1 ), c( a, 1, - 1 ), c( a, 1, 1 ), c( a, - 1, 1 ), ax.map( ( v ) => - v ) );
+	kit.quadFacing( c( b, - 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( b, - 1, 1 ), ax );
+
+}
 const lin = ( c ) => c.map( ( v ) => ( v <= 0.04045 ? v / 12.92 : ( ( v + 0.055 ) / 1.055 ) ** 2.4 ) );
 
 export class Walls {
@@ -141,6 +161,7 @@ export class Walls {
 		this._portaEste( materials );
 		this._beneficiado( materials );
 		this._senhoraDaGraca( materials );
+		this._escadariaBiblioteca( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
@@ -1257,25 +1278,7 @@ export class Walls {
 
 		}
 
-		// a bar of iron from a to b ([ x, y, z ]), w thick
-		const beam = ( a, b, w ) => {
-
-			const dx = b[ 0 ] - a[ 0 ], dz = b[ 2 ] - a[ 2 ], l = Math.hypot( dx, dz );
-			// (a vertical bar: any horizontal side will do)
-			const ux = l > 1e-4 ? dx / l : f.tx, uz = l > 1e-4 ? dz / l : f.tz;
-			const sx = - uz * w / 2, sz = ux * w / 2, h = w / 2;
-			const vert = l < 1e-4;
-			const c = ( p, i, j ) => vert ? [ p[ 0 ] + sx * i + ux * h * j, p[ 1 ], p[ 2 ] + sz * i + uz * h * j ] : [ p[ 0 ] + sx * i, p[ 1 ] + h * j, p[ 2 ] + sz * i ];
-			const ax = vert ? [ 0, Math.sign( b[ 1 ] - a[ 1 ] ), 0 ] : [ ux, 0, uz ];
-			const up = vert ? [ ux, 0, uz ] : [ 0, 1, 0 ];
-			iron.quadFacing( c( a, - 1, 1 ), c( b, - 1, 1 ), c( b, 1, 1 ), c( a, 1, 1 ), up );
-			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, 1, - 1 ), c( a, 1, - 1 ), up.map( ( v ) => - v ) );
-			iron.quadFacing( c( a, 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( a, 1, 1 ), [ sx, 0, sz ] );
-			iron.quadFacing( c( a, - 1, - 1 ), c( b, - 1, - 1 ), c( b, - 1, 1 ), c( a, - 1, 1 ), [ - sx, 0, - sz ] );
-			iron.quadFacing( c( a, - 1, - 1 ), c( a, 1, - 1 ), c( a, 1, 1 ), c( a, - 1, 1 ), ax.map( ( v ) => - v ) );
-			iron.quadFacing( c( b, - 1, - 1 ), c( b, 1, - 1 ), c( b, 1, 1 ), c( b, - 1, 1 ), ax );
-
-		};
+		const beam = ( a, b, w ) => ironBar( iron, a, b, w );
 
 		// the handrail up the middle (photo references/...-escadariaportaeste): a round iron bar 0.9 m over
 		// the nosings' line on posts with forked heads; at each end it runs on level a little, then turns
@@ -2079,6 +2082,142 @@ export class Walls {
 		}
 
 		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'senhora-da-graca' ], [ iron, materials.lantern, 'senhora-da-graca-iron' ] ] ) {
+
+			if ( k.empty ) continue;
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+	}
+
+	// The stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca; TerrainData shapes the
+	// ground): one long flight of steps, cobbled treads with nosings of worn limestone, up from Rua Padre Nunes
+	// Tavares to a landing at São Pedro's front. On the right the library yard's tall wall, whitewashed with a
+	// deep blue band along its foot, a barred window in it and a blue border up its far end; on the left a low
+	// weathered wall with a dark foot, the church garden behind it with two clipped round bushes, a taller
+	// stretch of it at its top by the church. An iron handrail up the left of the middle, on posts with forked
+	// heads, running on level at the foot and turning down into the ground.
+	_escadariaBiblioteca( materials ) {
+
+		const B = this.terrain.biblioteca;
+		if ( ! B ) return;
+		const kit = this.kit, T = this.terrain;
+		const plaster = new MeshKit(), iron = new MeshKit();
+		const TH = 0.4;
+
+		// the steps
+		for ( let i = 0; i < B.N; i ++ ) {
+
+			const x0 = B.xb - i * B.tread, x1 = x0 - B.tread, xc = ( x0 + x1 ) / 2, top = B.yB + ( i + 1 ) * B.rise, bottom = top - B.rise - 0.5;
+			const zn = B.north( xc ), zs = B.south( xc ), zc = ( zn + zs ) / 2, w = zs - zn;
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.84, 0.81, 0.73 ];
+			kit.box( xc, ( top + bottom ) / 2, zc, B.tread + 0.02, top - bottom, w, 0, 'bottom' );
+			this.colliders.addBox( new Vector3( xc, ( top + bottom ) / 2, zc ), new Vector3( B.tread / 2 + 0.01, ( top - bottom ) / 2, w / 2 ), 0, { walkable: true, tag: 'stair' } );
+			kit.vdata = [ 0.43, 0.55, 0, 0 ];
+			kit.color = [ 0.9, 0.86, 0.76 ];
+			kit.box( x0 - 0.09, top - 0.07 + 0.005, zc, 0.18, 0.14, w + 0.02, 0 );
+
+		}
+
+		// a wall along one side from x0 down to x1 (x0 > x1), on the line z( x ), thick away from the steps (dir
+		// -1 north, +1 south), top( x ); its band from the surface beside it, scaled by bar
+		const wallAlong = ( z, dir, x0, x1, top, color, bar ) => {
+
+			plaster.color = color;
+			plaster.vdata = [ 20, 0, 0.13, 0 ];
+			const cuts = [ x0 ];
+			for ( let x = Math.floor( x0 ); x > x1 + 0.3; x -= 1 ) if ( x < x0 - 0.05 ) cuts.push( x );
+			cuts.push( x1 );
+			for ( let i = 0; i + 1 < cuts.length; i ++ ) {
+
+				const xa = cuts[ i ], xb = cuts[ i + 1 ], za = z( xa ), zb = z( xb ), ra = B.surf( xa ), rb = B.surf( xb );
+				const ya = Math.min( ra, T.heightAt( xa, za + dir * ( TH + 0.3 ) ) ) - 0.6, yb = Math.min( rb, T.heightAt( xb, zb + dir * ( TH + 0.3 ) ) ) - 0.6;
+				const ta = top( xa ), tb = top( xb ), toSteps = [ 0, 0, - dir ];
+				const A = [ xa, za ], Bp = [ xb, zb ], A2 = [ xa, za + dir * TH ], B2 = [ xb, zb + dir * TH ];
+				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ Bp[ 0 ], yb, Bp[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ A[ 0 ], ta, A[ 1 ] ], toSteps,
+					[ [ xa, ( ya - ra ) * bar ], [ xb, ( yb - rb ) * bar ], [ xb, ( tb - rb ) * bar ], [ xa, ( ta - ra ) * bar ] ] );
+				plaster.quadFacing( [ A2[ 0 ], ya, A2[ 1 ] ], [ B2[ 0 ], yb, B2[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 0, dir ],
+					[ [ xa, 2 ], [ xb, 2 ], [ xb, 3 ], [ xa, 3 ] ] );
+				plaster.quadFacing( [ A[ 0 ], ta, A[ 1 ] ], [ Bp[ 0 ], tb, Bp[ 1 ] ], [ B2[ 0 ], tb, B2[ 1 ] ], [ A2[ 0 ], ta, A2[ 1 ] ], [ 0, 1, 0 ],
+					[ [ xa, 5 ], [ xb, 5 ], [ xb, 5.4 ], [ xa, 5.4 ] ] );
+				for ( const [ end, x, E, E2, y0, h, r, nx ] of [ [ i === 0, xa, A, A2, ya, ta, ra, 1 ], [ i + 2 === cuts.length, xb, Bp, B2, yb, tb, rb, - 1 ] ] ) {
+
+					if ( ! end ) continue;
+					plaster.quadFacing( [ E[ 0 ], y0, E[ 1 ] ], [ E2[ 0 ], y0, E2[ 1 ] ], [ E2[ 0 ], h, E2[ 1 ] ], [ E[ 0 ], h, E[ 1 ] ], [ nx, 0, 0 ],
+						[ [ 0, ( y0 - r ) * bar ], [ TH, ( y0 - r ) * bar ], [ TH, ( h - r ) * bar ], [ 0, ( h - r ) * bar ] ] );
+
+				}
+
+				const xm = ( xa + xb ) / 2, zm = ( za + zb ) / 2 + dir * TH / 2, hi = Math.max( ta, tb ), lo = Math.min( ya, yb );
+				this.colliders.addBox( new Vector3( xm, ( hi + lo ) / 2, zm ), new Vector3( ( xa - xb ) / 2 + 0.02, ( hi - lo ) / 2, TH / 2 ), Math.atan2( zb - za, xa - xb ), { walkable: false, tag: 'wall' } );
+
+			}
+
+		};
+
+		// the library yard's wall (right, north): tall, its blue band deep
+		const BLUE = lin( [ 0.1, 0.27, 0.78 ] ), WHITE = lin( [ 0.93, 0.92, 0.89 ] ), DARK = lin( [ 0.2, 0.2, 0.19 ] );
+		const xYard = B.xt + 6.8; // where the yard ends and the library begins (its own walls)
+		wallAlong( B.north, - 1, B.xb + 1.2, xYard, () => B.yT + 1.6, BLUE, 0.55 );
+		// a blue border up its far end, and a barred window
+		{
+
+			const z = B.north( xYard ) + 0.01, y0 = B.surf( xYard ), y1 = B.yT + 1.6;
+			plaster.color = BLUE;
+			plaster.vdata = [ 0, 0, 0.21, 4 ];
+			plaster.box( xYard + 0.15, ( y0 + y1 ) / 2, z + 0.01, 0.3, y1 - y0, 0.02, 0 );
+			const xw = xYard + 3.2, zw = B.north( xw ) + 0.02, yw = B.surf( xw ) + 2.4;
+			plaster.color = lin( [ 0.12, 0.12, 0.13 ] );
+			plaster.box( xw, yw, zw, 0.7, 1.1, 0.02, 0 );
+			plaster.color = lin( [ 0.8, 0.77, 0.7 ] );
+			for ( const [ dx, dy, sx, sy ] of [ [ 0, 0.62, 0.92, 0.12 ], [ 0, - 0.62, 0.92, 0.12 ], [ 0.41, 0, 0.12, 1.36 ], [ - 0.41, 0, 0.12, 1.36 ] ] ) plaster.box( xw + dx, yw + dy, zw, sx, sy, 0.04, 0 );
+			iron.vdata = [ 0, 0, 0, 0 ];
+			for ( let k = - 2; k <= 2; k ++ ) iron.box( xw + k * 0.14, yw, zw + 0.06, 0.025, 1.1, 0.025, 0 );
+			for ( const dy of [ - 0.35, 0.05, 0.4 ] ) iron.box( xw, yw + dy, zw + 0.06, 0.7, 0.025, 0.025, 0 );
+
+		}
+
+		// the garden's wall (left, south): low, weathered white over a dark foot, taller by the church
+		const xLow = B.xt + 7.6;
+		wallAlong( B.south, 1, B.xb + 0.3, xLow, ( x ) => B.surf( x ) + 0.85, DARK, 1.6 );
+		wallAlong( B.south, 1, xLow, xLow - 1.6, () => B.surf( xLow ) + 2.3, WHITE, 1.6 );
+		// two clipped round bushes in the garden behind it (Trees grows them)
+		this.extraTrees = this.extraTrees || [];
+		for ( const [ x, dz, scale ] of [ [ xLow + 1.5, 2.2, 0.62 ], [ xLow + 3.4, 2.8, 0.55 ] ] ) this.extraTrees.push( { kind: 'garden', x, z: B.south( x ) + dz, scale } );
+
+		// the handrail, a third of the way across from the left
+		iron.vdata = [ 0, 0, 0, 0 ];
+		const zr = ( x ) => B.south( x ) - ( B.south( x ) - B.north( x ) ) * 0.33;
+		const RAIL = 0.9, W = 0.045;
+		const tread = ( x ) => x >= B.xb ? B.yB : x <= B.xt ? B.yT : B.yB + ( Math.floor( ( B.xb - x ) / B.tread ) + 1 ) * B.rise;
+		const P = ( x, y ) => [ x, y, zr( x ) ];
+		const r0 = B.xb - 0.1, r1 = B.xt + 0.1, foot = B.xb + 0.5, head = B.xt - 0.4;
+		const y0 = B.surf( r0 ) + RAIL, y1 = B.surf( r1 ) + RAIL;
+		ironBar( iron, P( r0, y0 ), P( r1, y1 ), W );
+		ironBar( iron, P( foot, y0 ), P( r0, y0 ), W );
+		ironBar( iron, P( r1, y1 ), P( head, y1 ), W );
+		ironBar( iron, P( foot, tread( foot ) - 0.05 ), P( foot, y0 + W / 2 ), W );
+		ironBar( iron, P( head, tread( head ) - 0.05 ), P( head, y1 + W / 2 ), W );
+		const NP = Math.max( 3, Math.round( ( r0 - r1 ) / 2.3 ) );
+		for ( let k = 0; k <= NP; k ++ ) {
+
+			const x = r0 - 0.4 - ( r0 - r1 - 0.8 ) * k / NP, yr = B.surf( x ) + RAIL, yb = tread( x ), z = zr( x );
+			iron.box( x, ( yb + yr - 0.12 ) / 2, z, 0.04, yr - 0.12 - yb, 0.04, 0 );
+			iron.box( x, yr - 0.12, z, 0.035, 0.03, 0.15, 0 );
+			for ( const side of [ - 1, 1 ] ) iron.box( x, yr - 0.05, z + side * 0.065, 0.03, 0.15, 0.022, 0 );
+			this.colliders.addBox( new Vector3( x, ( yb + yr ) / 2, z ), new Vector3( 0.05, ( yr - yb ) / 2, 0.08 ), 0, { walkable: false, tag: 'rail' } );
+
+		}
+
+		for ( const [ x, y ] of [ [ foot, y0 ], [ head, y1 ] ] ) this.colliders.addBox( new Vector3( x, ( tread( x ) + y ) / 2, zr( x ) ), new Vector3( 0.05, ( y - tread( x ) ) / 2, 0.05 ), 0, { walkable: false, tag: 'rail' } );
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'escadaria-biblioteca' ], [ iron, materials.lantern, 'escadaria-biblioteca-rail' ] ] ) {
 
 			if ( k.empty ) continue;
 			const mesh = new Mesh( k.build(), mat );
