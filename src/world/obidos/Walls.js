@@ -592,6 +592,66 @@ export class Walls {
 		plaster.vdata = [ 2 * R, 0, 0.47, 0 ];
 		plaster.quadFacing( V3( - R, crown, V0 + E ), V3( R, crown, V0 + E ), V3( R, C, V0 + E ), V3( - R, C, V0 + E ), intoV, [ [ 0, 5 ], [ 2 * R, 5 ], [ 2 * R, 9 ], [ 0, 9 ] ] );
 
+		// the first leg, from just inside the arch (photo references/...-img-4402). Ahead, a foot of rough stone
+		// along the wall, a slit of a window high on the left, and high up a balcony window: an arch of carved
+		// stone with a pink keystone over a dark doorway, a stone sill, a railing of wrought iron
+		const STONE = lin( [ 0.72, 0.7, 0.64 ] );
+		const back = ( u0, u1, y0, y1, k = 0.015 ) => plaster.quadFacing( V3( u0, y0, V2 - k ), V3( u1, y0, V2 - k ), V3( u1, y1, V2 - k ), V3( u0, y1, V2 - k ), dir( intoV, - 1 ) );
+		kit.vdata = [ 0.53, 0.5, 0, 0 ];
+		for ( let u = - R; u < UE - 1e-3; u += 1 ) {
+
+			const u1 = Math.min( UE, u + 1 ), ga = ground( u, V2 ), gb = ground( u1, V2 );
+			kit.quadFacing( V3( u, ga - 0.3, V2 - 0.03 ), V3( u1, gb - 0.3, V2 - 0.03 ), V3( u1, gb + 0.45, V2 - 0.03 ), V3( u, ga + 0.45, V2 - 0.03 ), dir( intoV, - 1 ) );
+
+		}
+
+		paint( lin( [ 0.95, 0.95, 0.92 ] ) );
+		const gB = ground( 0, V2 );
+		back( - R + 0.55, - R + 0.8, gB + 3.6, gB + 4.3 );
+		const ub = 0.35, sill = gB + 2.4, hw = 0.95, spring = sill + 1.15, ro = 0.95, ri = 0.75;
+		// the opening: pale inside, a dark door at the back
+		paint( lin( [ 0.78, 0.77, 0.74 ] ) );
+		back( ub - ri, ub + ri, sill, spring, 0.016 );
+		for ( let k = 0; k < 12; k ++ ) {
+
+			const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( ub + r * Math.cos( t ), spring + r * Math.sin( t ), V2 - 0.016 );
+			plaster.quadFacing( p( 0, t0 ), p( ri, t0 ), p( ri, t1 ), p( 0, t1 ), dir( intoV, - 1 ) );
+
+		}
+
+		paint( lin( [ 0.08, 0.08, 0.08 ] ) );
+		back( ub - 0.3, ub + 0.3, sill, sill + 1.5, 0.02 );
+		// the carved surround, its jambs, the keystone, the sill
+		paint( STONE );
+		for ( let k = 0; k < 12; k ++ ) {
+
+			const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, p = ( r, t ) => V3( ub + r * Math.cos( t ), spring + r * Math.sin( t ), V2 - 0.04 );
+			plaster.quadFacing( p( ri, t0 ), p( ro, t0 ), p( ro, t1 ), p( ri, t1 ), dir( intoV, - 1 ) );
+
+		}
+
+		box( plaster, ub - ro, ub - ri, V2 - 0.04, V2, sill, spring );
+		box( plaster, ub + ri, ub + ro, V2 - 0.04, V2, sill, spring );
+		box( plaster, ub - hw - 0.25, ub + hw + 0.25, V2 - 0.3, V2, sill - 0.14, sill );
+		paint( PINK );
+		box( plaster, ub - 0.13, ub + 0.13, V2 - 0.1, V2, spring + ri - 0.05, spring + ro + 0.12 );
+		lamps.vdata = [ 0, 0, 0, 0 ];
+		const vr = V2 - 0.27;
+		for ( const y of [ sill + 0.05, sill + 0.55, sill + 1.05 ] ) ironBar( lamps, V3( ub - hw, y, vr ), V3( ub + hw, y, vr ), 0.025 );
+		for ( let u = ub - hw; u <= ub + hw + 1e-3; u += 0.19 ) ironBar( lamps, V3( u, sill, vr ), V3( u, sill + 1.05, vr ), 0.018 );
+		for ( const u of [ ub - hw, ub + hw ] ) ironBar( lamps, V3( u, sill + 0.05, V2 ), V3( u, sill + 0.05, vr ), 0.025 );
+
+		// on the left, the Oratório's side: whitewash below a stone cornice, and over it a tall iron grille in
+		// front of the dim chapel
+		const gL = ground( - R, ( V0 + V2 ) / 2 ), cY = gL + 2.6, g0 = V0 + 0.5, g1 = V2 - 0.7;
+		paint( lin( [ 0.42, 0.4, 0.37 ] ) );
+		plaster.quadFacing( V3( - R + 0.02, cY + 0.25, g0 ), V3( - R + 0.02, cY + 0.25, g1 ), V3( - R + 0.02, cY + 3, g1 ), V3( - R + 0.02, cY + 3, g0 ), alongU );
+		paint( STONE );
+		box( plaster, - R, - R + 0.28, V0 + 0.2, V2, cY, cY + 0.25 );
+		box( plaster, - R, - R + 0.18, g1, g1 + 0.35, cY + 0.25, cY + 3.1 );
+		for ( let v = g0; v <= g1 + 1e-3; v += 0.13 ) ironBar( lamps, V3( - R + 0.14, cY + 0.25, v ), V3( - R + 0.14, cY + 3, v ), 0.02 );
+		for ( const y of [ cY + 0.3, cY + 1.4, cY + 2.95 ] ) ironBar( lamps, V3( - R + 0.14, y, g0 ), V3( - R + 0.14, y, g1 ), 0.03 );
+
 		// the first leg's ceiling: boards along it, two dark beams across
 		wood( WOOD );
 		plaster.quadFacing( V3( - R, C - E, V0 ), V3( R, C - E, V0 ), V3( R, C - E, V2 ), V3( - R, C - E, V2 ), [ 0, - 1, 0 ], [ [ - R, V0 ], [ R, V0 ], [ R, V2 ], [ - R, V2 ] ] );
