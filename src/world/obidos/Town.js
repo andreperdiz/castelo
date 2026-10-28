@@ -21,6 +21,11 @@ const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmil
 // da Vila, built as a portal on the tower's face (Walls._passoPortal); the Chafariz Novo below Porta Este, a
 // fountain, not a house (Walls._portaEste)
 const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566 ] );
+// streets passing under a building (OSM building_passage) built as such: the building split along the
+// passage into its two wings, and over the passage the body joining them, arched on both sides. By the
+// building's id: the passage's street, its half width (Rua Padre António Almeida, between the two wings of
+// the house it runs under, on its way to the Calçada da Misericórdia)
+const PASSAGES = { 299064346: { street: 1177937020, half: 1.3 } };
 // the Auditório (Casa da Música) without its south wing, where the steps by Porta da Vila are built (its
 // terrace along Rua Direita: Walls._casaDaMusicaTerrace)
 const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };
@@ -69,10 +74,11 @@ export class Town {
 
 		// footprints, cleaned, with a grid for "is this point inside another building" queries
 		const list = [];
-		for ( const b of OSM.buildings ) {
+		this.passages = [];
+		for ( const b of OSM.buildings ) for ( let poly of this._pieces( b ) ) {
 
 			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) || SKIP_ID.has( b.id ) ) continue;
-			let poly = cleanPolygon( OUTLINE[ b.id ] || b.pts );
+			poly = cleanPolygon( poly );
 			if ( poly.length < 3 ) continue;
 			poly = poly.map( ( q ) => {
 
@@ -172,6 +178,7 @@ export class Town {
 		}
 
 		for ( const f of list ) this._building( f, rand );
+		for ( const p of this.passages ) this._passageBody( p, rand );
 		this._slabPath( [ [ - 58.5, 236.4 ], [ - 58.7, 241.1 ], [ - 56.6, 246.5 ], [ - 54.6, 261 ] ] );
 		// the Passo da Porta da Vila's dressed stone (Walls._passoPortal): smooth, pale cream
 		if ( walls?.passo ) {
@@ -521,9 +528,104 @@ export class Town {
 
 		}
 
-		this.buildings.push( { x: f.cx, z: f.cz, eave, base, storeys, church: isChurch, name: b.name } );
+		this.buildings.push( { x: f.cx, z: f.cz, eave, base, storeys, church: isChurch, name: b.name, id: b.id } );
 
 	}
+
+}
+
+// a building's footprints: its outline, or, where a street passes under it (PASSAGES), the two wings either
+// side of the passage (the outline clipped to each side of it), the passage noted for _passageBody
+Town.prototype._pieces = function ( b ) {
+
+	const outline = OUTLINE[ b.id ] || b.pts, P = PASSAGES[ b.id ];
+	const st = P && OSM.streets.find( ( s ) => s.id === P.street );
+	if ( ! st ) return [ outline ];
+	const [ A, B ] = st.pts, L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+	const u = [ ( B[ 0 ] - A[ 0 ] ) / L, ( B[ 1 ] - A[ 1 ] ) / L ], n = [ u[ 1 ], - u[ 0 ] ];
+	const c = ( A[ 0 ] + B[ 0 ] ) / 2 * n[ 0 ] + ( A[ 1 ] + B[ 1 ] ) / 2 * n[ 1 ];
+	this.passages.push( { id: b.id, A, B, u, n, half: P.half } );
+	const pts = outline[ 0 ][ 0 ] === outline[ outline.length - 1 ][ 0 ] && outline[ 0 ][ 1 ] === outline[ outline.length - 1 ][ 1 ] ? outline.slice( 0, - 1 ) : outline;
+	return [ clipHalf( pts, n, c - P.half, - 1 ), clipHalf( pts, n, c + P.half, 1 ) ].filter( ( q ) => q.length >= 3 );
+
+};
+
+// the body over a passage (PASSAGES): from a little over head height up to the lower wing's eave, across
+// the passage between the wings and a little past its ends, its two faces arched over it, the soffit
+// following the arch, a gabled tiled roof along it
+Town.prototype._passageBody = function ( p, rand ) {
+
+	const T = this.terrain, kit = this.walls, roof = this.roofs;
+	const wings = this.buildings.filter( ( b ) => b.id === p.id );
+	if ( wings.length < 2 ) return;
+	const g = Math.max( T.heightAt( ...p.A ), T.heightAt( ...p.B ) );
+	const R = p.half, spring = g + 2.5, OVER = 0.3;
+	// (up to the lower wing's eave, and at least a storey's worth over the arch)
+	const top = Math.max( Math.min( ...wings.map( ( b ) => b.eave ) ), spring + R + 1.4 );
+	const c = [ ( p.A[ 0 ] + p.B[ 0 ] ) / 2, ( p.A[ 1 ] + p.B[ 1 ] ) / 2 ], L = Math.hypot( p.B[ 0 ] - p.A[ 0 ], p.B[ 1 ] - p.A[ 1 ] ) + 2 * OVER;
+	const at = ( s, a ) => [ c[ 0 ] + p.u[ 0 ] * s + p.n[ 0 ] * a, c[ 1 ] + p.u[ 1 ] * s + p.n[ 1 ] * a ];
+	const archY = ( a ) => spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
+	kit.color = srgbToLinear( [ 0.93, 0.92, 0.89 ] );
+	kit.vdata = [ L, 1, 0.31, 0 ];
+	const SUB = 8;
+	for ( const [ s, dir ] of [ [ - L / 2, - 1 ], [ L / 2, 1 ] ] ) {
+
+		// a face: from the arch up to the top, in slices across the passage
+		for ( let k = 0; k < SUB; k ++ ) {
+
+			const a0 = - R + 2 * R * k / SUB, a1 = a0 + 2 * R / SUB, P0 = at( s, a0 ), P1 = at( s, a1 );
+			kit.quadFacing( [ P0[ 0 ], archY( a0 ), P0[ 1 ] ], [ P1[ 0 ], archY( a1 ), P1[ 1 ] ], [ P1[ 0 ], top, P1[ 1 ] ], [ P0[ 0 ], top, P0[ 1 ] ], [ p.u[ 0 ] * dir, 0, p.u[ 1 ] * dir ],
+				[ [ a0 + R, archY( a0 ) - g ], [ a1 + R, archY( a1 ) - g ], [ a1 + R, top - g ], [ a0 + R, top - g ] ] );
+
+		}
+
+	}
+
+	for ( let k = 0; k < SUB; k ++ ) {
+
+		// the soffit
+		const a0 = - R + 2 * R * k / SUB, a1 = a0 + 2 * R / SUB;
+		const P0 = at( - L / 2, a0 ), P1 = at( - L / 2, a1 ), Q0 = at( L / 2, a0 ), Q1 = at( L / 2, a1 );
+		kit.quadFacing( [ P0[ 0 ], archY( a0 ), P0[ 1 ] ], [ P1[ 0 ], archY( a1 ), P1[ 1 ] ], [ Q1[ 0 ], archY( a1 ), Q1[ 1 ] ], [ Q0[ 0 ], archY( a0 ), Q0[ 1 ] ], [ 0, - 1, 0 ] );
+
+	}
+
+	// its roof: a gable along the passage, eaves over the wings' walls
+	roof.color = [ 1, 1, 1 ];
+	roof.vdata = [ rand(), 0.5, 0, 0 ];
+	const RISE = 1.0, ridge = [ at( - L / 2, 0 ), at( L / 2, 0 ) ];
+	for ( const side of [ - 1, 1 ] ) {
+
+		const e0 = at( - L / 2, side * ( R + 0.35 ) ), e1 = at( L / 2, side * ( R + 0.35 ) );
+		roof.quadFacing( [ ridge[ 0 ][ 0 ], top + RISE, ridge[ 0 ][ 1 ] ], [ ridge[ 1 ][ 0 ], top + RISE, ridge[ 1 ][ 1 ] ], [ e1[ 0 ], top - 0.1, e1[ 1 ] ], [ e0[ 0 ], top - 0.1, e0[ 1 ] ],
+			[ p.n[ 0 ] * side * 0.7, 1, p.n[ 1 ] * side * 0.7 ], [ [ 0, 0 ], [ L, 0 ], [ L, R + 0.6 ], [ 0, R + 0.6 ] ] );
+
+	}
+
+	const mid = at( 0, 0 );
+	this.colliders.addBox( new Vector3( mid[ 0 ], ( spring + top ) / 2, mid[ 1 ] ), new Vector3( L / 2, ( top - spring ) / 2, R ), Math.atan2( - p.u[ 1 ], p.u[ 0 ] ), { walkable: false, tag: 'house' } );
+
+};
+
+// the part of polygon pts on one side (sign -1: n·p <= c, +1: n·p >= c) of the line n·p = c (Sutherland-Hodgman)
+function clipHalf( pts, n, c, sign ) {
+
+	const out = [], f = ( q ) => sign * ( q[ 0 ] * n[ 0 ] + q[ 1 ] * n[ 1 ] - c );
+	for ( let i = 0; i < pts.length; i ++ ) {
+
+		const a = pts[ i ], b = pts[ ( i + 1 ) % pts.length ], fa = f( a ), fb = f( b );
+		if ( fa >= 0 ) out.push( a );
+		if ( ( fa >= 0 ) !== ( fb >= 0 ) ) {
+
+			const t = fa / ( fa - fb );
+			out.push( [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t ] );
+
+		}
+
+	}
+
+	if ( out.length ) out.push( out[ 0 ] );
+	return out;
 
 }
 

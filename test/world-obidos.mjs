@@ -36,6 +36,7 @@ check( T.isInsideTown( - 30, 60 ) && ! T.isInsideTown( - 300, 0 ), 'the curtain 
 check( T.gates.length >= 4, `gates where streets cross the curtain: ${ T.gates.length }` );
 check( W.stairs.length >= 5, `flights of steps up onto the walls: ${ W.stairs.length }` );
 check( town.buildings.length > 600, `houses: ${ town.buildings.length }` );
+check( town.buildings.filter( ( b ) => b.id === 299064346 ).length === 2, 'the house over Rua Padre António Almeida in two wings' );
 
 const keys = new Set();
 const input = { down: ( k ) => keys.has( k ), hit: () => false, consumeLook: () => ( { x: 0, y: 0 } ) };
@@ -128,6 +129,12 @@ if ( mis ) {
 	check( ok && P.position.y > mis.y( mis.length ) - 0.4, `up the Calçada da Misericórdia (y ${ P.position.y.toFixed( 1 ) } of ${ mis.y( mis.length ).toFixed( 1 ) })` );
 
 }
+
+// along Rua Padre António Almeida under the house it passes through, toward the Calçada da Misericórdia
+P.placeAt( 13.9, T.heightAt( 13.9, 25.2 ) + 0.2, 25.2 );
+ok = true;
+for ( const [ x, z ] of [ [ 16.1, 19.2 ], [ 16.8, 17.2 ], [ 19.5, 9.5 ] ] ) if ( ok ) ok = walkTo( x, z, 20, 0.6 );
+check( ok, `through the passage under the house on Rua Padre António Almeida (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
 
 // every flight of steps
 let climbed = 0;

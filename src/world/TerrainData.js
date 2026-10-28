@@ -982,7 +982,7 @@ export class TerrainData {
 		for ( const st of OSM.streets ) {
 
 			const half = STREET_HALF[ st.highway ];
-			if ( ! half || st.tunnel ) continue;
+			if ( ! half || ( st.tunnel && st.tunnel !== 'building_passage' ) ) continue; // (paved under the buildings it passes)
 			const paved = ! UNPAVED.has( st.surface ) && ! ( ( st.highway === 'track' || st.highway === 'path' ) && ! st.surface );
 			const v = paved ? 255 : 130;
 			this._stroke( st.pts, half, 0.8, ( k, t ) => {
