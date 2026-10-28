@@ -50,6 +50,9 @@ export const PORTA_ESTE = [ 74.9, 48.5 ];
 export const TRAVESSA_POCO_END = [ 47.5, 42.1 ];
 // Rua da Porta da Senhora da Graça: from Porta Este north along the curtain's foot (z from .. to)
 export const SENHORA_DA_GRACA = { street: 256341205, from: 48, to: 20 };
+// the streets outside Porta do Vale, the north-east gate: its approach, and Rua da Porta da Senhora da Graça
+// and the lane off it either side of the torreão
+export const PORTA_DO_VALE_STREETS = [ 298876450, 652293878, 256341205, 298876363 ];
 // Travessa do Beneficiado Faustino das Neves, off the Calçada da Misericórdia across from the top of Porta
 // Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
 // a house on its left (south), a walled garden's tall wall on its right (north). From its foot to where
@@ -1169,6 +1172,15 @@ export class TerrainData {
 
 		} );
 		this._stroke( ORNELAS, 2.6, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
+		// outside Porta do Vale the streets to the gate are setts too, not asphalt (photo
+		// references/...-porta-nordeste-1)
+		for ( const st of OSM.streets.filter( ( q ) => PORTA_DO_VALE_STREETS.includes( q.id ) ) ) this._stroke( st.pts, STREET_HALF[ st.highway ], 0.6, ( k, t ) => {
 
 			if ( t < 0.5 ) return;
 			path[ k ] = 255;

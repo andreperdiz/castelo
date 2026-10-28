@@ -21,6 +21,10 @@ const LOW_MERLON = 0.5; // the merlons round Porta da Vila's void, lower than th
 const MERLON_PITCH = 1.85;
 const PIECE = 0.6;
 const STEP_RISE = 0.18;
+// Porta do Vale, where the street crosses the curtain, and the curtain's own line round the torreão left of
+// it (outside), from the corner where it juts out to past the gate
+const VALE_GATE = [ 97.4, - 37.3 ];
+const VALE_TORREAO = [ [ 86.5, - 29.7 ], [ 93.9, - 26 ], [ 97.9, - 34.2 ], [ 96.3, - 35 ], [ 97.4, - 37.3 ], [ 99.8, - 42.2 ] ];
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end (at the curtain), inner arch,
 // corner, curtain
@@ -79,10 +83,17 @@ export class Walls {
 		// seen from the town it is a taller round arch as wide as the gap, the doorway set back in it (photo
 		// references/...-portaeste3)
 		if ( portaEste ) Object.assign( portaEste, { half: 0.6, pointed: 1.6, spring: 2.7, fit: true, opening: 0.7, inner: { spring: 3.15, depth: 1.5 } } );
+		// Porta do Vale, the north-east gate (photo references/...-porta-nordeste-1): a low basket arch, about
+		// 3 m wide, springing at 2.9 m and rising 0.85 m more
+		const portaDoVale = terrain.gates.find( ( g ) => Math.hypot( g.x - VALE_GATE[ 0 ], g.z - VALE_GATE[ 1 ] ) < 2 );
+		if ( portaDoVale ) Object.assign( portaDoVale, { half: 1.4, spring: 2.9, flat: 0.85 } );
 		// the curtain round the town; on Porta da Vila's tower (its outer and east sides) it stands as high
 		// as the tower's town wall
 		const wall = { ...terrain.wall, pts: terrain.wall.pts.map( ( p ) => ( { ...p } ) ) };
 		this._pvCurtainCorner( wall );
+		// left of Porta do Vale (outside) the curtain juts out in a square torreão, its corners sharp; the 2 m
+		// profile cut them
+		this._curtainRun( wall, VALE_TORREAO );
 		const tower = wall.pts.filter( ( p ) => p.x > - 61.5 && p.x < - 46 && p.z > 226 && p.z < 236.5 );
 		if ( tower.length ) {
 
@@ -131,13 +142,20 @@ export class Walls {
 			}
 
 		};
+		// the torreão by Porta do Vale stands higher than the curtain either side of it
+		const torreao = ( samples ) => {
+
+			for ( const p of samples ) if ( p.x > 86.8 && p.x < 99.5 && p.z > - 34.9 && p.z < - 25 ) p.top += 2.4;
+
+		};
 		const adjust = ( samples ) => {
 
 			westOfTower( samples );
 			senhoraDaGraca( samples );
+			torreao( samples );
 
 		};
-		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ - 50.5, 190, - 18, 236.5 ], adjust, town: onTower, ramp: NE } );
+		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ [ - 50.5, 190, - 18, 236.5 ], [ 85, - 44, 101, - 24 ] ], corners: VALE_TORREAO.slice( 1, 4 ), adjust, town: onTower, ramp: NE } );
 		// houses keep off that stretch of the curtain (the house leaning on it overlapped its town half): its
 		// line run backwards, so the town is on the left
 		const ne = this.curtain.samples.filter( NE ).sort( ( a, b ) => b.s - a.s );
@@ -213,7 +231,7 @@ export class Walls {
 		for ( const p of prof.pts ) p.top = Math.max( p.top, high );
 		// a sharp corner between the town and west walls, so the L-shaped flight fits against both
 		// and a low guard wall along their town side (the void's side has the crenellated parapet)
-		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: () => 'low', lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE, capStart: false } ); // (its east end runs into the curtain's corner)
+		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ [ - 64, 221, - 58.5, 227 ] ], exact: pts, town: () => 'low', lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE, capStart: false } ); // (its east end runs into the curtain's corner)
 		this.portaDaVila.gates = [ outerGate, inner ];
 
 	}
@@ -456,6 +474,40 @@ export class Walls {
 		// arc lengths, and the normals along the new stretch (outward, as the profile's)
 		for ( let i = 1; i < P.length; i ++ ) P[ i ].s = P[ i - 1 ].s + Math.hypot( P[ i ].x - P[ i - 1 ].x, P[ i ].z - P[ i - 1 ].z );
 		for ( let i = i0 - 1; i <= i0 + run.length; i ++ ) {
+
+			const p = P[ i ], q = P[ i - 1 ], r = P[ i + 1 ];
+			let dx = r.x - q.x, dz = r.z - q.z;
+			const L = Math.hypot( dx, dz ) || 1;
+			dx /= L; dz /= L;
+			Object.assign( p, { dx, dz, nx: dz * wall.outward, nz: - dx * wall.outward } );
+
+		}
+
+		wall.length = P[ P.length - 1 ].s;
+
+	}
+
+	// Replace the profile's points between the ones nearest run's ends with run itself (the wall's own
+	// corners), at most 2 m apart, the tops eased between theirs.
+	_curtainRun( wall, run ) {
+
+		const P = wall.pts;
+		const nearest = ( [ x, z ] ) => P.reduce( ( b, p, i ) => ( Math.hypot( p.x - x, p.z - z ) < Math.hypot( P[ b ].x - x, P[ b ].z - z ) ? i : b ), 0 );
+		const i0 = nearest( run[ 0 ] ), i1 = nearest( run[ run.length - 1 ] );
+		if ( i1 - i0 < 2 ) return;
+		const line = [ run[ 0 ] ];
+		for ( let k = 1; k < run.length; k ++ ) {
+
+			const a = run[ k - 1 ], b = run[ k ], m = Math.ceil( Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) / 2 );
+			for ( let j = 1; j <= m; j ++ ) line.push( [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * j / m, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * j / m ] );
+
+		}
+
+		const a = P[ i0 ], b = P[ i1 ];
+		const pts = line.map( ( [ x, z ], k ) => ( { ...a, x, z, top: a.top + ( b.top - a.top ) * k / ( line.length - 1 ) } ) );
+		P.splice( i0, i1 - i0 + 1, ...pts );
+		for ( let i = 1; i < P.length; i ++ ) P[ i ].s = P[ i - 1 ].s + Math.hypot( P[ i ].x - P[ i - 1 ].x, P[ i ].z - P[ i - 1 ].z );
+		for ( let i = Math.max( 1, i0 ); i <= Math.min( P.length - 2, i0 + pts.length ); i ++ ) {
 
 			const p = P[ i ], q = P[ i - 1 ], r = P[ i + 1 ];
 			let dx = r.x - q.x, dz = r.z - q.z;
@@ -2482,7 +2534,7 @@ export class Walls {
 
 	// Build one wall from a profile ({ pts, outward } at 2 m): resample to PIECE, step the walk, emit
 	// the faces, merlons and colliders. Returns the pieces (for stairs / towers).
-	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false, bare = null, capStart = true, ramp = null } = {} ) {
+	_wallLine( profile, gates, seed, { parapetBoth = false, sharp = null, adjust = null, exact = null, town = null, lowOuter = false, bare = null, capStart = true, ramp = null, corners = null } = {} ) {
 
 		const P = profile.pts;
 		if ( P.length < 2 ) return null;
@@ -2495,6 +2547,14 @@ export class Walls {
 			return Array.from( { length: k + ( i === exact.length - 2 ? 1 : 0 ) }, ( _, j ) => [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * j / k, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * j / k ] );
 
 		} ) : resample( P.map( ( p ) => [ p.x, p.z ] ), PIECE );
+		// corners ([[ x, z ]]): the nearest positions moved onto them, so the line turns right there
+		if ( corners ) for ( const c of corners ) {
+
+			let b = 0;
+			for ( let i = 1; i < line.length; i ++ ) if ( Math.hypot( line[ i ][ 0 ] - c[ 0 ], line[ i ][ 1 ] - c[ 1 ] ) < Math.hypot( line[ b ][ 0 ] - c[ 0 ], line[ b ][ 1 ] - c[ 1 ] ) ) b = i;
+			line[ b ] = c.slice();
+
+		}
 		const samples = [];
 		let j = 0, s = 0;
 		for ( let i = 0; i < line.length; i ++ ) {
@@ -2512,10 +2572,10 @@ export class Walls {
 		}
 
 		const n = samples.length;
-		// in the box `sharp` ([ x0, z0, x1, z1 ]), normals square to the line itself, so corners are mitred
+		// in the boxes `sharp` ([[ x0, z0, x1, z1 ]]), normals square to the line itself, so corners are mitred
 		if ( sharp ) samples.forEach( ( p, i ) => {
 
-			if ( p.x < sharp[ 0 ] || p.x > sharp[ 2 ] || p.z < sharp[ 1 ] || p.z > sharp[ 3 ] ) return;
+			if ( ! sharp.some( ( b ) => p.x >= b[ 0 ] && p.x <= b[ 2 ] && p.z >= b[ 1 ] && p.z <= b[ 3 ] ) ) return;
 			const a = samples[ Math.max( 0, i - 1 ) ], b = samples[ Math.min( n - 1, i + 1 ) ];
 			const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot( dx, dz ) || 1;
 			const f = - dz * p.nx + dx * p.nz >= 0 ? 1 : - 1;
@@ -2641,6 +2701,8 @@ export class Walls {
 
 			const R = arcR.get( g ), a = ( x - g.x ) * p.tx + ( z - g.z ) * p.tz;
 			const spring = g.y + ( g.spring ?? Math.max( 2.4, 4.2 - R ) );
+			// flat: a basket arch, rising only that much over its springing
+			if ( g.flat ) return spring + g.flat * Math.sqrt( Math.max( 0, 1 - ( a / R ) ** 2 ) );
 			// pointed: two arcs of radius R * pointed, each struck from beyond the opposite jamb
 			if ( g.pointed ) {
 
