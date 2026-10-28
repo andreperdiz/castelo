@@ -1756,107 +1756,106 @@ export class Walls {
 
 			}
 
-			// the verge's wall (photo references/...-img-4392): from where it clears the street along the walls
-			// (cut where marked on a screenshot) down to where Casa da Picva begins; whitewashed over a yellow
-			// foot that follows the verge, its top level, stepping down part way along in four small steps,
-			// a coping of brick; an iron street lamp on its corner, the parking yard behind its higher part
+			// the verge's wall (photo references/...-img-4392): straight from the street lamp's corner, clear of the
+			// street along the walls, to the corner of Casa da Picva (marked on a screenshot); whitewashed over a
+			// yellow foot that follows the ground, its top level, stepping down part way along in four small
+			// steps, a coping of brick; an iron street lamp on its corner, the parking yard behind its higher part
 			// (TerrainData levels it) with a "P" sign, a garden of tall shrubs behind its lower part
 			{
 
-				const W = A.WALL, d = A.HALF + A.VERGE, TW = 0.35;
-				const toLane = [ - A.left[ 0 ], 0, - A.left[ 1 ] ];
-				const groundAt = ( t ) => A.y( t ) + 0.35;
+				const W = A.WALL, TW = 0.35, pw = W.point, groundAt = W.ground, L = W.length;
+				const toLane = [ - W.n[ 0 ], 0, - W.n[ 1 ] ], yawW = Math.atan2( - W.w[ 1 ], W.w[ 0 ] );
 				// its stretches, each with a level top: the higher, the four steps, the lower
-				const segs = [ [ W.t0, W.tS, W.topA ] ];
-				for ( let i = 0; i < 4; i ++ ) segs.push( [ W.tS + i * 0.25, W.tS + ( i + 1 ) * 0.25, W.topA - ( i + 1 ) * ( W.topA - W.topB ) / 4 ] );
-				segs.push( [ W.tS + 1, W.t1, W.topB ] );
+				const segs = [ [ 0, W.uS, W.topA ] ];
+				for ( let i = 0; i < 4; i ++ ) segs.push( [ W.uS + i * 0.25, W.uS + ( i + 1 ) * 0.25, W.topA - ( i + 1 ) * ( W.topA - W.topB ) / 4 ] );
+				segs.push( [ W.uS + 1, L, W.topB ] );
 				const BAR = 1.6;
-				for ( const [ s0, s1, top ] of segs ) for ( let ta = s0; ta < s1 - 0.01; ta += 1 ) {
+				for ( const [ s0, s1, top ] of segs ) for ( let ua = s0; ua < s1 - 0.01; ua += 1 ) {
 
-					const tb = Math.min( s1, ta + 1 ), ga = groundAt( ta ), gb = groundAt( tb ), ya = ga - 0.6, yb = gb - 0.6;
-					const P0 = at( ta, d ), P1 = at( tb, d ), Q0 = at( ta, d + TW ), Q1 = at( tb, d + TW );
+					const ub = Math.min( s1, ua + 1 ), ga = groundAt( ua ), gb = groundAt( ub ), ya = ga - 0.6, yb = gb - 0.6;
+					const P0 = pw( ua ), P1 = pw( ub ), Q0 = pw( ua, TW ), Q1 = pw( ub, TW );
 					plaster.color = YELLOW;
 					plaster.vdata = [ 20, 0, 0, 0 ];
 					plaster.quadFacing( [ P0[ 0 ], ya, P0[ 1 ] ], [ P1[ 0 ], yb, P1[ 1 ] ], [ P1[ 0 ], top, P1[ 1 ] ], [ P0[ 0 ], top, P0[ 1 ] ], toLane,
-						[ [ ta, ( ya - ga ) * BAR ], [ tb, ( yb - gb ) * BAR ], [ tb, ( top - gb ) * BAR ], [ ta, ( top - ga ) * BAR ] ] );
-					plaster.quadFacing( [ Q0[ 0 ], ya, Q0[ 1 ] ], [ Q1[ 0 ], yb, Q1[ 1 ] ], [ Q1[ 0 ], top, Q1[ 1 ] ], [ Q0[ 0 ], top, Q0[ 1 ] ], toLane.map( ( v ) => - v ), [ [ ta, 3 ], [ tb, 3 ], [ tb, 4 ], [ ta, 4 ] ] );
+						[ [ ua, ( ya - ga ) * BAR ], [ ub, ( yb - gb ) * BAR ], [ ub, ( top - gb ) * BAR ], [ ua, ( top - ga ) * BAR ] ] );
+					plaster.quadFacing( [ Q0[ 0 ], ya, Q0[ 1 ] ], [ Q1[ 0 ], yb, Q1[ 1 ] ], [ Q1[ 0 ], top, Q1[ 1 ] ], [ Q0[ 0 ], top, Q0[ 1 ] ], toLane.map( ( v ) => - v ), [ [ ua, 3 ], [ ub, 3 ], [ ub, 4 ], [ ua, 4 ] ] );
 					// the brick coping
 					plaster.color = lin( [ 0.66, 0.34, 0.22 ] );
 					plaster.vdata = [ 0, 0, 0.19, 4 ];
-					const [ cx, cz ] = at( ( ta + tb ) / 2, d + TW / 2 );
-					plaster.box( cx, top + 0.04, cz, tb - ta + 0.01, 0.08, TW + 0.06, yawA );
-					this.colliders.addBox( new Vector3( cx, ( top + Math.min( ya, yb ) ) / 2, cz ), new Vector3( ( tb - ta ) / 2 + 0.02, ( top - Math.min( ya, yb ) ) / 2, TW / 2 ), yawA, { walkable: false, tag: 'wall' } );
+					const [ cx, cz ] = pw( ( ua + ub ) / 2, TW / 2 );
+					plaster.box( cx, top + 0.04, cz, ub - ua + 0.01, 0.08, TW + 0.06, yawW );
+					this.colliders.addBox( new Vector3( cx, ( top + Math.min( ya, yb ) ) / 2, cz ), new Vector3( ( ub - ua ) / 2 + 0.02, ( top - Math.min( ya, yb ) ) / 2, TW / 2 ), yawW, { walkable: false, tag: 'wall' } );
 
 				}
 
 				// its ends, and the risers where its top steps down
 				plaster.color = YELLOW;
 				plaster.vdata = [ 20, 0, 0, 0 ];
-				for ( const [ t, top, n ] of [ [ W.t0, W.topA, - 1 ], [ W.t1, W.topB, 1 ] ] ) {
+				for ( const [ u, top, sgn ] of [ [ 0, W.topA, - 1 ], [ L, W.topB, 1 ] ] ) {
 
-					const g = groundAt( t ), E0 = at( t, d ), E1 = at( t, d + TW );
-					plaster.quadFacing( [ E0[ 0 ], g - 0.6, E0[ 1 ] ], [ E1[ 0 ], g - 0.6, E1[ 1 ] ], [ E1[ 0 ], top, E1[ 1 ] ], [ E0[ 0 ], top, E0[ 1 ] ], [ A.dir[ 0 ] * n, 0, A.dir[ 1 ] * n ],
+					const g = groundAt( u ), E0 = pw( u ), E1 = pw( u, TW );
+					plaster.quadFacing( [ E0[ 0 ], g - 0.6, E0[ 1 ] ], [ E1[ 0 ], g - 0.6, E1[ 1 ] ], [ E1[ 0 ], top, E1[ 1 ] ], [ E0[ 0 ], top, E0[ 1 ] ], [ W.w[ 0 ] * sgn, 0, W.w[ 1 ] * sgn ],
 						[ [ 0, - 0.96 ], [ TW, - 0.96 ], [ TW, ( top - g ) * BAR ], [ 0, ( top - g ) * BAR ] ] );
 
 				}
 
 				for ( let i = 1; i < segs.length; i ++ ) {
 
-					const t = segs[ i ][ 0 ], hi = segs[ i - 1 ][ 2 ], lo = segs[ i ][ 2 ], E0 = at( t, d ), E1 = at( t, d + TW );
-					plaster.quadFacing( [ E0[ 0 ], lo, E0[ 1 ] ], [ E1[ 0 ], lo, E1[ 1 ] ], [ E1[ 0 ], hi, E1[ 1 ] ], [ E0[ 0 ], hi, E0[ 1 ] ], [ A.dir[ 0 ], 0, A.dir[ 1 ] ],
+					const u = segs[ i ][ 0 ], hi = segs[ i - 1 ][ 2 ], lo = segs[ i ][ 2 ], E0 = pw( u ), E1 = pw( u, TW );
+					plaster.quadFacing( [ E0[ 0 ], lo, E0[ 1 ] ], [ E1[ 0 ], lo, E1[ 1 ] ], [ E1[ 0 ], hi, E1[ 1 ] ], [ E0[ 0 ], hi, E0[ 1 ] ], [ W.w[ 0 ], 0, W.w[ 1 ] ],
 						[ [ 0, 5 ], [ TW, 5 ], [ TW, 5.2 ], [ 0, 5.2 ] ] );
 
 				}
 
 				// level behind it, over the ground's rise to the yard and the bed: paving, then earth
-				for ( const [ s0, s1, y, color, tag ] of [ [ W.t0, W.tS, W.yard, [ 0.8, 0.78, 0.74 ], 'yard' ], [ W.tS, W.t1, W.bed, [ 0.42, 0.33, 0.22 ], 'bed' ] ] ) {
+				for ( const [ s0, s1, y, color, tag ] of [ [ 0, W.uS, W.yard, [ 0.8, 0.78, 0.74 ], 'yard' ], [ W.uS, L, W.bed, [ 0.42, 0.33, 0.22 ], 'bed' ] ] ) {
 
-					const [ cx, cz ] = at( ( s0 + s1 ) / 2, d + TW + 0.8 ), bottom = Math.min( groundAt( s1 ), y ) - 0.6;
+					const [ cx, cz ] = pw( ( s0 + s1 ) / 2, TW + 0.8 ), bottom = Math.min( groundAt( s1 ), y ) - 0.6;
 					kit.vdata = [ 0.29, 0.6, 0, 0 ];
 					kit.color = color;
-					kit.box( cx, ( y + bottom ) / 2, cz, s1 - s0, y - bottom, 1.6, yawA, 'bottom' );
-					this.colliders.addBox( new Vector3( cx, ( y + bottom ) / 2, cz ), new Vector3( ( s1 - s0 ) / 2, ( y - bottom ) / 2, 0.8 ), yawA, { walkable: true, tag } );
+					kit.box( cx, ( y + bottom ) / 2, cz, s1 - s0, y - bottom, 1.6, yawW, 'bottom' );
+					this.colliders.addBox( new Vector3( cx, ( y + bottom ) / 2, cz ), new Vector3( ( s1 - s0 ) / 2, ( y - bottom ) / 2, 0.8 ), yawW, { walkable: true, tag } );
 
 				}
 
 				// the street lamp on its corner: a fluted cast-iron post, a lantern on top
 				{
 
-					const [ x, z ] = at( W.t0 + 0.25, d + TW / 2 ), y0 = W.topA + 0.08, warm = new Color( 1.0, 0.66, 0.36 );
+					const [ x, z ] = pw( 0.25, TW / 2 ), y0 = W.topA + 0.08, warm = new Color( 1.0, 0.66, 0.36 );
 					iron.vdata = [ 0, 0, 0, 0 ];
-					iron.box( x, y0 + 0.2, z, 0.26, 0.4, 0.26, yawA );
-					iron.box( x, y0 + 1.6, z, 0.11, 2.6, 0.11, yawA );
-					iron.box( x, y0 + 2.95, z, 0.2, 0.1, 0.2, yawA );
-					iron.box( x, y0 + 3.62, z, 0.46, 0.08, 0.46, yawA + 0.785 );
-					iron.box( x, y0 + 3.72, z, 0.18, 0.14, 0.18, yawA );
+					iron.box( x, y0 + 0.2, z, 0.26, 0.4, 0.26, yawW );
+					iron.box( x, y0 + 1.6, z, 0.11, 2.6, 0.11, yawW );
+					iron.box( x, y0 + 2.95, z, 0.2, 0.1, 0.2, yawW );
+					iron.box( x, y0 + 3.62, z, 0.46, 0.08, 0.46, yawW + 0.785 );
+					iron.box( x, y0 + 3.72, z, 0.18, 0.14, 0.18, yawW );
 					iron.vdata = [ 1, 0, 0, 0 ];
-					iron.box( x, y0 + 3.28, z, 0.34, 0.6, 0.34, yawA, 'top bottom' );
+					iron.box( x, y0 + 3.28, z, 0.34, 0.6, 0.34, yawW, 'top bottom' );
 					this.lights.push( { position: new Vector3( x, y0 + 3.25, z ), color: warm, intensity: 10, range: 16, kind: 'lantern', flicker: 0.04 } );
-					this.colliders.addBox( new Vector3( x, y0 + 1.6, z ), new Vector3( 0.13, 1.6, 0.13 ), yawA, { walkable: false, tag: 'lamp' } );
+					this.colliders.addBox( new Vector3( x, y0 + 1.6, z ), new Vector3( 0.13, 1.6, 0.13 ), yawW, { walkable: false, tag: 'lamp' } );
 
 				}
 
 				// the parking sign in the yard: a post, a blue panel with a white P
 				{
 
-					const [ x, z ] = at( W.tS - 0.5, d + 1.1 ), y0 = W.yard;
+					const [ x, z ] = pw( W.uS - 0.5, 1.1 ), y0 = W.yard;
 					iron.vdata = [ 0, 0, 0, 0 ];
-					iron.box( x, y0 + 1.1, z, 0.05, 2.2, 0.05, yawA );
+					iron.box( x, y0 + 1.1, z, 0.05, 2.2, 0.05, yawW );
 					plaster.vdata = [ 0, 0, 0.71, 4 ];
 					plaster.color = lin( [ 0.1, 0.27, 0.66 ] );
-					plaster.box( x, y0 + 2.05, z - 0.0, 0.32, 0.5, 0.03, yawA );
+					plaster.box( x, y0 + 2.05, z, 0.32, 0.5, 0.03, yawW );
 					plaster.color = lin( [ 0.95, 0.95, 0.93 ] );
-					const toward = [ - A.left[ 0 ] * 0.02, - A.left[ 1 ] * 0.02 ];
-					plaster.box( x + toward[ 0 ] - A.dir[ 0 ] * 0.04, y0 + 2.1, z + toward[ 1 ] - A.dir[ 1 ] * 0.04, 0.05, 0.26, 0.012, yawA );
-					plaster.box( x + toward[ 0 ] + A.dir[ 0 ] * 0.02, y0 + 2.18, z + toward[ 1 ] + A.dir[ 1 ] * 0.02, 0.1, 0.1, 0.012, yawA );
+					const toward = [ - W.n[ 0 ] * 0.02, - W.n[ 1 ] * 0.02 ];
+					plaster.box( x + toward[ 0 ] - W.w[ 0 ] * 0.04, y0 + 2.1, z + toward[ 1 ] - W.w[ 1 ] * 0.04, 0.05, 0.26, 0.012, yawW );
+					plaster.box( x + toward[ 0 ] + W.w[ 0 ] * 0.02, y0 + 2.18, z + toward[ 1 ] + W.w[ 1 ] * 0.02, 0.1, 0.1, 0.012, yawW );
 
 				}
 
 				// tall shrubs in the garden behind its lower part (Trees grows them)
 				this.extraTrees = this.extraTrees || [];
-				for ( const [ t, dd, kind, scale ] of [ [ W.tS + 1.6, 1.4, 'cypress', 0.42 ], [ W.tS + 2.4, 2.4, 'cypress', 0.5 ], [ W.t1 - 0.8, 1.6, 'garden', 0.7 ] ] ) {
+				for ( const [ u, v, kind, scale ] of [ [ W.uS + 1.6, 1.4, 'cypress', 0.42 ], [ W.uS + 2.6, 2.4, 'cypress', 0.5 ], [ W.uS + 4.2, 1.6, 'garden', 0.7 ], [ L - 1.5, 1.8, 'garden', 0.6 ] ] ) {
 
-					const [ x, z ] = at( t, d + dd );
+					const [ x, z ] = pw( u, v );
 					this.extraTrees.push( { kind, x, z, scale } );
 
 				}

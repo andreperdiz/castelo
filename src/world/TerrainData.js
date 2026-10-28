@@ -819,10 +819,18 @@ export class TerrainData {
 			const yS = yOut, yC = this.heightAt( ...C ), HALF2 = 2.4, VERGE = 1.6;
 			// level a little at the steps' foot, then down (steeper in the middle)
 			const y = ( t ) => lerp( yS, yC, smoothstep( 0, 1, clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) ) * 0.5 + 0.5 * clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) );
-			// the verge's wall (photo references/...-img-4392): its top level, stepping down part way along; behind
-			// it a small parking yard level with its higher part, then a garden bed under its lower part
-			const t0 = 5.8, tS = 9.2, t1 = 12.5, topA = y( t0 ) + 0.35 + 1.15, topB = topA - 0.48;
-			const WALL = { t0, tS, t1, topA, topB, yard: topA - 1.0, bed: topB - 0.25, depth: 6 };
+			// the verge's wall (photo references/...-img-4392): straight from the street lamp's corner to the corner of
+			// Casa da Picva (marked on a screenshot), its top level, stepping down part way along; behind it a small
+			// parking yard level with its higher part, then a garden bed under its lower part. u along it from P0,
+			// v back from it (north, away from the lane)
+			const P0 = [ 83.2, 46.55 ], P1 = [ 98.5, 46.15 ], WLen = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] );
+			const w = [ ( P1[ 0 ] - P0[ 0 ] ) / WLen, ( P1[ 1 ] - P0[ 1 ] ) / WLen ], n = [ w[ 1 ], - w[ 0 ] ];
+			const tOf = ( P ) => ( P[ 0 ] - S[ 0 ] ) * dir[ 0 ] + ( P[ 1 ] - S[ 1 ] ) * dir[ 1 ];
+			const point = ( u, v = 0 ) => [ P0[ 0 ] + w[ 0 ] * u + n[ 0 ] * v, P0[ 1 ] + w[ 1 ] * u + n[ 1 ] * v ];
+			const ground = ( u ) => y( tOf( point( u, - 0.3 ) ) ) + 0.35;
+			const uS = 0.4 * WLen, topA = ground( 0 ) + 1.15, topB = topA - 0.48;
+			const WALL = { P0, P1, length: WLen, w, n, point, ground, uS, topA, topB, yard: topA - 1.0, bed: topB - 0.25, depth: 6,
+				uv: ( x, z ) => [ ( x - P0[ 0 ] ) * w[ 0 ] + ( z - P0[ 1 ] ) * w[ 1 ], ( x - P0[ 0 ] ) * n[ 0 ] + ( z - P0[ 1 ] ) * n[ 1 ] ] };
 			return { S, C, len, dir, left, y, HALF: HALF2, VERGE, WALL };
 
 		} )();
@@ -834,28 +842,27 @@ export class TerrainData {
 				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
 				const t = ( x - A.S[ 0 ] ) * A.dir[ 0 ] + ( z - A.S[ 1 ] ) * A.dir[ 1 ], d = ( x - A.S[ 0 ] ) * A.left[ 0 ] + ( z - A.S[ 1 ] ) * A.left[ 1 ];
 				if ( t < 0 || t > A.len ) return;
-				const yl = A.y( t );
-				if ( Math.abs( d ) <= A.HALF ) {
-
-					heights[ k ] = yl;
-					this.path[ k ] = 255;
-					this.scarp[ k ] = 255;
-
-				} else if ( d > 0 && d <= A.HALF + A.VERGE ) heights[ k ] = yl + 0.35 * smoothstep( A.HALF, A.HALF + 0.8, d );
-				else if ( d > A.HALF + A.VERGE + 1.6 && d < A.HALF + A.VERGE + A.WALL.depth && t > A.WALL.t0 + 0.3 && t < A.WALL.t1 ) {
+				const yl = A.y( t ), W = A.WALL, [ wu, wv ] = W.uv( x, z );
+				if ( wu > 0.3 && wu < W.length - 0.2 && wv > 1.6 && wv < W.depth ) {
 
 					// behind the wall: the yard, level, paved; the garden bed (from a little way back, so the 1 m
 					// texels don't lift the verge in front of the wall; Walls covers the strip behind it)
-					const W = A.WALL;
-					heights[ k ] = t < W.tS ? W.yard : W.bed;
-					if ( t < W.tS ) {
+					heights[ k ] = wu < W.uS ? W.yard : W.bed;
+					if ( wu < W.uS ) {
 
 						this.path[ k ] = 255;
 						this.scarp[ k ] = 255;
 
 					}
 
-				}
+				} else if ( Math.abs( d ) <= A.HALF ) {
+
+					heights[ k ] = yl;
+					this.path[ k ] = 255;
+					this.scarp[ k ] = 255;
+
+				} else if ( d > 0 && d <= A.HALF + A.VERGE ) heights[ k ] = yl + 0.35 * smoothstep( A.HALF, A.HALF + 0.8, d );
+
 				else {
 
 					// back to the ground beyond (the verge's back on the left, the houses on the right)
