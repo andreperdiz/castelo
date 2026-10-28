@@ -808,12 +808,16 @@ export class TerrainData {
 			const yS = yOut, yC = this.heightAt( ...C ), HALF2 = 2.4, VERGE = 1.6;
 			// level a little at the steps' foot, then down (steeper in the middle)
 			const y = ( t ) => lerp( yS, yC, smoothstep( 0, 1, clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) ) * 0.5 + 0.5 * clamp( ( t - 1.5 ) / ( len - 1.5 ), 0, 1 ) );
-			return { S, C, len, dir, left, y, HALF: HALF2, VERGE };
+			// the verge's wall (photo references/...-img-4392): its top level, stepping down part way along; behind
+			// it a small parking yard level with its higher part, then a garden bed under its lower part
+			const t0 = 5.8, tS = 9.2, t1 = 12.5, topA = y( t0 ) + 0.35 + 1.15, topB = topA - 0.48;
+			const WALL = { t0, tS, t1, topA, topB, yard: topA - 1.0, bed: topB - 0.25, depth: 6 };
+			return { S, C, len, dir, left, y, HALF: HALF2, VERGE, WALL };
 
 		} )();
 		{
 
-			const A = ACCESS, R = A.HALF + A.VERGE + 1.5;
+			const A = ACCESS, R = A.HALF + A.VERGE + A.WALL.depth + 0.5;
 			this._stroke( [ A.S, A.C ], R, 0, ( k ) => {
 
 				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
@@ -827,6 +831,20 @@ export class TerrainData {
 					this.scarp[ k ] = 255;
 
 				} else if ( d > 0 && d <= A.HALF + A.VERGE ) heights[ k ] = yl + 0.35 * smoothstep( A.HALF, A.HALF + 0.8, d );
+				else if ( d > A.HALF + A.VERGE + 1.6 && d < A.HALF + A.VERGE + A.WALL.depth && t > A.WALL.t0 + 0.3 && t < A.WALL.t1 ) {
+
+					// behind the wall: the yard, level, paved; the garden bed (from a little way back, so the 1 m
+					// texels don't lift the verge in front of the wall; Walls covers the strip behind it)
+					const W = A.WALL;
+					heights[ k ] = t < W.tS ? W.yard : W.bed;
+					if ( t < W.tS ) {
+
+						this.path[ k ] = 255;
+						this.scarp[ k ] = 255;
+
+					}
+
+				}
 				else {
 
 					// back to the ground beyond (the verge's back on the left, the houses on the right)
