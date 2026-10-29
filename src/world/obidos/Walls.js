@@ -148,10 +148,36 @@ export class Walls {
 			}
 
 		};
+		// on from Porta do Vale's way out the curtain stands as high as the block there, its merlons level with
+		// the block's top (photo references/...-1703-img-4410), coming down further on
+		const valeExit = ( samples ) => {
+
+			if ( ! portaDoVale ) return;
+			// (the hall's frame and height as _valePassage works them out)
+			const g = portaDoVale, tx = 0.4315, tz = - 0.9021, nx = 0.9021, nz = 0.4315, R = 1.93;
+			let hi = - Infinity;
+			for ( const [ u, v ] of [ [ - R, 1.4 ], [ - R, 7 ], [ 0, 7 ], [ 4.5, 1.4 ], [ 4.5, 7 ] ] ) hi = Math.max( hi, terrain.heightAt( g.x + tx * u - nx * v, g.z + tz * u - nz * v ) );
+			const walk = hi + 7.45 - PARAPET_H - MERLON_H;
+			for ( const p of samples ) {
+
+				const u = ( p.x - g.x ) * tx + ( p.z - g.z ) * tz, v = ( p.x - g.x ) * nx + ( p.z - g.z ) * nz;
+				if ( u < 6.5 || u > 22 || Math.abs( v ) > 4 ) continue;
+				const y = walk - ( walk - p.top ) * clamp01( ( u - 13 ) / 9 ) ** 1.5;
+				if ( y > p.top ) {
+
+					p.raised = ( p.raised || 0 ) + y - p.top;
+					p.top = y;
+
+				}
+
+			}
+
+		};
 		const adjust = ( samples ) => {
 
 			westOfTower( samples );
 			senhoraDaGraca( samples );
+			valeExit( samples );
 
 		};
 		this.curtain = this._wallLine( wall, terrain.gates, 0.37, { sharp: [ [ - 50.5, 190, - 18, 236.5 ], [ 92, - 44, 101, - 24 ] ], corners: VALE_TORREAO.slice( 1, 4 ), adjust, town: onTower, ramp: NE } );
@@ -590,7 +616,23 @@ export class Walls {
 		box( kit, uB - 0.8, U2, V0 - 0.6, V2 + TH, S, top, 'bottom' );
 		solid( uB - 0.8, U2, V0 - 0.6, V2 + TH, S, top, true );
 
-		const plaster = new MeshKit(), lamps = new MeshKit();
+		const plaster = new MeshKit(), lamps = new MeshKit(), tiles = new MeshKit();
+		// and on it a gabled roof of tiles, its ridge along the hall, its white gable set back behind the way
+		// out's stone face (photo references/...-1703-img-4410)
+		{
+
+			const r0 = uB - 0.5, r1 = U2 - 1.1, e0 = V0 - 0.3, e1 = V2 + TH - 0.3, vr = ( e0 + e1 ) / 2, yr = top + 1.6;
+			const slope = Math.hypot( vr - e0, yr - top ), L = r1 - r0;
+			tiles.vdata = [ 0.71, 0.6, 0, 0 ];
+			tiles.color = [ 1, 1, 1 ];
+			tiles.quadFacing( V3( r0, top, e0 ), V3( r1, top, e0 ), V3( r1, yr, vr ), V3( r0, yr, vr ), [ 0, 1, 0 ], [ [ 0, slope ], [ L, slope ], [ L, 0 ], [ 0, 0 ] ] );
+			tiles.quadFacing( V3( r0, top, e1 ), V3( r1, top, e1 ), V3( r1, yr, vr ), V3( r0, yr, vr ), [ 0, 1, 0 ], [ [ 0, slope ], [ L, slope ], [ L, 0 ], [ 0, 0 ] ] );
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			plaster.color = lin( [ 0.93, 0.92, 0.89 ] );
+			plaster.quadFacing( V3( r1, top - 0.05, e0 ), V3( r1, top - 0.05, e1 ), V3( r1, yr, vr ), V3( r1, yr, vr ), north );
+			plaster.quadFacing( V3( r0, top - 0.05, e0 ), V3( r0, top - 0.05, e1 ), V3( r0, yr, vr ), V3( r0, yr, vr ), south );
+
+		}
 		const WOOD = lin( [ 0.88, 0.58, 0.38 ] ), BEAM = lin( [ 0.48, 0.4, 0.32 ] ), CREAM = lin( [ 0.9, 0.87, 0.8 ] ), PINK = lin( [ 0.82, 0.5, 0.42 ] ), STONE = lin( [ 0.72, 0.7, 0.64 ] ), FOOT = lin( [ 0.52, 0.5, 0.47 ] );
 		const paint = ( c ) => {
 
@@ -1101,7 +1143,7 @@ export class Walls {
 
 		plain();
 
-		for ( const [ k, mat, name, shadow ] of [ [ plaster, materials.plaster, 'vale-passage', true ], [ lamps, materials.lantern, 'vale-passage-iron', false ] ] ) {
+		for ( const [ k, mat, name, shadow ] of [ [ plaster, materials.plaster, 'vale-passage', true ], [ tiles, materials.roof, 'vale-passage-roof', true ], [ lamps, materials.lantern, 'vale-passage-iron', false ] ] ) {
 
 			const mesh = new Mesh( k.build(), mat );
 			mesh.name = name;
