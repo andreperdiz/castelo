@@ -1022,27 +1022,54 @@ export class Walls {
 
 		// outside, a flight of steps along the block's north face, from the street before the way out up to the
 		// lane past its north-west corner (photo references/...-img-4408; TerrainData shapes the ground under
-		// it: VALE_STEPS): cobbled treads with fronts of pale stone
+		// it: VALE_STEPS, valeStepsAt): cobbled treads with fronts of pale stone; past the treads' outer ends
+		// their fronts bend round to meet in pairs, cobbled ramps curving between them
 		if ( T.valeSteps ) {
 
-			const Vs = VALE_STEPS, { rise, tread } = T.valeSteps, bottom = T.heightAt( ...Vs.street );
+			const Vs = VALE_STEPS, { level } = T.valeSteps, N = Vs.N, half = N / 2, tread = Vs.run / N, dvc = ( N - 1 ) / 2 * tread, Wd = Vs.width;
 			const W3 = ( a, b, y ) => [ Vs.o[ 0 ] + Vs.n[ 0 ] * a + Vs.t[ 0 ] * b, y, Vs.o[ 1 ] + Vs.n[ 1 ] * a + Vs.t[ 1 ] * b ];
 			const up = [ Vs.n[ 0 ], 0, Vs.n[ 1 ] ], yawS = Math.atan2( - Vs.n[ 1 ], Vs.n[ 0 ] );
-			for ( let k = 0; k < Vs.N; k ++ ) {
+			const COBBLE = lin( [ 0.66, 0.65, 0.62 ] ), NOSE = lin( [ 0.86, 0.84, 0.78 ] );
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			// the straight treads
+			for ( let k = 1; k <= N; k ++ ) {
 
-				const a0 = k * tread, a1 = Vs.run + 0.6, y = bottom + ( k + 1 ) * rise, foot = Math.min( bottom, T.heightAt( ...[ W3( a0, Vs.width, 0 ) ].map( ( q ) => [ q[ 0 ], q[ 2 ] ] )[ 0 ] ) ) - 0.4;
-				// each step a block from its front back under the ones above, to the lane
-				kit.vdata = [ 0.29, 0.6, 0, 0 ];
-				kit.color = lin( [ 0.66, 0.65, 0.62 ] );
-				kit.quadFacing( W3( a0, 0.02, y ), W3( a0 + tread, 0.02, y ), W3( a0 + tread, Vs.width, y ), W3( a0, Vs.width, y ), [ 0, 1, 0 ], [ [ a0, 0 ], [ a0 + tread, 0 ], [ a0 + tread, Vs.width ], [ a0, Vs.width ] ] );
-				kit.color = lin( [ 0.86, 0.84, 0.78 ] );
-				kit.quadFacing( W3( a0, 0.02, y + 0.005 ), W3( a0 + 0.14, 0.02, y + 0.005 ), W3( a0 + 0.14, Vs.width, y + 0.005 ), W3( a0, Vs.width, y + 0.005 ), [ 0, 1, 0 ] );
-				kit.quadFacing( W3( a0, 0.02, foot ), W3( a0, Vs.width, foot ), W3( a0, Vs.width, y ), W3( a0, 0.02, y ), dir( up, - 1 ), [ [ 0, foot ], [ Vs.width, foot ], [ Vs.width, y ], [ 0, y ] ] );
-				// its open side, towards the street
-				kit.color = lin( [ 0.66, 0.65, 0.62 ] );
-				kit.quadFacing( W3( a0, Vs.width, foot ), W3( a1, Vs.width, foot ), W3( a1, Vs.width, y ), W3( a0, Vs.width, y ), [ Vs.t[ 0 ], 0, Vs.t[ 1 ] ], [ [ a0, foot ], [ a1, foot ], [ a1, y ], [ a0, y ] ] );
-				const c = W3( ( a0 + a1 ) / 2, Vs.width / 2, 0 );
-				this.colliders.addBox( new Vector3( c[ 0 ], ( y + foot ) / 2, c[ 2 ] ), new Vector3( ( a1 - a0 ) / 2, ( y - foot ) / 2, Vs.width / 2 ), yawS, { walkable: true, tag: 'stair' } );
+				const a0 = ( k - 1 ) * tread, a1 = k * tread, y = level( k ), foot = level( k - 1 ) - 0.3;
+				kit.color = COBBLE;
+				kit.quadFacing( W3( a0, 0.02, y ), W3( a1, 0.02, y ), W3( a1, Wd, y ), W3( a0, Wd, y ), [ 0, 1, 0 ], [ [ a0, 0 ], [ a1, 0 ], [ a1, Wd ], [ a0, Wd ] ] );
+				kit.color = NOSE;
+				kit.quadFacing( W3( a0, 0.02, y + 0.005 ), W3( a0 + 0.14, 0.02, y + 0.005 ), W3( a0 + 0.14, Wd, y + 0.005 ), W3( a0, Wd, y + 0.005 ), [ 0, 1, 0 ] );
+				kit.quadFacing( W3( a0, 0.02, foot ), W3( a0, Wd, foot ), W3( a0, Wd, y ), W3( a0, 0.02, y ), dir( up, - 1 ), [ [ 0, foot ], [ Wd, foot ], [ Wd, y ], [ 0, y ] ] );
+				const c = W3( ( a0 + a1 ) / 2, Wd / 2, 0 );
+				this.colliders.addBox( new Vector3( c[ 0 ], ( y + foot ) / 2, c[ 2 ] ), new Vector3( tread / 2, ( y - foot ) / 2, Wd / 2 ), yawS, { walkable: true, tag: 'stair' } );
+
+			}
+
+			// round the curves: f from the way out's side (0) to the lane's (1); rho( k ) the curve joining fronts
+			// k and N + 1 - k; inside b curves the ramp from step b's level to step N - b's
+			const rho = ( k ) => k < 1 ? dvc + Vs.apron : k > half ? 0 : dvc - ( k - 1 ) * tread;
+			const ramp = ( b, f ) => level( b ) + ( level( N - b ) - level( b ) ) * f;
+			const at = ( f, r, y ) => W3( dvc - r * Math.cos( Math.PI * f ), Wd + Vs.stretch * r * Math.sin( Math.PI * f ), y );
+			const SEG = 24;
+			for ( let j = 0; j < SEG; j ++ ) {
+
+				const f0 = j / SEG, f1 = ( j + 1 ) / SEG, fm = ( f0 + f1 ) / 2;
+				const out = [ Vs.t[ 0 ] * Math.sin( Math.PI * fm ) / Vs.stretch - Vs.n[ 0 ] * Math.cos( Math.PI * fm ), 0, Vs.t[ 1 ] * Math.sin( Math.PI * fm ) / Vs.stretch - Vs.n[ 1 ] * Math.cos( Math.PI * fm ) ];
+				for ( let b = 0; b <= half; b ++ ) {
+
+					const ri = rho( b + 1 ), ro = rho( b );
+					kit.color = COBBLE;
+					kit.quadFacing( at( f0, ri, ramp( b, f0 ) ), at( f1, ri, ramp( b, f1 ) ), at( f1, ro, ramp( b, f1 ) ), at( f0, ro, ramp( b, f0 ) ), [ 0, 1, 0 ] );
+					if ( b === 0 ) continue;
+					// the curve between band b - 1 (outside) and b: its face towards the lower side, its top edge pale
+					const ya = [ ramp( b - 1, f0 ), ramp( b, f0 ) ], yb = [ ramp( b - 1, f1 ), ramp( b, f1 ) ];
+					const lo0 = Math.min( ...ya ) - 0.05, hi0 = Math.max( ...ya ), lo1 = Math.min( ...yb ) - 0.05, hi1 = Math.max( ...yb );
+					if ( hi0 - lo0 < 0.07 && hi1 - lo1 < 0.07 ) continue;
+					const sgn = ramp( b, fm ) > ramp( b - 1, fm ) ? 1 : - 1;
+					kit.color = NOSE;
+					kit.quadFacing( at( f0, ro, lo0 ), at( f1, ro, lo1 ), at( f1, ro, hi1 ), at( f0, ro, hi0 ), dir( out, sgn ) );
+
+				}
 
 			}
 
