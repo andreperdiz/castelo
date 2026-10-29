@@ -1020,18 +1020,19 @@ export class Walls {
 
 		}
 
-		// outside, against the block's face between the way out and its north-west corner, four low steps in
-		// nested U shapes (photo references/...-img-4408): each comes out of the wall, swings wide into the street
-		// and back to it, a rise higher than the one round it; standing on the street, their treads lean with it
-		{
+		// outside, round the block's north-west corner, low deep steps in nested U shapes (photo
+		// references/...-img-4408): each from the north face by the way out, swinging wide into the street and
+		// round to the lane past the corner; up from the street before the way out to the lane, their treads
+		// leaning out a little (TerrainData shapes the ground under them: VALE_STEPS)
+		if ( T.valeSteps ) {
 
 			const Vs = VALE_STEPS, dx0 = Vs.c[ 0 ] - g.x, dz0 = Vs.c[ 1 ] - g.z, cu = dx0 * tx + dz0 * tz, cv = - ( dx0 * nx + dz0 * nz );
+			const { top: yTop, rise } = T.valeSteps;
 			const at = ( sk, f ) => [ cu + Vs.ru( sk ) * Math.cos( f ), cv - Vs.rv( sk ) * Math.sin( f ) ];
-			const SEG = 16;
+			const SEG = 18;
 			for ( let k = 1; k <= Vs.N; k ++ ) {
 
-				const s0 = k === 1 ? - 1 : k - 1, s1 = k, h = ( Vs.N - k + 1 ) * Vs.rise;
-				const Y = ( q ) => ground( ...q ) + h;
+				const s0 = k === 1 ? - 0.45 : k - 1, s1 = k, y = yTop - ( k - 1 ) * rise, yo = y - Vs.lean;
 				for ( let j = 0; j < SEG; j ++ ) {
 
 					const f0 = - Math.PI / 2 + Math.PI * j / SEG, f1 = - Math.PI / 2 + Math.PI * ( j + 1 ) / SEG;
@@ -1040,19 +1041,18 @@ export class Walls {
 					// the tread (cobbled), its nosing of pale stone along the front, the riser
 					kit.vdata = [ 0.29, 0.6, 0, 0 ];
 					kit.color = lin( [ 0.66, 0.65, 0.62 ] );
-					kit.quadFacing( V3( A[ 0 ], Y( A ), A[ 1 ] ), V3( B[ 0 ], Y( B ), B[ 1 ] ), V3( Cc[ 0 ], Y( Cc ), Cc[ 1 ] ), V3( D[ 0 ], Y( D ), D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( A ), uvOf( B ), uvOf( Cc ), uvOf( D ) ] );
-					const n0 = at( s1 - 0.25, f0 ), n1 = at( s1 - 0.25, f1 );
+					kit.quadFacing( V3( A[ 0 ], y, A[ 1 ] ), V3( B[ 0 ], y, B[ 1 ] ), V3( Cc[ 0 ], yo, Cc[ 1 ] ), V3( D[ 0 ], yo, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( A ), uvOf( B ), uvOf( Cc ), uvOf( D ) ] );
+					const n0 = at( s1 - 0.2, f0 ), n1 = at( s1 - 0.2, f1 ), yn = yo + Vs.lean * 0.2 + 0.005;
 					kit.color = lin( [ 0.86, 0.84, 0.78 ] );
-					kit.quadFacing( V3( n0[ 0 ], Y( n0 ) + 0.005, n0[ 1 ] ), V3( n1[ 0 ], Y( n1 ) + 0.005, n1[ 1 ] ), V3( Cc[ 0 ], Y( Cc ) + 0.005, Cc[ 1 ] ), V3( D[ 0 ], Y( D ) + 0.005, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( n0 ), uvOf( n1 ), uvOf( Cc ), uvOf( D ) ] );
-					const ou = Cc[ 0 ] - D[ 0 ], ov = Cc[ 1 ] - D[ 1 ], out = [ - tx * ov - nx * ou, 0, - tz * ov - nz * ou ]; // (away from the wall)
-					const L = Math.hypot( ou, ov ), fD = ground( ...D ) - 0.3, fC = ground( ...Cc ) - 0.3;
-					kit.quadFacing( V3( D[ 0 ], fD, D[ 1 ] ), V3( Cc[ 0 ], fC, Cc[ 1 ] ), V3( Cc[ 0 ], Y( Cc ), Cc[ 1 ] ), V3( D[ 0 ], Y( D ), D[ 1 ] ), out, [ [ 0, fD ], [ L, fC ], [ L, Y( Cc ) ], [ 0, Y( D ) ] ] );
-					// walkable, a box under each piece, its top the tread's middle
+					kit.quadFacing( V3( n0[ 0 ], yn, n0[ 1 ] ), V3( n1[ 0 ], yn, n1[ 1 ] ), V3( Cc[ 0 ], yo + 0.005, Cc[ 1 ] ), V3( D[ 0 ], yo + 0.005, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( n0 ), uvOf( n1 ), uvOf( Cc ), uvOf( D ) ] );
+					const ou = Cc[ 0 ] - D[ 0 ], ov = Cc[ 1 ] - D[ 1 ], out = [ - tx * ov - nx * ou, 0, - tz * ov - nz * ou ]; // (away from the corner)
+					const L = Math.hypot( ou, ov ), foot = Math.min( ground( ...D ), ground( ...Cc ), yo ) - 0.4;
+					kit.quadFacing( V3( D[ 0 ], foot, D[ 1 ] ), V3( Cc[ 0 ], foot, Cc[ 1 ] ), V3( Cc[ 0 ], yo, Cc[ 1 ] ), V3( D[ 0 ], yo, D[ 1 ] ), out, [ [ 0, foot ], [ L, foot ], [ L, yo ], [ 0, yo ] ] );
+					// walkable, a box under each piece
 					const mu = ( A[ 0 ] + B[ 0 ] + Cc[ 0 ] + D[ 0 ] ) / 4, mv = ( A[ 1 ] + B[ 1 ] + Cc[ 1 ] + D[ 1 ] ) / 4, [ mx, mz ] = P( mu, mv );
 					const [ px, pz ] = P( ...D ), [ qx, qz ] = P( ...Cc ), dx = qx - px, dz = qz - pz, len = Math.hypot( dx, dz );
-					const depth = Math.hypot( ( A[ 0 ] + B[ 0 ] - D[ 0 ] - Cc[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] - D[ 1 ] - Cc[ 1 ] ) / 2 );
-					const yt = Y( [ mu, mv ] ), yb = Math.min( fD, fC );
-					this.colliders.addBox( new Vector3( mx, ( yt + yb ) / 2, mz ), new Vector3( len / 2 + 0.02, ( yt - yb ) / 2, depth / 2 ), Math.atan2( - dz, dx ), { walkable: true, tag: 'stair' } );
+					const depth = Math.hypot( ( A[ 0 ] + B[ 0 ] - D[ 0 ] - Cc[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] - D[ 1 ] - Cc[ 1 ] ) / 2 ), ym = y - Vs.lean / 2;
+					this.colliders.addBox( new Vector3( mx, ( ym + foot ) / 2, mz ), new Vector3( len / 2 + 0.02, ( ym - foot ) / 2, depth / 2 ), Math.atan2( - dz, dx ), { walkable: true, tag: 'stair' } );
 
 				}
 
