@@ -46,7 +46,10 @@ const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
 	// the houses either side of the top of Rua Porta do Vale: one storey (photo references/...-img-4397)
-	299086795: 1, 299135575: 1, 299135581: 1 };
+	299086795: 1, 299135575: 1, 299135581: 1,
+	// behind the garden wall across the lane from Porta do Vale's block: only trees show over it (photo
+	// references/...-img-4410)
+	299083844: 1 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [

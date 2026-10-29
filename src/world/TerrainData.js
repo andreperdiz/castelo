@@ -53,13 +53,13 @@ export const SENHORA_DA_GRACA = { street: 256341205, from: 48, to: 20 };
 // the streets outside Porta do Vale, the north-east gate: its approach, Rua da Porta da Senhora da Graça and
 // the lane off it either side of the tower, and Rua Porta do Vale going down from there (photo
 // references/...-img-4397)
-// the steps outside Porta do Vale (photo references/...-img-4408): nested half ellipses round the block's
-// north-west corner c, each from the north face by the way out, swinging wide into the street, round to
-// the lane past the corner; along the curtain (t, out from the face) and into the town (n, along it). Step
-// k's front at s = k, its half width rv( s ) along the face and its reach ru( s ) out from it; N steps up
-// from the street before the way out (street) to the lane at the corner, each tread leaning out by lean
-export const VALE_STEPS = { c: [ 93.32, - 47.78 ], t: [ 0.4315, - 0.9021 ], n: [ - 0.9021, - 0.4315 ], N: 5, lean: 0.03,
-	rv: ( s ) => 0.2 + 0.43 * s, ru: ( s ) => 0.35 + 0.75 * s, street: [ 97.66, - 46.8 ] };
+// the flight of steps outside Porta do Vale (photo references/...-img-4408): from the street before the
+// way out up to the lane past the block's north-west corner, along its north face: its foot o on the face,
+// rising along n (away from the way out), each tread out from the face along t, `width` wide; N steps over
+// `run`. The lane (LANE, from the corner south along the block's west wall, photo references/...-img-4410)
+// nearly level, from its height there to the street's at its far end
+export const VALE_STEPS = { o: [ 95.4, - 46.79 ], t: [ 0.4315, - 0.9021 ], n: [ - 0.9021, - 0.4315 ], N: 6, run: 3.0, width: 2.6, street: [ 97.66, - 46.8 ] };
+export const VALE_LANE = { pts: [ [ 91.2, - 47.1 ], [ 79, - 18 ] ], half: 3.0, ease: 3.0 };
 export const PORTA_DO_VALE_STREETS = [ 298876450, 652293878, 256341205, 298876363, 64805009 ];
 // Travessa do Beneficiado Faustino das Neves, off the Calçada da Misericórdia across from the top of Porta
 // Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
@@ -121,6 +121,7 @@ export class TerrainData {
 		this._beneficiado();
 		this._misericordia();
 		this._escadariaBiblioteca();
+		this._valeLane();
 		this._valeSteps();
 		mark( 'wall' );
 		this._streets();
@@ -1056,44 +1057,56 @@ export class TerrainData {
 
 	}
 
-	// The steps outside Porta do Vale (VALE_STEPS): the ground under each tread just below it, the top level
-	// with the lane at the corner; past the lowest step the street before the way out, level with it, rising
-	// to the ground as it was only towards the lane and far out from the face; cobbled. this.valeSteps tells
-	// Walls the levels.
+	// The lane up from the steps outside Porta do Vale (VALE_LANE): nearly level, from the ground at its start
+	// to the ground at its end, eased into the ground beside it (not under the block by the gate: its west
+	// wall stands along it).
+	_valeLane() {
+
+		const { pts: [ A, B ], half, ease } = VALE_LANE, { res, texel, origin, heights } = this;
+		const y0 = this.heightAt( ...A ), y1 = this.heightAt( ...B ), L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+		const ux = ( B[ 0 ] - A[ 0 ] ) / L, uz = ( B[ 1 ] - A[ 1 ] ) / L, R = half + ease;
+		const i0 = Math.max( 0, Math.floor( ( Math.min( A[ 0 ], B[ 0 ] ) - R - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( Math.max( A[ 0 ], B[ 0 ] ) + R - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( Math.min( A[ 1 ], B[ 1 ] ) - R - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( Math.max( A[ 1 ], B[ 1 ] ) + R - origin ) / texel ) );
+		const V = VALE_STEPS;
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+			const s = clamp( ( x - A[ 0 ] ) * ux + ( z - A[ 1 ] ) * uz, 0, L ), d = Math.hypot( x - A[ 0 ] - ux * s, z - A[ 1 ] - uz * s );
+			if ( d > R ) continue;
+			// (the block: east of its west wall's line, which runs along t through the steps' top)
+			const ox = x - V.o[ 0 ], oz = z - V.o[ 1 ];
+			if ( ox * V.n[ 0 ] + oz * V.n[ 1 ] < V.run - 0.2 && ox * V.t[ 0 ] + oz * V.t[ 1 ] < 0 ) continue;
+			const k = j * res + i;
+			heights[ k ] = lerp( lerp( y0, y1, s / L ), heights[ k ], smoothstep( half, R, d ) );
+
+		}
+
+	}
+
+	// The flight of steps outside Porta do Vale (VALE_STEPS): the ground under each tread just below it; north
+	// of the flight the street following it up, eased into the ground further out; cobbled. this.valeSteps
+	// tells Walls the levels: the top one the lane's at the corner.
 	_valeSteps() {
 
 		const V = VALE_STEPS, { res, texel, origin, heights } = this;
-		const top = this.heightAt( ...V.c ) + 0.02, bottom = this.heightAt( ...V.street ), rise = ( top - bottom ) / V.N;
-		const reach = V.ru( V.N ) + 9;
-		// which step's front a point (du out from the face, dv along it) lies within: the s whose half ellipse
-		// passes through it
-		const sOf = ( du, dv ) => {
-
-			let lo = - 0.45, hi = V.N + 20;
-			for ( let i = 0; i < 26; i ++ ) {
-
-				const m = ( lo + hi ) / 2;
-				if ( ( du / V.ru( m ) ) ** 2 + ( dv / V.rv( m ) ) ** 2 > 1 ) lo = m;
-				else hi = m;
-
-			}
-
-			return hi;
-
-		};
-		const i0 = Math.max( 0, Math.floor( ( V.c[ 0 ] - reach - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( V.c[ 0 ] + reach - origin ) / texel ) );
-		const j0 = Math.max( 0, Math.floor( ( V.c[ 1 ] - reach - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( V.c[ 1 ] + reach - origin ) / texel ) );
+		const top = this.heightAt( V.o[ 0 ] + V.n[ 0 ] * ( V.run + 0.6 ) + V.t[ 0 ] * 1.2, V.o[ 1 ] + V.n[ 1 ] * ( V.run + 0.6 ) + V.t[ 1 ] * 1.2 );
+		const bottom = this.heightAt( ...V.street ), rise = ( top - bottom ) / V.N, tread = V.run / V.N;
+		const reach = V.run + V.width + 8;
+		const i0 = Math.max( 0, Math.floor( ( V.o[ 0 ] - reach - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( V.o[ 0 ] + reach - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( V.o[ 1 ] - reach - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( V.o[ 1 ] + reach - origin ) / texel ) );
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
-			const x = origin + ( i + 0.5 ) * texel - V.c[ 0 ], z = origin + ( j + 0.5 ) * texel - V.c[ 1 ];
+			const x = origin + ( i + 0.5 ) * texel - V.o[ 0 ], z = origin + ( j + 0.5 ) * texel - V.o[ 1 ];
 			const du = x * V.t[ 0 ] + z * V.t[ 1 ], dv = x * V.n[ 0 ] + z * V.n[ 1 ];
-			if ( du < 0 ) continue; // (the block, and the lane along its west wall)
-			const s = sOf( du, dv ), k = j * res + i;
+			if ( du < 0 || dv < - 1 || dv > V.run + 0.6 ) continue;
+			const k = j * res + i;
+			const step = clamp( Math.floor( dv / tread ), 0, V.N - 1 ), level = bottom + ( step + 1 ) * rise - 0.03;
+			const ramp = bottom + clamp( dv / V.run, 0, 1 ) * ( top - bottom );
 			let y;
-			if ( s <= V.N ) y = top - Math.max( 0, Math.ceil( s ) - 1 ) * rise - V.lean - 0.03;
-			else y = lerp( bottom, heights[ k ], Math.max( smoothstep( V.rv( V.N ) - 1, V.rv( V.N ) + 2, dv ), smoothstep( V.ru( V.N ) + 2, V.ru( V.N ) + 8, du ) ) );
-			if ( y < heights[ k ] ) heights[ k ] = y;
-			if ( s < V.N + 1.5 ) {
+			if ( du <= V.width && dv >= 0 && dv <= V.run ) y = level;
+			else y = lerp( du <= V.width ? ramp : ramp, heights[ k ], smoothstep( V.width, V.width + 5, du ) );
+			heights[ k ] = Math.min( heights[ k ], y );
+			if ( du < V.width + 1.5 ) {
 
 				this.path[ k ] = 255;
 				this.scarp[ k ] = 255;
@@ -1102,7 +1115,7 @@ export class TerrainData {
 
 		}
 
-		this.valeSteps = { top, rise };
+		this.valeSteps = { top, rise, tread };
 
 	}
 

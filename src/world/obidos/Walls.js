@@ -1020,43 +1020,55 @@ export class Walls {
 
 		}
 
-		// outside, round the block's north-west corner, low deep steps in nested U shapes (photo
-		// references/...-img-4408): each from the north face by the way out, swinging wide into the street and
-		// round to the lane past the corner; up from the street before the way out to the lane, their treads
-		// leaning out a little (TerrainData shapes the ground under them: VALE_STEPS)
+		// outside, a flight of steps along the block's north face, from the street before the way out up to the
+		// lane past its north-west corner (photo references/...-img-4408; TerrainData shapes the ground under
+		// it: VALE_STEPS): cobbled treads with fronts of pale stone
 		if ( T.valeSteps ) {
 
-			const Vs = VALE_STEPS, dx0 = Vs.c[ 0 ] - g.x, dz0 = Vs.c[ 1 ] - g.z, cu = dx0 * tx + dz0 * tz, cv = - ( dx0 * nx + dz0 * nz );
-			const { top: yTop, rise } = T.valeSteps;
-			const at = ( sk, f ) => [ cu + Vs.ru( sk ) * Math.cos( f ), cv - Vs.rv( sk ) * Math.sin( f ) ];
-			const SEG = 18;
-			for ( let k = 1; k <= Vs.N; k ++ ) {
+			const Vs = VALE_STEPS, { rise, tread } = T.valeSteps, bottom = T.heightAt( ...Vs.street );
+			const W3 = ( a, b, y ) => [ Vs.o[ 0 ] + Vs.n[ 0 ] * a + Vs.t[ 0 ] * b, y, Vs.o[ 1 ] + Vs.n[ 1 ] * a + Vs.t[ 1 ] * b ];
+			const up = [ Vs.n[ 0 ], 0, Vs.n[ 1 ] ], yawS = Math.atan2( - Vs.n[ 1 ], Vs.n[ 0 ] );
+			for ( let k = 0; k < Vs.N; k ++ ) {
 
-				const s0 = k === 1 ? - 0.45 : k - 1, s1 = k, y = yTop - ( k - 1 ) * rise, yo = y - Vs.lean;
-				for ( let j = 0; j < SEG; j ++ ) {
-
-					const f0 = - Math.PI / 2 + Math.PI * j / SEG, f1 = - Math.PI / 2 + Math.PI * ( j + 1 ) / SEG;
-					const A = at( s0, f0 ), B = at( s0, f1 ), Cc = at( s1, f1 ), D = at( s1, f0 );
-					const uvOf = ( q ) => [ P( ...q )[ 0 ], P( ...q )[ 1 ] ];
-					// the tread (cobbled), its nosing of pale stone along the front, the riser
-					kit.vdata = [ 0.29, 0.6, 0, 0 ];
-					kit.color = lin( [ 0.66, 0.65, 0.62 ] );
-					kit.quadFacing( V3( A[ 0 ], y, A[ 1 ] ), V3( B[ 0 ], y, B[ 1 ] ), V3( Cc[ 0 ], yo, Cc[ 1 ] ), V3( D[ 0 ], yo, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( A ), uvOf( B ), uvOf( Cc ), uvOf( D ) ] );
-					const n0 = at( s1 - 0.2, f0 ), n1 = at( s1 - 0.2, f1 ), yn = yo + Vs.lean * 0.2 + 0.005;
-					kit.color = lin( [ 0.86, 0.84, 0.78 ] );
-					kit.quadFacing( V3( n0[ 0 ], yn, n0[ 1 ] ), V3( n1[ 0 ], yn, n1[ 1 ] ), V3( Cc[ 0 ], yo + 0.005, Cc[ 1 ] ), V3( D[ 0 ], yo + 0.005, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( n0 ), uvOf( n1 ), uvOf( Cc ), uvOf( D ) ] );
-					const ou = Cc[ 0 ] - D[ 0 ], ov = Cc[ 1 ] - D[ 1 ], out = [ - tx * ov - nx * ou, 0, - tz * ov - nz * ou ]; // (away from the corner)
-					const L = Math.hypot( ou, ov ), foot = Math.min( ground( ...D ), ground( ...Cc ), yo ) - 0.4;
-					kit.quadFacing( V3( D[ 0 ], foot, D[ 1 ] ), V3( Cc[ 0 ], foot, Cc[ 1 ] ), V3( Cc[ 0 ], yo, Cc[ 1 ] ), V3( D[ 0 ], yo, D[ 1 ] ), out, [ [ 0, foot ], [ L, foot ], [ L, yo ], [ 0, yo ] ] );
-					// walkable, a box under each piece
-					const mu = ( A[ 0 ] + B[ 0 ] + Cc[ 0 ] + D[ 0 ] ) / 4, mv = ( A[ 1 ] + B[ 1 ] + Cc[ 1 ] + D[ 1 ] ) / 4, [ mx, mz ] = P( mu, mv );
-					const [ px, pz ] = P( ...D ), [ qx, qz ] = P( ...Cc ), dx = qx - px, dz = qz - pz, len = Math.hypot( dx, dz );
-					const depth = Math.hypot( ( A[ 0 ] + B[ 0 ] - D[ 0 ] - Cc[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] - D[ 1 ] - Cc[ 1 ] ) / 2 ), ym = y - Vs.lean / 2;
-					this.colliders.addBox( new Vector3( mx, ( ym + foot ) / 2, mz ), new Vector3( len / 2 + 0.02, ( ym - foot ) / 2, depth / 2 ), Math.atan2( - dz, dx ), { walkable: true, tag: 'stair' } );
-
-				}
+				const a0 = k * tread, a1 = Vs.run + 0.6, y = bottom + ( k + 1 ) * rise, foot = Math.min( bottom, T.heightAt( ...[ W3( a0, Vs.width, 0 ) ].map( ( q ) => [ q[ 0 ], q[ 2 ] ] )[ 0 ] ) ) - 0.4;
+				// each step a block from its front back under the ones above, to the lane
+				kit.vdata = [ 0.29, 0.6, 0, 0 ];
+				kit.color = lin( [ 0.66, 0.65, 0.62 ] );
+				kit.quadFacing( W3( a0, 0.02, y ), W3( a0 + tread, 0.02, y ), W3( a0 + tread, Vs.width, y ), W3( a0, Vs.width, y ), [ 0, 1, 0 ], [ [ a0, 0 ], [ a0 + tread, 0 ], [ a0 + tread, Vs.width ], [ a0, Vs.width ] ] );
+				kit.color = lin( [ 0.86, 0.84, 0.78 ] );
+				kit.quadFacing( W3( a0, 0.02, y + 0.005 ), W3( a0 + 0.14, 0.02, y + 0.005 ), W3( a0 + 0.14, Vs.width, y + 0.005 ), W3( a0, Vs.width, y + 0.005 ), [ 0, 1, 0 ] );
+				kit.quadFacing( W3( a0, 0.02, foot ), W3( a0, Vs.width, foot ), W3( a0, Vs.width, y ), W3( a0, 0.02, y ), dir( up, - 1 ), [ [ 0, foot ], [ Vs.width, foot ], [ Vs.width, y ], [ 0, y ] ] );
+				// its open side, towards the street
+				kit.color = lin( [ 0.66, 0.65, 0.62 ] );
+				kit.quadFacing( W3( a0, Vs.width, foot ), W3( a1, Vs.width, foot ), W3( a1, Vs.width, y ), W3( a0, Vs.width, y ), [ Vs.t[ 0 ], 0, Vs.t[ 1 ] ], [ [ a0, foot ], [ a1, foot ], [ a1, y ], [ a0, y ] ] );
+				const c = W3( ( a0 + a1 ) / 2, Vs.width / 2, 0 );
+				this.colliders.addBox( new Vector3( c[ 0 ], ( y + foot ) / 2, c[ 2 ] ), new Vector3( ( a1 - a0 ) / 2, ( y - foot ) / 2, Vs.width / 2 ), yawS, { walkable: true, tag: 'stair' } );
 
 			}
+
+		}
+
+		// on the block's west face, along the lane (photo references/...-img-4410): a doorway in a frame of
+		// dressed stone, its door dark wood
+		{
+
+			const vf = V2 + TH + 0.02, ud = - 2.0, gd = ground( ud, vf );
+			const face = ( u0, u1, y0, y1, k ) => plaster.quadFacing( V3( u0, y0, vf + k ), V3( u1, y0, vf + k ), V3( u1, y1, vf + k ), V3( u0, y1, vf + k ), west );
+			paint( lin( [ 0.7, 0.66, 0.58 ] ) );
+			face( ud - 0.85, ud + 0.85, gd - 0.3, gd + 2.75, 0 );
+			paint( lin( [ 0.16, 0.11, 0.08 ] ) );
+			face( ud - 0.6, ud + 0.6, gd - 0.3, gd + 2.45, 0.01 );
+
+		}
+
+		// across the lane, the old garden wall (OSM's): weathered white over a red foot, trees over it
+		{
+
+			const lane = ( q ) => T.heightAt( q[ 0 ], q[ 1 ] );
+			this._oldWall( plaster, [ 89.1, - 46.8 ], [ 80.7, - 26.8 ], 1, lane, 3.2, 2.8, 41, false, { foot: lin( [ 0.55, 0.16, 0.12 ] ), ivy: false } );
+			this._oldWall( plaster, [ 83.3, - 48.8 ], [ 89.1, - 46.8 ], 1, lane, 3.0, 3.2, 43, false, { foot: lin( [ 0.55, 0.16, 0.12 ] ), ivy: false } );
+			this.extraTrees = this.extraTrees || [];
+			for ( const [ x, z, kind, scale ] of [ [ 86.2, - 44.2, 'garden', 0.9 ], [ 84.6, - 39.5, 'olive', 0.75 ], [ 83.3, - 34.5, 'garden', 0.8 ], [ 81.6, - 30.2, 'olive', 0.7 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 
 		}
 
@@ -2579,17 +2591,17 @@ export class Walls {
 
 	}
 
-	// An old garden wall from W0 to W1 into plaster: weathered white over a faded yellow foot, its front on
+	// An old garden wall from W0 to W1 into plaster: weathered white over a faded yellow foot (or foot), its front on
 	// the street (side +1: the street to the left going W0 -> W1, -1 to the right), thick away from it; from
 	// streetY( [ x, z ] ) up H0 at W0 to H1 at W1. Ivy over its top and hanging down; flowers: roses and
 	// shrubs at its foot.
-	_oldWall( plaster, W0, W1, side, streetY, H0, H1, seed, flowers = false ) {
+	_oldWall( plaster, W0, W1, side, streetY, H0, H1, seed, flowers = false, { foot = null, ivy = true } = {} ) {
 
 		const WL = Math.hypot( W1[ 0 ] - W0[ 0 ], W1[ 1 ] - W0[ 1 ] );
 		const wu = [ ( W1[ 0 ] - W0[ 0 ] ) / WL, ( W1[ 1 ] - W0[ 1 ] ) / WL ];
 		const back = side > 0 ? [ - wu[ 1 ], wu[ 0 ] ] : [ wu[ 1 ], - wu[ 0 ] ]; // away from the street
 		const TH = 0.5, FADED = lin( [ 0.8, 0.62, 0.26 ] ), BAR = 0.75;
-		plaster.color = FADED;
+		plaster.color = foot || FADED;
 		plaster.vdata = [ 20, 0, 0.47, 0 ];
 		const pt = ( u, k = 0 ) => [ W0[ 0 ] + wu[ 0 ] * u + back[ 0 ] * k, W0[ 1 ] + wu[ 1 ] * u + back[ 1 ] * k ];
 		const topAt = ( u ) => streetY( pt( u ) ) + H0 + ( H1 - H0 ) * u / WL;
@@ -2620,7 +2632,7 @@ export class Walls {
 		let s = seed;
 		const rnd = () => ( ( s = ( s * 16807 ) % 2147483647 ) / 2147483647 );
 		plaster.vdata = [ 0, 0, 0.53, 4 ];
-		for ( let i = 0; i < 26 * WL; i ++ ) {
+		for ( let i = 0; ivy && i < 26 * WL; i ++ ) {
 
 			const u = rnd() * WL, dense = 0.5 + 0.5 * Math.sin( u * 0.9 + seed );
 			if ( rnd() > 0.3 + 0.7 * dense ) continue;
