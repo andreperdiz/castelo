@@ -518,7 +518,8 @@ export class Walls {
 		const north = alongU, south = dir( alongU, - 1 ), west = intoV, east = dir( intoV, - 1 );
 		// the hall from the curtain's back (V0) to its west wall (V2), from the chapel's wall (u = -R) to its
 		// end wall (UE to U2); the walls TH thick
-		const R = g.R, V0 = W / 2, V2 = 5.7, VM = ( V0 + V2 ) / 2, U2 = 6, UE = U2 - 0.5, TH = 1.2;
+		// (the hall is wide: photo references/...-img-4407)
+		const R = g.R, V0 = W / 2, V2 = 7.0, VM = ( V0 + V2 ) / 2, U2 = 6, UE = U2 - 0.5, TH = 1.2;
 		let gHi = - Infinity, gLo = Infinity;
 		for ( const [ u, v ] of [ [ - R, V0 ], [ - R, V2 ], [ 0, V2 ], [ UE, V0 ], [ UE, V2 ] ] ) {
 
@@ -531,6 +532,9 @@ export class Walls {
 		// the walls' height S (where the coved ceiling springs), its flat middle C
 		const S = gHi + 6.5, C = S + 1.0, top = C + 0.7, base = gLo - 0.8;
 		const crown = g.y + g.spring + g.flat;
+		// the way out, VE in (where OSM's passage comes out); a path of big slabs runs to it (Town lays them)
+		const VE = 5.7 - R;
+		this.valePath = [ P( - 0.6, VE ), P( U2 + 2.5, VE ) ];
 		const cw = V2 - V0, cove = [ [ V0, S ], [ V0 + 0.3 * cw, C ], [ V2 - 0.3 * cw, C ], [ V2, S ] ];
 		const coveY = ( v ) => {
 
@@ -735,7 +739,7 @@ export class Walls {
 		// at the north end, over the way out, a narrow loft of dark wood (photo references/...-img-4406): beams
 		// across under its boards, a plank along its edge on two raking struts down to stone corbels in the side
 		// walls, a railing of plain square balusters; over it, high in the end wall, a small barred window
-		const yL = ground( U2, V2 - R ) + 5.2, uJ = UE - 2.0;
+		const yL = ground( U2, VE ) + 5.2, uJ = UE - 2.0;
 		wood( lin( [ 0.42, 0.3, 0.22 ] ), 0.6 );
 		plaster.quadFacing( V3( uJ, yL, V0 ), V3( UE, yL, V0 ), V3( UE, yL, V2 ), V3( uJ, yL, V2 ), [ 0, - 1, 0 ], [ [ V0, uJ ], [ V0, UE ], [ V2, UE ], [ V2, uJ ] ] );
 		plaster.quadFacing( V3( uJ, yL + 0.12, V0 ), V3( UE, yL + 0.12, V0 ), V3( UE, yL + 0.12, V2 ), V3( uJ, yL + 0.12, V2 ), [ 0, 1, 0 ], [ [ V0, uJ ], [ V0, UE ], [ V2, UE ], [ V2, uJ ] ] );
@@ -950,7 +954,7 @@ export class Walls {
 
 		// out through the end wall's arch (photo references/...-img-4406): whitewash inside up to the ceiling,
 		// stone outside, round the arch a ring of rough dark stone, its jambs down to the floor
-		const vE = V2 - R, gE = ground( U2, vE ), a = R - 0.35, ya = gE + 2.5;
+		const vE = VE, gE = ground( U2, vE ), a = R - 0.35, ya = gE + 2.5;
 		const lo = ( v ) => ground( UE, v ) - 0.3;
 		const rough = () => {
 
