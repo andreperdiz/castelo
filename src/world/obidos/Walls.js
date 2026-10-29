@@ -1,6 +1,7 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
+import { VALE_STEPS } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -518,8 +519,9 @@ export class Walls {
 		const north = alongU, south = dir( alongU, - 1 ), west = intoV, east = dir( intoV, - 1 );
 		// the hall from the curtain's back (V0) to its west wall (V2), from the chapel's wall (u = -R) to its
 		// end wall (UE to U2); the walls TH thick
-		// (the hall is wide: photo references/...-img-4407)
-		const R = g.R, V0 = W / 2, V2 = 7.0, VM = ( V0 + V2 ) / 2, U2 = 6, UE = U2 - 0.5, TH = 1.2;
+		// (the hall is wide: photo references/...-img-4407; the way out a vaulted passage 2.5 m through the end
+		// wall: -img-4408)
+		const R = g.R, V0 = W / 2, V2 = 7.0, VM = ( V0 + V2 ) / 2, UE = 4.5, U2 = UE + 2.5, TH = 1.2;
 		let gHi = - Infinity, gLo = Infinity;
 		for ( const [ u, v ] of [ [ - R, V0 ], [ - R, V2 ], [ 0, V2 ], [ UE, V0 ], [ UE, V2 ] ] ) {
 
@@ -530,11 +532,13 @@ export class Walls {
 		let walk = - Infinity;
 		for ( const p of this.curtain.samples ) if ( p.gate === g ) walk = Math.max( walk, p.y );
 		// the walls' height S (where the coved ceiling springs), its flat middle C
-		const S = gHi + 6.5, C = S + 1.0, top = C + 0.7, base = gLo - 0.8;
+		// (the block about 8.5 m over the street at the way out: photo references/...-img-4408)
+		const S = gHi + 6.15, C = S + 1.0, top = C + 0.3, base = gLo - 0.8;
 		const crown = g.y + g.spring + g.flat;
 		// the way out, VE in (where OSM's passage comes out); a path of big slabs runs to it (Town lays them)
 		const VE = 5.7 - R;
-		this.valePath = [ P( - 0.6, VE ), P( U2 + 2.5, VE ) ];
+		// (out of it the path bends right, down the street: photo references/...-img-4408)
+		this.valePath = [ P( - 0.6, VE ), P( U2, VE ), P( U2 + 0.9, VE - 0.25 ), P( U2 + 1.8, VE - 0.8 ), P( U2 + 2.8, VE - 1.1 ), P( U2 + 4, VE - 1.0 ) ];
 		const cw = V2 - V0, cove = [ [ V0, S ], [ V0 + 0.3 * cw, C ], [ V2 - 0.3 * cw, C ], [ V2, S ] ];
 		const coveY = ( v ) => {
 
@@ -581,7 +585,7 @@ export class Walls {
 		mass( uB - 0.8, uB, VM - cs, VM + cs, yF, S, false );
 		mass( uB, uW, VM - cs, VM - hwC, yF, S, false );
 		mass( uB, uW, VM + hwC, VM + cs, yF, S, false );
-		mass( uB, uW, VM - hwC, VM + hwC, spR + hwC, S, false );
+		if ( S > spR + hwC ) mass( uB, uW, VM - hwC, VM + hwC, spR + hwC, S, false );
 		// the roof over it all
 		box( kit, uB - 0.8, U2, V0 - 0.6, V2 + TH, S, top, 'bottom' );
 		solid( uB - 0.8, U2, V0 - 0.6, V2 + TH, S, top, true );
@@ -952,43 +956,43 @@ export class Walls {
 		paint( lin( [ 0.95, 0.94, 0.88 ] ) );
 		for ( const dv of [ - 0.22, 0.22 ] ) rb( VM + dv - 0.025, VM + dv + 0.025, yF + 1.0, yF + 1.3, 0.55, 0.6 );
 
-		// out through the end wall's arch (photo references/...-img-4406): whitewash inside up to the ceiling,
-		// stone outside, round the arch a ring of rough dark stone, its jambs down to the floor
-		const vE = VE, gE = ground( U2, vE ), a = R - 0.35, ya = gE + 2.5;
-		const lo = ( v ) => ground( UE, v ) - 0.3;
+		// out through the end wall (photos references/...-img-4406, -img-4408): on the hall's side a round arch
+		// with a ring of rough dark stone, its jambs down to the floor; through the wall a vault widening to the
+		// outer opening, broad and low, in the plain stone face of the block
+		const vE = VE, gE = ground( U2, vE ), a = R - 0.35, ya = gE + 2.5, a2 = a + 0.3, ya2 = gE + 3.0, r2 = 0.6;
+		const lo = ( v ) => ground( UE, v ) - 0.3, loOut = ( v ) => ground( U2, v ) - 0.3;
 		const rough = () => {
 
 			kit.vdata = [ 0.67, 0.35, 0, 0 ];
 			kit.color = lin( [ 0.78, 0.72, 0.64 ] );
 
 		};
-		archWall( UE, south, vE, a, ya, null, ( va, vb, ba, bb ) => {
+		const plain = () => {
 
-			const vm = ( va + vb ) / 2, ym = ya + Math.sqrt( Math.max( 0, a * a - ( vm - vE ) ** 2 ) ), rl = Math.hypot( vm - vE, ym - ya ) || 1;
-			rough();
-			kit.quadFacing( V3( UE, ba, va ), V3( U2, ba, va ), V3( U2, bb, vb ), V3( UE, bb, vb ), [ - intoV[ 0 ] * ( vm - vE ) / rl, - ( ym - ya ) / rl, - intoV[ 2 ] * ( vm - vE ) / rl ] );
 			kit.vdata = [ 0.41, 0.8, 0, 0 ];
 			kit.color = [ 1, 1, 1 ];
-			kit.quadFacing( V3( U2, ba, va ), V3( U2, bb, vb ), V3( U2, S, vb ), V3( U2, S, va ), north );
 
-		} );
-		kit.vdata = [ 0.41, 0.8, 0, 0 ];
-		kit.color = [ 1, 1, 1 ];
-		for ( const [ v0, v1 ] of [ [ V0, vE - a ], [ vE + a, V2 ] ] ) {
+		};
+		archWall( UE, south, vE, a, ya, null );
+		for ( const [ v0, v1 ] of [ [ V0, vE - a ], [ vE + a, V2 ] ] ) solid( UE, U2, v0, v1, base, S );
+		// the vault and its jambs, from the inner arch to the outer
+		rough();
+		const IN = ( t ) => [ vE + a * Math.cos( t ), ya + a * Math.sin( t ) ], OUT = ( t ) => [ vE + a2 * Math.cos( t ), ya2 + r2 * Math.sin( t ) ];
+		for ( let k = 0; k < 16; k ++ ) {
 
-			kit.quadFacing( V3( U2, lo( v0 ), v0 ), V3( U2, lo( v1 ), v1 ), V3( U2, S, v1 ), V3( U2, S, v0 ), north );
-			solid( UE, U2, v0, v1, base, S );
+			const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16, tm = ( t0 + t1 ) / 2;
+			const [ i0v, i0y ] = IN( t0 ), [ i1v, i1y ] = IN( t1 ), [ o0v, o0y ] = OUT( t0 ), [ o1v, o1y ] = OUT( t1 );
+			kit.quadFacing( V3( UE, i0y, i0v ), V3( UE, i1y, i1v ), V3( U2, o1y, o1v ), V3( U2, o0y, o0v ), [ - intoV[ 0 ] * Math.cos( tm ), - Math.sin( tm ), - intoV[ 2 ] * Math.cos( tm ) ] );
 
 		}
 
-		rough();
 		for ( const s of [ - 1, 1 ] ) {
 
-			const v = vE + s * a;
-			kit.quadFacing( V3( UE, lo( v ), v ), V3( U2, lo( v ), v ), V3( U2, ya, v ), V3( UE, ya, v ), dir( intoV, - s ) );
+			const vi = vE + s * a, vo = vE + s * a2;
+			kit.quadFacing( V3( UE, lo( vi ), vi ), V3( U2, loOut( vo ), vo ), V3( U2, ya2, vo ), V3( UE, ya, vi ), dir( intoV, - s ) );
 			// the jamb's stones on the hall's side, wider at the foot
-			box( kit, UE - 0.05, UE, Math.min( v, v + s * 0.4 ), Math.max( v, v + s * 0.4 ), lo( v ), lo( v ) + 1.1 );
-			box( kit, UE - 0.05, UE, Math.min( v, v + s * 0.32 ), Math.max( v, v + s * 0.32 ), lo( v ) + 1.1, ya );
+			box( kit, UE - 0.05, UE, Math.min( vi, vi + s * 0.4 ), Math.max( vi, vi + s * 0.4 ), lo( vi ), lo( vi ) + 1.1 );
+			box( kit, UE - 0.05, UE, Math.min( vi, vi + s * 0.32 ), Math.max( vi, vi + s * 0.32 ), lo( vi ) + 1.1, ya );
 
 		}
 
@@ -1000,8 +1004,57 @@ export class Walls {
 
 		}
 
-		kit.vdata = [ 0.41, 0.8, 0, 0 ];
-		kit.color = [ 1, 1, 1 ];
+		// the block's north face round the outer opening
+		plain();
+		const vs = [ V0, V2, vE - a2, vE + a2 ];
+		for ( let k = 1; k < 16; k ++ ) vs.push( vE - a2 + 2 * a2 * k / 16 );
+		vs.sort( ( p, q ) => p - q );
+		const holeY = ( v ) => ya2 + r2 * Math.sqrt( Math.max( 0, 1 - ( ( v - vE ) / a2 ) ** 2 ) );
+		for ( let k = 0; k + 1 < vs.length; k ++ ) {
+
+			const va = vs[ k ], vb = vs[ k + 1 ], open = Math.abs( ( va + vb ) / 2 - vE ) < a2;
+			kit.quadFacing( V3( U2, open ? holeY( va ) : loOut( va ), va ), V3( U2, open ? holeY( vb ) : loOut( vb ), vb ), V3( U2, S, vb ), V3( U2, S, va ), north );
+
+		}
+
+		// outside, by the block's north-west corner, a fan of low steps, deep, their fronts curved round a point
+		// in the lane past the corner (photo references/...-img-4408): from the lane along the west wall down to
+		// the street before the way out, the lowest reaching the block's face near the opening
+		if ( T.valeSteps ) {
+
+			// (TerrainData shapes the ground under them: VALE_STEPS)
+			const Vs = VALE_STEPS, dx0 = Vs.c[ 0 ] - g.x, dz0 = Vs.c[ 1 ] - g.z, cu = dx0 * tx + dz0 * tz, cv = - ( dx0 * nx + dz0 * nz );
+			const N = Vs.N, yTop = T.valeSteps.top, rise = T.valeSteps.rise;
+			const at = ( r, f ) => [ cu + r * Vs.stretch * Math.cos( f ), cv - r * Math.sin( f ) ];
+			const SEG = 14, F0 = Vs.f0, F1 = Vs.f1;
+			for ( let k = 1; k <= N; k ++ ) {
+
+				const r0 = Vs.r0 + Vs.tread * ( k - 1 ), r1 = r0 + Vs.tread, y = yTop - ( k - 1 ) * rise, foot = Math.min( ground( ...at( r1, 0 ) ), y ) - 0.6;
+				for ( let j = 0; j < SEG; j ++ ) {
+
+					const f0 = F0 + ( F1 - F0 ) * j / SEG, f1 = F0 + ( F1 - F0 ) * ( j + 1 ) / SEG;
+					const A = at( r0, f0 ), B = at( r0, f1 ), Cc = at( r1, f1 ), D = at( r1, f0 );
+					// the tread (cobbled), its nosing of pale stone along the front, the riser
+					kit.vdata = [ 0.29, 0.6, 0, 0 ];
+					kit.color = lin( [ 0.66, 0.65, 0.62 ] );
+					kit.quadFacing( V3( A[ 0 ], y, A[ 1 ] ), V3( B[ 0 ], y, B[ 1 ] ), V3( Cc[ 0 ], y, Cc[ 1 ] ), V3( D[ 0 ], y, D[ 1 ] ), [ 0, 1, 0 ] );
+					const n0 = at( r1 - 0.1, f0 ), n1 = at( r1 - 0.1, f1 );
+					kit.color = lin( [ 0.86, 0.84, 0.78 ] );
+					kit.quadFacing( V3( n0[ 0 ], y + 0.005, n0[ 1 ] ), V3( n1[ 0 ], y + 0.005, n1[ 1 ] ), V3( Cc[ 0 ], y + 0.005, Cc[ 1 ] ), V3( D[ 0 ], y + 0.005, D[ 1 ] ), [ 0, 1, 0 ] );
+					const fm = ( f0 + f1 ) / 2, out = [ tx * Math.cos( fm ) * Vs.stretch + nx * Math.sin( fm ), 0, tz * Math.cos( fm ) * Vs.stretch + nz * Math.sin( fm ) ];
+					kit.quadFacing( V3( D[ 0 ], foot, D[ 1 ] ), V3( Cc[ 0 ], foot, Cc[ 1 ] ), V3( Cc[ 0 ], y, Cc[ 1 ] ), V3( D[ 0 ], y, D[ 1 ] ), out );
+					// walkable, a box under each piece
+					const mu = ( A[ 0 ] + B[ 0 ] + Cc[ 0 ] + D[ 0 ] ) / 4, mv = ( A[ 1 ] + B[ 1 ] + Cc[ 1 ] + D[ 1 ] ) / 4, [ mx, mz ] = P( mu, mv );
+					const [ dx, dz ] = [ P( ...Cc )[ 0 ] - P( ...D )[ 0 ], P( ...Cc )[ 1 ] - P( ...D )[ 1 ] ], len = Math.hypot( dx, dz );
+					this.colliders.addBox( new Vector3( mx, ( y + foot ) / 2, mz ), new Vector3( len / 2 + 0.02, ( y - foot ) / 2, ( r1 - r0 ) * 1.25 / 2 ), Math.atan2( - dz, dx ), { walkable: true, tag: 'stair' } );
+
+				}
+
+			}
+
+		}
+
+		plain();
 
 		for ( const [ k, mat, name, shadow ] of [ [ plaster, materials.plaster, 'vale-passage', true ], [ lamps, materials.lantern, 'vale-passage-iron', false ] ] ) {
 

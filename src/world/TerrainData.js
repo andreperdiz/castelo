@@ -53,6 +53,12 @@ export const SENHORA_DA_GRACA = { street: 256341205, from: 48, to: 20 };
 // the streets outside Porta do Vale, the north-east gate: its approach, Rua da Porta da Senhora da Graça and
 // the lane off it either side of the tower, and Rua Porta do Vale going down from there (photo
 // references/...-img-4397)
+// the fan of curved steps outside Porta do Vale, by its block's north-west corner (photo
+// references/...-img-4408): their centre, in the lane past the corner; along the curtain (t) and into the
+// town (n); the fronts are ellipses 1.5 times as long along t; N steps, the first front r0 out, each tread
+// deep, from f0 (towards the lane) round to f1 (along the block's face, towards the way out); the street
+// before the way out, where they come down to
+export const VALE_STEPS = { c: [ 92.1, - 48.71 ], t: [ 0.4315, - 0.9021 ], n: [ - 0.9021, - 0.4315 ], stretch: 1.5, N: 6, r0: 1.1, tread: 0.4, f0: - Math.PI / 4, f1: Math.PI / 2, street: [ 97.66, - 46.8 ] };
 export const PORTA_DO_VALE_STREETS = [ 298876450, 652293878, 256341205, 298876363, 64805009 ];
 // Travessa do Beneficiado Faustino das Neves, off the Calçada da Misericórdia across from the top of Porta
 // Este's flight (photo references/...-ruaperpendiculara): a narrow alley climbing west in long cobbled steps,
@@ -114,6 +120,7 @@ export class TerrainData {
 		this._beneficiado();
 		this._misericordia();
 		this._escadariaBiblioteca();
+		this._valeSteps();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -1045,6 +1052,41 @@ export class TerrainData {
 
 		} );
 		this.senhoraDaGraca = { line, y, length: L, HALF };
+
+	}
+
+	// The fan of steps outside Porta do Vale (VALE_STEPS): the ground under each tread just below it, the
+	// landing at the top, and past the lowest step the ground eased down to the street before the way out;
+	// cobbled. this.valeSteps tells Walls the levels.
+	_valeSteps() {
+
+		const V = VALE_STEPS, { res, texel, origin, heights } = this;
+		const top = this.heightAt( ...V.c ) + 0.03, bottom = this.heightAt( ...V.street ), rise = ( top - bottom ) / V.N;
+		const rN = V.r0 + V.N * V.tread, EASE = 3.5, reach = ( rN + EASE ) * V.stretch;
+		const i0 = Math.max( 0, Math.floor( ( V.c[ 0 ] - reach - origin ) / texel ) ), i1 = Math.min( res - 1, Math.ceil( ( V.c[ 0 ] + reach - origin ) / texel ) );
+		const j0 = Math.max( 0, Math.floor( ( V.c[ 1 ] - reach - origin ) / texel ) ), j1 = Math.min( res - 1, Math.ceil( ( V.c[ 1 ] + reach - origin ) / texel ) );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel - V.c[ 0 ], z = origin + ( j + 0.5 ) * texel - V.c[ 1 ];
+			const du = ( x * V.t[ 0 ] + z * V.t[ 1 ] ) / V.stretch, dv = x * V.n[ 0 ] + z * V.n[ 1 ];
+			const r = Math.hypot( du, dv ), f = Math.atan2( - dv, du );
+			if ( f < V.f0 || f > V.f1 + 0.2 ) continue;
+			const k = j * res + i;
+			let y;
+			if ( r < V.r0 ) y = top;
+			else if ( r < rN ) y = top - Math.floor( ( r - V.r0 ) / V.tread ) * rise - 0.02;
+			else y = lerp( bottom, heights[ k ], smoothstep( rN, rN + EASE, r ) );
+			if ( y < heights[ k ] ) heights[ k ] = y;
+			if ( r < rN + 1 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		}
+
+		this.valeSteps = { top, rise };
 
 	}
 
