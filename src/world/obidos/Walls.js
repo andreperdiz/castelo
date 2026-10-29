@@ -982,7 +982,8 @@ export class Walls {
 
 			const t0 = Math.PI * k / 16, t1 = Math.PI * ( k + 1 ) / 16, tm = ( t0 + t1 ) / 2;
 			const [ i0v, i0y ] = IN( t0 ), [ i1v, i1y ] = IN( t1 ), [ o0v, o0y ] = OUT( t0 ), [ o1v, o1y ] = OUT( t1 );
-			kit.quadFacing( V3( UE, i0y, i0v ), V3( UE, i1y, i1v ), V3( U2, o1y, o1v ), V3( U2, o0y, o0v ), [ - intoV[ 0 ] * Math.cos( tm ), - Math.sin( tm ), - intoV[ 2 ] * Math.cos( tm ) ] );
+			kit.quadFacing( V3( UE, i0y, i0v ), V3( UE, i1y, i1v ), V3( U2, o1y, o1v ), V3( U2, o0y, o0v ), [ - intoV[ 0 ] * Math.cos( tm ), - Math.sin( tm ), - intoV[ 2 ] * Math.cos( tm ) ],
+				[ [ t0 * 1.6, UE ], [ t1 * 1.6, UE ], [ t1 * 1.6, U2 ], [ t0 * 1.6, U2 ] ] );
 
 		}
 
@@ -1013,40 +1014,46 @@ export class Walls {
 		for ( let k = 0; k + 1 < vs.length; k ++ ) {
 
 			const va = vs[ k ], vb = vs[ k + 1 ], open = Math.abs( ( va + vb ) / 2 - vE ) < a2;
-			kit.quadFacing( V3( U2, open ? holeY( va ) : loOut( va ), va ), V3( U2, open ? holeY( vb ) : loOut( vb ), vb ), V3( U2, S, vb ), V3( U2, S, va ), north );
+			// (one texture across the face: u along it, v the height)
+			const ya0 = open ? holeY( va ) : loOut( va ), yb0 = open ? holeY( vb ) : loOut( vb );
+			kit.quadFacing( V3( U2, ya0, va ), V3( U2, yb0, vb ), V3( U2, S, vb ), V3( U2, S, va ), north, [ [ - va, ya0 ], [ - vb, yb0 ], [ - vb, S ], [ - va, S ] ] );
 
 		}
 
-		// outside, by the block's north-west corner, a fan of low steps, deep, their fronts curved round a point
-		// in the lane past the corner (photo references/...-img-4408): from the lane along the west wall down to
-		// the street before the way out, the lowest reaching the block's face near the opening
+		// outside, against the block's face between the way out and its north-west corner, low steps in nested
+		// U shapes (photo references/...-img-4408): each comes out of the wall, swings wide into the street and
+		// back to the wall; the innermost highest, each round it a step lower, the outermost down to the street
 		if ( T.valeSteps ) {
 
 			// (TerrainData shapes the ground under them: VALE_STEPS)
 			const Vs = VALE_STEPS, dx0 = Vs.c[ 0 ] - g.x, dz0 = Vs.c[ 1 ] - g.z, cu = dx0 * tx + dz0 * tz, cv = - ( dx0 * nx + dz0 * nz );
-			const N = Vs.N, yTop = T.valeSteps.top, rise = T.valeSteps.rise;
-			const at = ( r, f ) => [ cu + r * Vs.stretch * Math.cos( f ), cv - r * Math.sin( f ) ];
-			const SEG = 14, F0 = Vs.f0, F1 = Vs.f1;
-			for ( let k = 1; k <= N; k ++ ) {
+			const { top: yTop, rise } = T.valeSteps;
+			const at = ( sk, f ) => [ cu + Vs.ru( sk ) * Math.cos( f ), cv - Vs.rv( sk ) * Math.sin( f ) ];
+			const SEG = 16;
+			for ( let k = 1; k <= Vs.N; k ++ ) {
 
-				const r0 = Vs.r0 + Vs.tread * ( k - 1 ), r1 = r0 + Vs.tread, y = yTop - ( k - 1 ) * rise, foot = Math.min( ground( ...at( r1, 0 ) ), y ) - 0.6;
+				const s0 = k === 1 ? - 1 : k - 1, s1 = k, y = yTop - ( k - 1 ) * rise;
 				for ( let j = 0; j < SEG; j ++ ) {
 
-					const f0 = F0 + ( F1 - F0 ) * j / SEG, f1 = F0 + ( F1 - F0 ) * ( j + 1 ) / SEG;
-					const A = at( r0, f0 ), B = at( r0, f1 ), Cc = at( r1, f1 ), D = at( r1, f0 );
+					const f0 = - Math.PI / 2 + Math.PI * j / SEG, f1 = - Math.PI / 2 + Math.PI * ( j + 1 ) / SEG;
+					const A = at( s0, f0 ), B = at( s0, f1 ), Cc = at( s1, f1 ), D = at( s1, f0 );
+					const foot = Math.min( ground( ...Cc ), ground( ...D ), y ) - 0.5;
+					const uvOf = ( q ) => [ P( ...q )[ 0 ], P( ...q )[ 1 ] ];
 					// the tread (cobbled), its nosing of pale stone along the front, the riser
 					kit.vdata = [ 0.29, 0.6, 0, 0 ];
 					kit.color = lin( [ 0.66, 0.65, 0.62 ] );
-					kit.quadFacing( V3( A[ 0 ], y, A[ 1 ] ), V3( B[ 0 ], y, B[ 1 ] ), V3( Cc[ 0 ], y, Cc[ 1 ] ), V3( D[ 0 ], y, D[ 1 ] ), [ 0, 1, 0 ] );
-					const n0 = at( r1 - 0.1, f0 ), n1 = at( r1 - 0.1, f1 );
+					kit.quadFacing( V3( A[ 0 ], y, A[ 1 ] ), V3( B[ 0 ], y, B[ 1 ] ), V3( Cc[ 0 ], y, Cc[ 1 ] ), V3( D[ 0 ], y, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( A ), uvOf( B ), uvOf( Cc ), uvOf( D ) ] );
+					const n0 = at( s1 - 0.25, f0 ), n1 = at( s1 - 0.25, f1 );
 					kit.color = lin( [ 0.86, 0.84, 0.78 ] );
-					kit.quadFacing( V3( n0[ 0 ], y + 0.005, n0[ 1 ] ), V3( n1[ 0 ], y + 0.005, n1[ 1 ] ), V3( Cc[ 0 ], y + 0.005, Cc[ 1 ] ), V3( D[ 0 ], y + 0.005, D[ 1 ] ), [ 0, 1, 0 ] );
-					const fm = ( f0 + f1 ) / 2, out = [ tx * Math.cos( fm ) * Vs.stretch + nx * Math.sin( fm ), 0, tz * Math.cos( fm ) * Vs.stretch + nz * Math.sin( fm ) ];
-					kit.quadFacing( V3( D[ 0 ], foot, D[ 1 ] ), V3( Cc[ 0 ], foot, Cc[ 1 ] ), V3( Cc[ 0 ], y, Cc[ 1 ] ), V3( D[ 0 ], y, D[ 1 ] ), out );
+					kit.quadFacing( V3( n0[ 0 ], y + 0.005, n0[ 1 ] ), V3( n1[ 0 ], y + 0.005, n1[ 1 ] ), V3( Cc[ 0 ], y + 0.005, Cc[ 1 ] ), V3( D[ 0 ], y + 0.005, D[ 1 ] ), [ 0, 1, 0 ], [ uvOf( n0 ), uvOf( n1 ), uvOf( Cc ), uvOf( D ) ] );
+					const ou = Cc[ 0 ] - D[ 0 ], ov = Cc[ 1 ] - D[ 1 ], out = [ - tx * ov - nx * ou, 0, - tz * ov - nz * ou ]; // (away from the wall)
+					const L = Math.hypot( ou, ov );
+					kit.quadFacing( V3( D[ 0 ], foot, D[ 1 ] ), V3( Cc[ 0 ], foot, Cc[ 1 ] ), V3( Cc[ 0 ], y, Cc[ 1 ] ), V3( D[ 0 ], y, D[ 1 ] ), out, [ [ 0, foot ], [ L, foot ], [ L, y ], [ 0, y ] ] );
 					// walkable, a box under each piece
 					const mu = ( A[ 0 ] + B[ 0 ] + Cc[ 0 ] + D[ 0 ] ) / 4, mv = ( A[ 1 ] + B[ 1 ] + Cc[ 1 ] + D[ 1 ] ) / 4, [ mx, mz ] = P( mu, mv );
-					const [ dx, dz ] = [ P( ...Cc )[ 0 ] - P( ...D )[ 0 ], P( ...Cc )[ 1 ] - P( ...D )[ 1 ] ], len = Math.hypot( dx, dz );
-					this.colliders.addBox( new Vector3( mx, ( y + foot ) / 2, mz ), new Vector3( len / 2 + 0.02, ( y - foot ) / 2, ( r1 - r0 ) * 1.25 / 2 ), Math.atan2( - dz, dx ), { walkable: true, tag: 'stair' } );
+					const [ px, pz ] = P( ...D ), [ qx, qz ] = P( ...Cc ), dx = qx - px, dz = qz - pz, len = Math.hypot( dx, dz );
+					const depth = Math.hypot( ( A[ 0 ] + B[ 0 ] - D[ 0 ] - Cc[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] - D[ 1 ] - Cc[ 1 ] ) / 2 );
+					this.colliders.addBox( new Vector3( mx, ( y + foot ) / 2, mz ), new Vector3( len / 2 + 0.02, ( y - foot ) / 2, depth / 2 ), Math.atan2( - dz, dx ), { walkable: true, tag: 'stair' } );
 
 				}
 
