@@ -1,6 +1,6 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
-import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
+import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
 import { PV_ALLEY } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
@@ -30,6 +30,7 @@ const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high 
 const PV_EAST_FACE = - 48.6; // the tower's east side (the curtain): its face on the void
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
+const segDist = ( x, z, a, b ) => segmentDistance( x, z, a, b )[ 0 ];
 
 // a bar of iron into kit from a to b ([ x, y, z ]), w thick (square in section)
 function ironBar( kit, a, b, w ) {
@@ -3204,6 +3205,9 @@ export class Walls {
 			// only along straight-ish stretches (on a bend the wall's pieces crowd the flight)
 			if ( a.tx * p.tx + a.tz * p.tz < Math.cos( 0.3 ) ) return null;
 			const cx = q.x - q.nx * off, cz = q.z - q.nz * off;
+			// not in or beside the narrow way along the curtain west of Porta da Vila (none in the video: it
+			// would fill the way, or stand in the garden past its wall)
+			for ( let e = 0; e + 1 < PV_ALLEY.length; e ++ ) if ( segDist( cx, cz, PV_ALLEY[ e ], PV_ALLEY[ e + 1 ] ) < 3.5 ) return null;
 			const g = T.heightAt( cx, cz );
 			if ( y - g < 0.12 ) break;
 			// the walk beside the flight must not be lower than the step (a flight rising under the walk)
