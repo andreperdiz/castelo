@@ -28,7 +28,9 @@ const VALE_GATE = [ 97.4, - 37.3 ];
 // the tower there (photos references/...-porta-nordeste-1, -img-4396; OSM has only the curtain's line round
 // it): square, well over the curtain, crenellated; its outer faces 1.4 m out from that line, the Oratório
 // inside it
-const VALE_TOWER = { name: 'Torre da Porta do Vale', extra: 5, pts: [ [ 87.9, - 27.44 ], [ 94.54, - 24.11 ], [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ], [ 85.6, - 32.1 ], [ 87.9, - 27.44 ] ] };
+const VALE_TOWER = { name: 'Torre da Porta do Vale', extra: 5, pts: [ [ 87.9, - 27.44 ], [ 94.54, - 24.11 ], [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ], [ 85.6, - 32.1 ], [ 87.9, - 27.44 ] ],
+	// its north side, towards the house over the gate, is open: the walk climbs onto it there
+	open: [ [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ] ] };
 const VALE_TORREAO = [ [ 86.5, - 29.7 ], [ 93.9, - 26 ], [ 97.9, - 34.2 ], [ 96.3, - 35 ], [ 97.4, - 37.3 ], [ 99.8, - 42.2 ] ];
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end (at the curtain), inner arch,
@@ -158,11 +160,19 @@ export class Walls {
 			let hi = - Infinity;
 			for ( const [ u, v ] of [ [ - R, 1.4 ], [ - R, 7 ], [ 0, 7 ], [ 4.5, 1.4 ], [ 4.5, 7 ] ] ) hi = Math.max( hi, terrain.heightAt( g.x + tx * u - nx * v, g.z + tz * u - nz * v ) );
 			const walk = hi + 7.45 - PARAPET_H - MERLON_H;
+			// and along the house's outer side the walk climbs in steps to the tower's top, its north side open
+			// to it (no parapet there): the way on round the house to the curtain south of it
+			const tower = VALE_TOWER.pts.slice( 0, - 1 ), n = tower.length;
+			const cx = tower.reduce( ( a, q ) => a + q[ 0 ], 0 ) / n, cz = tower.reduce( ( a, q ) => a + q[ 1 ], 0 ) / n;
+			let near = null;
+			for ( const p of samples ) if ( ! near || Math.hypot( p.x - cx, p.z - cz ) < Math.hypot( near.x - cx, near.z - cz ) ) near = p;
+			const towerTop = this.valeTowerTop = Math.round( near.top / STEP_RISE ) * STEP_RISE + VALE_TOWER.extra;
+			const U_TOWER = - 1.2, U_WALK = 8;
 			for ( const p of samples ) {
 
 				const u = ( p.x - g.x ) * tx + ( p.z - g.z ) * tz, v = ( p.x - g.x ) * nx + ( p.z - g.z ) * nz;
-				if ( u < 6.5 || u > 22 || Math.abs( v ) > 4 ) continue;
-				const y = walk - ( walk - p.top ) * clamp01( ( u - 13 ) / 9 ) ** 1.5;
+				if ( u < U_TOWER - 2.5 || u > 22 || Math.abs( v ) > 4 || pointInPolygon( p.x, p.z, tower ) ) continue;
+				const y = u < U_WALK ? towerTop + ( walk - towerTop ) * clamp01( ( u - U_TOWER ) / ( U_WALK - U_TOWER ) ) : walk - ( walk - p.top ) * clamp01( ( u - 13 ) / 9 ) ** 1.5;
 				if ( y > p.top ) {
 
 					p.raised = ( p.raised || 0 ) + y - p.top;
@@ -599,7 +609,7 @@ export class Walls {
 		kit.vdata = [ 0.41, 0.8, 0, 0 ];
 		kit.color = [ 1, 1, 1 ];
 		mass( uW, U2, V2, V2 + TH, base, S ); // west
-		mass( uW, U2, V0 - 0.6, V0, walk - 0.2, S ); // east, over the curtain's walk
+		if ( walk - 0.2 < S ) mass( uW, U2, V0 - 0.6, V0, walk - 0.2, S ); // east, over the curtain's walk (it climbs past S to the tower)
 		// the chapel's wall, round its opening
 		mass( uW, - R, V0, V2 + TH, base, yF );
 		mass( uW, - R, V0, VM - hwC, yF, S );
@@ -3660,8 +3670,10 @@ export class Walls {
 			base -= FOOT;
 			const walkY = near ? near.p.y : T.heightAt( cx, cz ) + 6;
 			const extra = TALL[ t.name ] ?? ( t.name === 'torreão' ? 3 : 0 );
-			const top = walkY + extra;
+			const top = t === VALE_TOWER && this.valeTowerTop !== undefined ? this.valeTowerTop : walkY + extra;
 			const walkable = extra === 0;
+			const isOpen = ( q ) => t.open && t.open.some( ( o ) => Math.hypot( o[ 0 ] - q[ 0 ], o[ 1 ] - q[ 1 ] ) < 1e-6 );
+			const openEdge = ( a, b ) => isOpen( a ) && isOpen( b );
 			kit.vdata = [ 0.13 + cx * 0.01, 0.9, 0, 0 ];
 			kit.color = [ 1, 0.8, 0.53 ];
 			// sides
@@ -3675,7 +3687,7 @@ export class Walls {
 				const sgn = pointInPolygon( ( a[ 0 ] + b[ 0 ] ) / 2 + nOut[ 0 ] * 0.3, ( a[ 1 ] + b[ 1 ] ) / 2 + nOut[ 2 ] * 0.3, poly ) ? - 1 : 1;
 				const nn = [ nOut[ 0 ] * sgn, 0, nOut[ 2 ] * sgn ];
 				const mx = ( a[ 0 ] + b[ 0 ] ) / 2, mz = ( a[ 1 ] + b[ 1 ] ) / 2;
-				const onWalk = walkable && near && this._nearestWalk( mx, mz, 1.6 );
+				const onWalk = walkable && near && this._nearestWalk( mx, mz, 1.6 ) || openEdge( a, b );
 				const yTop = top + ( onWalk ? 0 : PARAPET_H );
 				kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ b[ 0 ], base, b[ 1 ] ], [ b[ 0 ], yTop, b[ 1 ] ], [ a[ 0 ], yTop, a[ 1 ] ], nn,
 					[ [ u, base ], [ u + L, base ], [ u + L, yTop ], [ u, yTop ] ] );
@@ -3715,7 +3727,7 @@ export class Walls {
 
 				const a = poly[ i ], b = poly[ ( i + 1 ) % poly.length ];
 				const mx = ( a[ 0 ] + b[ 0 ] ) / 2, mz = ( a[ 1 ] + b[ 1 ] ) / 2;
-				if ( walkable && near && this._nearestWalk( mx, mz, 1.6 ) ) continue;
+				if ( walkable && near && this._nearestWalk( mx, mz, 1.6 ) || openEdge( a, b ) ) continue;
 				const L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
 				const ins = [ - ( b[ 1 ] - a[ 1 ] ) / L, ( b[ 0 ] - a[ 0 ] ) / L ];
 				const sgn = pointInPolygon( mx + ins[ 0 ] * 0.3, mz + ins[ 1 ] * 0.3, poly ) ? 1 : - 1;

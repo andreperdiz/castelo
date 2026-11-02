@@ -114,6 +114,18 @@ check( ok && P.position.y > pe.surf( pe.ST ), `walked in through Porta Este and 
 	// straight on from the arch is the passage's back wall
 	if ( g ) P.placeAt( 95.5, T.heightAt( 95.5, - 38.2 ) + 0.2, - 38.2 );
 	check( g && ! walkTo( 88, - 41.8, 6 ), `the passage's back wall stops you going straight on (${ P.position.x.toFixed( 1 ) })` );
+	// and on the curtain north of it, along the walk past the house over it, up onto the tower's top
+	const run = W.curtain.samples.filter( ( q ) => q.z < - 35.6 && q.z > - 50 && q.x > 96 ).sort( ( a, b ) => a.z - b.z );
+	ok = run.length > 5 && W.valeTowerTop !== undefined;
+	if ( ok ) {
+
+		P.placeAt( run[ 0 ].x - run[ 0 ].nx * 0.3, run[ 0 ].y + 0.2, run[ 0 ].z - run[ 0 ].nz * 0.3 );
+		for ( const q of run ) if ( ok ) ok = walkTo( q.x - q.nx * 0.3, q.z - q.nz * 0.3, 5, 0.4 );
+		ok = ok && walkTo( 95, - 31, 6, 0.6 ) && Math.abs( P.position.y - W.valeTowerTop ) < 0.3;
+
+	}
+
+	check( ok, `along the walk past Porta do Vale's house onto its tower (y ${ P.position.y.toFixed( 1 ) } of ${ W.valeTowerTop?.toFixed( 1 ) })` );
 
 }
 
