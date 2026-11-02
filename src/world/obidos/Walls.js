@@ -715,6 +715,58 @@ export class Walls {
 
 		} );
 
+		// across the setts, every 1.6 m or so, a band of bigger pale stones where the lane steps up, on along
+		// the curtain past its end too (photo references/...-escadasmuralha2-1); a few cm proud of the ground
+		const bands = [];
+		let walked = 0, next = 0.8;
+		const band = ( x, z, yaw, w ) => {
+
+			// (in stones of 30-50 cm across, each following the ground)
+			const cx = Math.sin( yaw ), cz = Math.cos( yaw ), ax = Math.cos( yaw ), az = - Math.sin( yaw ); // across, along
+			for ( let d = - w / 2; d < w / 2 - 0.1; ) {
+
+				const len = Math.min( 0.3 + ( ( bands.length * 7 ) % 5 ) * 0.05, w / 2 - d ), c = d + len / 2;
+				const jog = ( ( bands.length * 3 ) % 5 - 2 ) * 0.02; // (not quite in line)
+				const px = x + cx * c + ax * jog, pz = z + cz * c + az * jog;
+				let hi = - Infinity, lo = Infinity;
+				for ( const s of [ - 0.5, 0.5 ] ) for ( const t of [ - 0.17, 0.17 ] ) {
+
+					const g = T.heightAt( px + cx * len * s + ax * t, pz + cz * len * s + az * t );
+					hi = Math.max( hi, g ); lo = Math.min( lo, g );
+
+				}
+
+				bands.push( { x: px, z: pz, yaw, w: len - 0.03, top: hi + 0.03, bottom: lo - 0.12 } );
+				d += len;
+
+			}
+
+		};
+		for ( let i = 1; i < steps.length; i ++ ) {
+
+			const a = steps[ i - 1 ], b = steps[ i ], d = Math.hypot( b.x - a.x, b.z - a.z );
+			while ( walked + d >= next ) {
+
+				const f = ( next - walked ) / d;
+				band( a.x + ( b.x - a.x ) * f, a.z + ( b.z - a.z ) * f, b.yaw, width + 0.6 );
+				next += 1.5 + ( bands.length % 3 ) * 0.15;
+
+			}
+
+			walked += d;
+
+		}
+
+		const last = steps[ steps.length - 1 ];
+		for ( let d = 1.6; d < 9; d += 1.6 ) band( last.x + curtain.dx * d, last.z + curtain.dz * d, last.yaw, width + 1.2 );
+		kit.color = [ 1.1, 1.08, 1.03 ];
+		for ( const [ i, b ] of bands.entries() ) {
+
+			kit.vdata = [ 0.37 + i * 0.13, 0.6, 0, 0 ];
+			kit.box( b.x, ( b.top + b.bottom ) / 2, b.z, 0.34, b.top - b.bottom, b.w, b.yaw, 'bottom' );
+
+		}
+
 		this.lane = steps;
 		this.laneNorth = { corner, north, width }; // its first leg, for the Casa da Música's terrace beside it
 		// houses keep 2.5 m back from the lane's outer edge (the steps run up it, the tower to their right)
