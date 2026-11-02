@@ -29,8 +29,9 @@ const VALE_GATE = [ 97.4, - 37.3 ];
 // it): square, well over the curtain, crenellated; its outer faces 1.4 m out from that line, the Oratório
 // inside it
 const VALE_TOWER = { name: 'Torre da Porta do Vale', extra: 5, pts: [ [ 87.9, - 27.44 ], [ 94.54, - 24.11 ], [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ], [ 85.6, - 32.1 ], [ 87.9, - 27.44 ] ],
-	// its north side, towards the house over the gate, is open: the walk climbs onto it there
-	open: [ [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ] ] };
+	// its north side, towards the house over the gate, is open: the walk climbs onto it there; and its west
+	// side, where the curtain from the south comes up level with it
+	open: [ [ 99.78, - 34.82 ], [ 98.09, - 35.67 ], [ 96.3, - 35 ], [ 93.9, - 34.2 ], [ 87.9, - 35.8 ], null, [ 85.6, - 32.1 ], [ 87.9, - 27.44 ] ] };
 const VALE_TORREAO = [ [ 86.5, - 29.7 ], [ 93.9, - 26 ], [ 97.9, - 34.2 ], [ 96.3, - 35 ], [ 97.4, - 37.3 ], [ 99.8, - 42.2 ] ];
 const FOOT = 2.0; // the faces go this far below the ground
 // Porta da Vila's town and west walls (after OSM way 475653576): east end (at the curtain), inner arch,
@@ -173,6 +174,23 @@ export class Walls {
 				const u = ( p.x - g.x ) * tx + ( p.z - g.z ) * tz, v = ( p.x - g.x ) * nx + ( p.z - g.z ) * nz;
 				if ( u < U_TOWER - 2.5 || u > 22 || Math.abs( v ) > 4 || pointInPolygon( p.x, p.z, tower ) ) continue;
 				const y = u < U_WALK ? towerTop + ( walk - towerTop ) * clamp01( ( u - U_TOWER ) / ( U_WALK - U_TOWER ) ) : walk - ( walk - p.top ) * clamp01( ( u - 13 ) / 9 ) ** 1.5;
+				if ( y > p.top ) {
+
+					p.raised = ( p.raised || 0 ) + y - p.top;
+					p.top = y;
+
+				}
+
+			}
+
+			// the curtain coming up from the south reaches the tower's west side as high as its top, climbing
+			// to it over the last 24 m
+			const Z_TOWER = - 30.3;
+			for ( const p of samples ) {
+
+				const d = p.z - Z_TOWER;
+				if ( Math.abs( p.x - 86.5 ) > 2 || d < 0 || d > 26 || pointInPolygon( p.x, p.z, tower ) ) continue;
+				const y = towerTop - ( towerTop - p.top ) * clamp01( ( d - 2 ) / 22 );
 				if ( y > p.top ) {
 
 					p.raised = ( p.raised || 0 ) + y - p.top;
@@ -3672,8 +3690,14 @@ export class Walls {
 			const extra = TALL[ t.name ] ?? ( t.name === 'torreão' ? 3 : 0 );
 			const top = t === VALE_TOWER && this.valeTowerTop !== undefined ? this.valeTowerTop : walkY + extra;
 			const walkable = extra === 0;
-			const isOpen = ( q ) => t.open && t.open.some( ( o ) => Math.hypot( o[ 0 ] - q[ 0 ], o[ 1 ] - q[ 1 ] ) < 1e-6 );
-			const openEdge = ( a, b ) => isOpen( a ) && isOpen( b );
+			// (open: runs of corners, null between runs; an edge between two corners next in a run is open)
+			const at = ( q ) => t.open ? t.open.findIndex( ( o ) => o && Math.hypot( o[ 0 ] - q[ 0 ], o[ 1 ] - q[ 1 ] ) < 1e-6 ) : - 1;
+			const openEdge = ( a, b ) => {
+
+				const i = at( a ), j = at( b );
+				return i >= 0 && j >= 0 && Math.abs( i - j ) === 1;
+
+			};
 			kit.vdata = [ 0.13 + cx * 0.01, 0.9, 0, 0 ];
 			kit.color = [ 1, 0.8, 0.53 ];
 			// sides
