@@ -705,13 +705,27 @@ export class Walls {
 
 		}
 
-		kit.vdata = [ 0.29, 0.6, 0, 0 ];
-		kit.color = [ 1.06, 1.05, 1.02 ]; // pale limestone
-		steps.forEach( ( st ) => {
+		// each step a kerb of grey stone along its front and setts behind it (the video references/IMG_4350):
+		// the step's block grey, and over its top, behind the kerb, the masonry drawn small, as setts (its
+		// stones 44 x 19 cm, so the uvs scaled to make them about 10 cm square); the sloping path's low
+		// slabs have no kerb
+		const KERB = 0.26;
+		steps.forEach( ( st, i ) => {
 
 			const bottom = st.g - 0.6, h = st.y - bottom;
+			kit.vdata = [ 0.29 + i * 0.07, 0.7, 0, 0 ];
+			kit.color = [ 0.74, 0.73, 0.7 ];
 			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, width, st.yaw, 'bottom' );
 			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, width / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+			const kerb = i > 0 && st.y - steps[ i - 1 ].y > 0.05 && st.len > KERB + 0.15 ? KERB : 0;
+			const ax = Math.cos( st.yaw ), az = - Math.sin( st.yaw ), cx = Math.sin( st.yaw ), cz = Math.cos( st.yaw );
+			const at = ( u, w ) => [ st.x + ax * u + cx * w, st.y + 0.004, st.z + az * u + cz * w ];
+			const u0 = - st.len / 2 - 0.01 + kerb, u1 = st.len / 2 + 0.01, w0 = - width / 2, w1 = width / 2;
+			const uv = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 4.4, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.9 ];
+			const A = at( u0, w0 ), B = at( u1, w0 ), C = at( u1, w1 ), D = at( u0, w1 );
+			kit.vdata = [ 0.83, 0.9, 0, 0 ];
+			kit.color = [ 1.12, 1.11, 1.06 ];
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ uv( A ), uv( B ), uv( C ), uv( D ) ] );
 
 		} );
 
@@ -725,9 +739,8 @@ export class Walls {
 			const cx = Math.sin( yaw ), cz = Math.cos( yaw ), ax = Math.cos( yaw ), az = - Math.sin( yaw ); // across, along
 			for ( let d = - w / 2; d < w / 2 - 0.1; ) {
 
-				const len = Math.min( 0.3 + ( ( bands.length * 7 ) % 5 ) * 0.05, w / 2 - d ), c = d + len / 2;
-				const jog = ( ( bands.length * 3 ) % 5 - 2 ) * 0.02; // (not quite in line)
-				const px = x + cx * c + ax * jog, pz = z + cz * c + az * jog;
+				const len = Math.min( 0.7 + ( ( bands.length * 7 ) % 5 ) * 0.08, w / 2 - d ), c = d + len / 2;
+				const px = x + cx * c, pz = z + cz * c;
 				let hi = - Infinity, lo = Infinity;
 				for ( const s of [ - 0.5, 0.5 ] ) for ( const t of [ - 0.17, 0.17 ] ) {
 
@@ -736,7 +749,10 @@ export class Walls {
 
 				}
 
-				bands.push( { x: px, z: pz, yaw, w: len - 0.03, top: hi + 0.03, bottom: lo - 0.12 } );
+				// (not where the lane's own steps are at or above the ground: they have kerbs of their own)
+				let st = steps[ 0 ];
+				for ( const q of steps ) if ( Math.hypot( q.x - px, q.z - pz ) < Math.hypot( st.x - px, st.z - pz ) ) st = q;
+				if ( st.y < hi - 0.04 || Math.hypot( st.x - px, st.z - pz ) > width / 2 + st.len / 2 + 0.3 ) bands.push( { x: px, z: pz, yaw, w: len - 0.015, top: hi + 0.03, bottom: lo - 0.12 } );
 				d += len;
 
 			}

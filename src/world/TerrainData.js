@@ -110,6 +110,7 @@ export class TerrainData {
 		this._beneficiado();
 		this._misericordia();
 		this._escadariaBiblioteca();
+		this._pvLaneLevel();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -1241,6 +1242,33 @@ export class TerrainData {
 
 	}
 
+	// the lane up beside Porta da Vila's flight, from its corner to the curtain and along it: level across
+	// (as high as its middle), so its steps sit on the ground all the way across rather than poking out of
+	// a slope that leans sideways (the video references/IMG_4350: kerbs across a cobbled way)
+	_pvLaneLevel() {
+
+		const C = [ [ - 66.1, 218.3 ], [ - 66.8, 230.8 ], [ - 69, 231.0 ], [ - 74.5, 230.6 ] ], { heights } = this;
+		// the middle's heights first, before any of it changes
+		const mid = C.slice( 0, - 1 ).map( ( a, s ) => {
+
+			const b = C[ s + 1 ], out = [];
+			for ( let k = 0; k <= 40; k ++ ) out.push( this.heightAt( a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * k / 40, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * k / 40 ) );
+			return out;
+
+		} );
+		const best = new Map();
+		for ( let s = 0; s + 1 < C.length; s ++ ) this._stroke( [ C[ s ], C[ s + 1 ] ], 1.9, 1.0, ( k, w ) => {
+
+			const { res, texel, origin } = this;
+			const [ , t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, C[ s ], C[ s + 1 ] );
+			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i );
+			if ( ! best.has( k ) || best.get( k ).w < w ) best.set( k, { w, y } );
+
+		} );
+		for ( const [ k, { w, y } ] of best ) heights[ k ] = lerp( heights[ k ], y, w );
+
+	}
+
 	// grass between the setts at the foot of Porta da Vila's flight and of the curtain west of it (photo
 	// references/...-escadasmuralha2-1): the scrub mask full there, which on paving in the town the shader
 	// reads as weeds in the joints (nowhere else in the town's paving does it reach that high)
@@ -1248,6 +1276,13 @@ export class TerrainData {
 
 		const gully = this.gully;
 		this._stroke( [ [ - 65.0, 221.5 ], [ - 65.4, 231.0 ], [ - 66, 232.4 ], [ - 77, 231.6 ] ], 0.7, 0.6, ( k, t ) => {
+
+			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * t ) );
+
+		} );
+		// and all over the open stretch where the lane comes up to the curtain and turns along it (the video
+		// references/IMG_4350)
+		this._stroke( [ [ - 66.3, 222.5 ], [ - 66.8, 230.5 ], [ - 69, 231 ], [ - 77, 231.2 ] ], 1.8, 1.0, ( k, t ) => {
 
 			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * t ) );
 
