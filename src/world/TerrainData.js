@@ -39,6 +39,9 @@ export const PV_PRACETA = [ [ - 55, 196.2 ], [ - 47.6, 195.7 ], [ - 49.5, 213.8 
 export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 47.8, 223.6 ], [ - 43.4, 215.4 ], [ - 45, 213.4 ], [ - 52.6, 213.4 ], [ - 53.6, 223.2 ] ];
 // the lane on the right of the small square, from its wall to the houses' fronts, down to the crossing
 export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ], [ - 42.5, 208.7 ], [ - 41, 197.9 ], [ - 40.4, 191 ], [ - 47.3, 191 ], [ - 47.2, 195.8 ], [ - 49.3, 213.6 ] ];
+// the narrow way on from the lane by Porta da Vila's flight (the video references/IMG_4350): along the
+// curtain south-west between it and a garden wall, then right between two gardens' walls; its middle
+export const PV_ALLEY = [ [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ], [ - 94.6, 235.7 ], [ - 101.5, 231.4 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
 // Rua Dom João de Ornelas, going down from the square outside the gate toward the walls' east side
 // (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
@@ -1166,6 +1169,14 @@ export class TerrainData {
 		// the square outside Porta da Vila, the floor of its tower and the small square inside: setts (town ground + paved), as in the photos
 		for ( const poly of [ PORTA_DA_VILA_SQUARE, PORTA_DA_VILA_TOWER, PV_FORK, PV_LANE ] ) this._fill( poly, ( k ) => {
 
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
+		// the narrow way on from it, setts from wall to wall
+		this._stroke( PV_ALLEY, 1.3, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
 			path[ k ] = 255;
 			this.scarp[ k ] = 255;
 

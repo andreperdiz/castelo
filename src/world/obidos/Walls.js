@@ -1,6 +1,7 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
+import { PV_ALLEY } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -163,6 +164,7 @@ export class Walls {
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
+		this._pvAlley( materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
 		mesh.name = 'walls';
@@ -196,6 +198,85 @@ export class Walls {
 		// and a low guard wall along their town side (the void's side has the crenellated parapet)
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: () => 'low', lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE, capStart: false } ); // (its east end runs into the curtain's corner)
 		this.portaDaVila.gates = [ outerGate, inner ];
+
+	}
+
+	// The narrow way on from the lane by Porta da Vila's flight (the video references/IMG_4350, after OSM's
+	// garden walls 299071660 and 299071694): south-west along the curtain between it and a garden's wall,
+	// then right between two gardens' walls; whitewashed, a yellow barra along their foot, the gardens'
+	// trees leaning over, low kerbs of grey stone across the setts where it steps up
+	_pvAlley( materials ) {
+
+		const T = this.terrain, kit = this.kit, plaster = new MeshKit();
+		const H = 3.4, TH = 0.4;
+		// a wall along pts, H over the ground, its barra following the ground
+		const wall = ( pts, seed ) => {
+
+			for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+				const a = pts[ i ], c = pts[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+				const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L, nx = - uz, nz = ux;
+				// (each piece runs on past its ends by half the wall's thickness, closing the corners)
+				const A = [ a[ 0 ] - ux * TH / 2, a[ 1 ] - uz * TH / 2 ], C = [ c[ 0 ] + ux * TH / 2, c[ 1 ] + uz * TH / 2 ];
+				const ga = T.heightAt( ...a ), gc = T.heightAt( ...c ), base = Math.min( ga, gc ) - 0.6, ta = ga + H, tc = gc + H;
+				// (the seed picks the barra's height: about 0.65 m, as in the video)
+				plaster.vdata = [ L + TH, 1, ( seed + i * 3 ) / 13.7 + 0.015, 0 ];
+				plaster.color = lin( [ 0.76, 0.6, 0.27 ] );
+				for ( const s of [ - 1, 1 ] ) {
+
+					const o = s * TH / 2, P = ( q, y ) => [ q[ 0 ] + nx * o, y, q[ 1 ] + nz * o ];
+					plaster.quadFacing( P( A, base ), P( C, base ), P( C, tc ), P( A, ta ), [ nx * s, 0, nz * s ],
+						[ [ 0, base - ga ], [ L + TH, base - gc ], [ L + TH, H ], [ 0, H ] ] );
+
+				}
+
+				const Q = ( q, o, y ) => [ q[ 0 ] + nx * o, y, q[ 1 ] + nz * o ];
+				plaster.quadFacing( Q( A, - TH / 2, ta ), Q( C, - TH / 2, tc ), Q( C, TH / 2, tc ), Q( A, TH / 2, ta ), [ 0, 1, 0 ] );
+				if ( i === 0 ) plaster.quadFacing( Q( A, - TH / 2, base ), Q( A, TH / 2, base ), Q( A, TH / 2, ta ), Q( A, - TH / 2, ta ), [ - ux, 0, - uz ] );
+				if ( i === pts.length - 2 ) plaster.quadFacing( Q( C, - TH / 2, base ), Q( C, TH / 2, base ), Q( C, TH / 2, tc ), Q( C, - TH / 2, tc ), [ ux, 0, uz ] );
+				const top = Math.max( ta, tc );
+				this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2, ( top + base ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 ), new Vector3( ( L + TH ) / 2, ( top - base ) / 2, TH / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
+
+			}
+
+		};
+		// the garden on the right going up (its wall a little in from OSM's line, which leaves the way along
+		// the curtain too narrow), and the one on the left past the turn, its wall from the curtain
+		wall( [ [ - 75.6, 232.3 ], [ - 76.7, 233.6 ], [ - 84.1, 238.2 ], [ - 89.6, 235.9 ], [ - 95.0, 233.3 ], [ - 102.6, 227.5 ] ], 17 );
+		wall( [ [ - 82.3, 242.9 ], [ - 98.6, 236.4 ] ], 41 );
+		this.extraTrees = this.extraTrees || [];
+		for ( const [ x, z, kind, scale ] of [ [ - 80.2, 231.4, 'garden', 0.9 ], [ - 86.4, 234.2, 'olive', 0.85 ], [ - 92.3, 231.2, 'garden', 1.0 ], [ - 98.6, 228.4, 'garden', 0.85 ], [ - 88.5, 243.6, 'garden', 0.95 ], [ - 95.2, 240.6, 'olive', 0.8 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+
+		// the kerbs, every 1.9 m along the way, each one long stone, level; narrower along the curtain
+		kit.color = [ 0.74, 0.73, 0.7 ];
+		let walked = 0, next = 1.2, n = 0;
+		for ( let i = 0; i + 1 < PV_ALLEY.length; i ++ ) {
+
+			const a = PV_ALLEY[ i ], c = PV_ALLEY[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+			const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L, yaw = Math.atan2( - uz, ux ), w = i < 2 ? 1.5 : 2.9;
+			for ( ; next < walked + L; next += 1.9 ) {
+
+				const d = next - walked, x = a[ 0 ] + ux * d, z = a[ 1 ] + uz * d;
+				// (its top a few cm over the ground in front of it, at its middle)
+				const top = T.heightAt( x - ux * 0.15, z - uz * 0.15 ) + 0.07;
+				let lo = Infinity;
+				for ( const r of [ - 1, 0, 1 ] ) lo = Math.min( lo, T.heightAt( x - uz * w / 2 * r, z + ux * w / 2 * r ) );
+				kit.vdata = [ 0.53 + n * 0.11, 0.7, 0, 0 ];
+				kit.box( x, ( top + lo - 0.2 ) / 2, z, 0.24, top - lo + 0.2, w, yaw, 'bottom' );
+				n ++;
+
+			}
+
+			walked += L;
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'pv-alley';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
 
 	}
 
@@ -729,8 +810,8 @@ export class Walls {
 
 		} );
 
-		// across the setts, every 1.6 m or so, a band of bigger pale stones where the lane steps up, on along
-		// the curtain past its end too (photo references/...-escadasmuralha2-1); a few cm proud of the ground
+		// across the setts, every 1.6 m or so, a band of bigger pale stones where the lane steps up (photo
+		// references/...-escadasmuralha2-1); a few cm proud of the ground
 		const bands = [];
 		let walked = 0, next = 0.8;
 		const band = ( x, z, yaw, w ) => {
@@ -773,8 +854,6 @@ export class Walls {
 
 		}
 
-		const last = steps[ steps.length - 1 ];
-		for ( let d = 1.6; d < 9; d += 1.6 ) band( last.x + curtain.dx * d, last.z + curtain.dz * d, last.yaw, width + 1.2 );
 		kit.color = [ 1.1, 1.08, 1.03 ];
 		for ( const [ i, b ] of bands.entries() ) {
 
