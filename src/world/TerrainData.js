@@ -113,6 +113,7 @@ export class TerrainData {
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
+		this._weeds();
 		mark( 'masks' );
 		this.buildMinMax();
 		mark( 'minmax' );
@@ -1237,6 +1238,20 @@ export class TerrainData {
 			} );
 
 		}
+
+	}
+
+	// grass between the setts at the foot of Porta da Vila's flight and of the curtain west of it (photo
+	// references/...-escadasmuralha2-1): the scrub mask full there, which on paving in the town the shader
+	// reads as weeds in the joints (nowhere else in the town's paving does it reach that high)
+	_weeds() {
+
+		const gully = this.gully;
+		this._stroke( [ [ - 65.0, 221.5 ], [ - 65.4, 231.0 ], [ - 66, 232.4 ], [ - 77, 231.6 ] ], 0.7, 0.6, ( k, t ) => {
+
+			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * t ) );
+
+		} );
 
 	}
 
