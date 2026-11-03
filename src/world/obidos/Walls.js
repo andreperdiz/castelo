@@ -804,6 +804,7 @@ export class Walls {
 		// landing level with the Casa da Música's terrace, where its gateway opens, their treads all alike but
 		// the first's, whose front runs on the diagonal (further down on the flight's side); then even steps
 		// on to the corner's landing
+		const KERB = 0.26; // the kerb along a step's front
 		const casa = this.casaOutline = this._casaOutline( { corner, north, width } ), yT = casa.yT;
 		const sAt = ( x ) => ( x - corner[ 0 ] ) / north.dx; // up the leg from the corner (below it, negative)
 		const block = ( p, l, len, yy, w = width ) => {
@@ -831,9 +832,12 @@ export class Walls {
 		// (five, then the corner's landing and the diagonal step: six; their treads tilted up with the climb,
 		// half of each rise in the tread, so the risers stay low)
 		const N2 = 5, t2 = ( - width / 2 - sL1 ) / N2;
-		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / ( N2 + 0.5 ); // (the corner's landing a half rise over the last)
+		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / N2;
 		for ( let k = 1; k <= N2; k ++ ) block( at( corner, north, sL1 + ( k - 0.5 ) * t2 ), north, t2, yT + rise2 * ( k - 0.5 ) ).slope = rise2 / 2;
-		block( corner, west, width, yC ); // the corner's landing
+		// the corner's landing tilted on at the treads' tilt from the last step's back, with no riser between
+		const tilt = rise2 / 2 / ( t2 - KERB ), yL = yT + rise2 * N2;
+		block( corner, north, width, yL ).slope = Math.min( 0.35, tilt * width );
+		y = yL + Math.min( 0.35, tilt * width );
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
 		// the ground; by the curtain they turn round to it in a fan, then go on along it
@@ -886,7 +890,6 @@ export class Walls {
 		// the step's block grey, and over its top, behind the kerb, the masonry drawn small, as setts (its
 		// stones 44 x 19 cm, so the uvs scaled to make them about 10 cm square); the sloping path's low
 		// slabs have no kerb
-		const KERB = 0.26;
 		steps.forEach( ( st, i ) => {
 
 			const bottom = st.g - 0.6, h = st.y - bottom, sw = st.w ?? width, slope = st.slope ?? 0;
