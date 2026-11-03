@@ -820,7 +820,13 @@ export class Walls {
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
 		// the ground; by the curtain they turn round to it in a fan, then go on along it
-		const LEG2 = 2.2, PATTERN2 = [ 0.9, 0.75, 1.0 ];
+		// (its strip 80 cm wide, near the flight's side: 30 cm of setts between them; round the turn it runs
+		// along the curtain with a bank of setts between it and the curtain, as drawn on the screenshot)
+		const LEG2 = 0.8, PATTERN2 = [ 0.9, 0.75, 1.0 ];
+		const shift = ( l, nx, nz, d ) => ( { a: [ l.a[ 0 ] + nx * d, l.a[ 1 ] + nz * d ], dx: l.dx, dz: l.dz } );
+		const leg = shift( west, west.dz, - west.dx, width / 2 - LEG2 / 2 - 0.3 ); // toward the flight (east)
+		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
+		const turn2 = meet( leg, along );
 		let k2 = 0;
 		const flight2 = ( from, l, length ) => {
 
@@ -833,21 +839,21 @@ export class Walls {
 			}
 
 		};
-		const FAN = 1.3;
-		flight2( at( corner, west, width / 2 ), west, ( turn[ 1 ] - corner[ 1 ] ) / west.dz - width / 2 - FAN * 1.5 );
+		const FAN = 0.7, start = meet( leg, shift( north, north.dz, - north.dx, width / 2 ) ); // (from the corner step's far side)
+		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
 		// (three steps, each turned a little further, the middle one on the turn)
-		const a0 = Math.atan2( west.dz, west.dx );
-		let da = Math.atan2( curtain.dz, curtain.dx ) - a0;
+		const a0 = Math.atan2( leg.dz, leg.dx );
+		let da = Math.atan2( along.dz, along.dx ) - a0;
 		while ( da > Math.PI ) da -= 2 * Math.PI;
 		while ( da < - Math.PI ) da += 2 * Math.PI;
-		for ( const [ f, p ] of [ [ 0.2, at( turn, west, - FAN ) ], [ 0.5, turn ], [ 0.8, at( turn, curtain, FAN ) ] ] ) {
+		for ( const [ f, p ] of [ [ 0.2, at( turn2, leg, - FAN ) ], [ 0.5, turn2 ], [ 0.8, at( turn2, along, FAN ) ] ] ) {
 
 			const a = a0 + da * f;
-			put( p, { dx: Math.cos( a ), dz: Math.sin( a ) }, FAN, [ 0.06, 0.24 ], LEG2 + 0.6 );
+			put( p, { dx: Math.cos( a ), dz: Math.sin( a ) }, FAN, [ 0.06, 0.24 ], LEG2 + 0.2 );
 
 		}
 
-		flight2( at( turn, curtain, FAN * 1.5 ), curtain, 5 );
+		flight2( at( turn2, along, FAN * 1.5 ), along, 5 );
 
 		// a landing level with the Casa da Música's terrace where you step onto it, part way up the first
 		// leg: the steps it covers become one, the steps below climb to it in even rises, those above ease back
@@ -901,58 +907,6 @@ export class Walls {
 			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ uv( A ), uv( B ), uv( C ), uv( D ) ] );
 
 		} );
-
-		// across the setts, every 1.6 m or so, a band of bigger pale stones where the lane steps up (photo
-		// references/...-escadasmuralha2-1); a few cm proud of the ground
-		const bands = [];
-		let walked = 0, next = 0.8;
-		const band = ( x, z, yaw, w ) => {
-
-			// (in stones of 30-50 cm across, each following the ground)
-			const cx = Math.sin( yaw ), cz = Math.cos( yaw ), ax = Math.cos( yaw ), az = - Math.sin( yaw ); // across, along
-			for ( let d = - w / 2; d < w / 2 - 0.1; ) {
-
-				const len = Math.min( 0.7 + ( ( bands.length * 7 ) % 5 ) * 0.08, w / 2 - d ), c = d + len / 2;
-				const px = x + cx * c, pz = z + cz * c;
-				let hi = - Infinity, lo = Infinity;
-				for ( const s of [ - 0.5, 0.5 ] ) for ( const t of [ - 0.17, 0.17 ] ) {
-
-					const g = T.heightAt( px + cx * len * s + ax * t, pz + cz * len * s + az * t );
-					hi = Math.max( hi, g ); lo = Math.min( lo, g );
-
-				}
-
-				// (not where the lane's own steps are at or above the ground: they have kerbs of their own)
-				let st = steps[ 0 ];
-				for ( const q of steps ) if ( Math.hypot( q.x - px, q.z - pz ) < Math.hypot( st.x - px, st.z - pz ) ) st = q;
-				if ( st.y < hi - 0.04 || Math.hypot( st.x - px, st.z - pz ) > width / 2 + st.len / 2 + 0.3 ) bands.push( { x: px, z: pz, yaw, w: len - 0.015, top: hi + 0.03, bottom: lo - 0.12 } );
-				d += len;
-
-			}
-
-		};
-		for ( let i = 1; i < steps.length; i ++ ) {
-
-			const a = steps[ i - 1 ], b = steps[ i ], d = Math.hypot( b.x - a.x, b.z - a.z );
-			while ( walked + d >= next ) {
-
-				const f = ( next - walked ) / d;
-				band( a.x + ( b.x - a.x ) * f, a.z + ( b.z - a.z ) * f, b.yaw, width + 0.6 );
-				next += 1.5 + ( bands.length % 3 ) * 0.15;
-
-			}
-
-			walked += d;
-
-		}
-
-		kit.color = [ 1.1, 1.08, 1.03 ];
-		for ( const [ i, b ] of bands.entries() ) {
-
-			kit.vdata = [ 0.37 + i * 0.13, 0.6, 0, 0 ];
-			kit.box( b.x, ( b.top + b.bottom ) / 2, b.z, 0.34, b.top - b.bottom, b.w, b.yaw, 'bottom' );
-
-		}
 
 		this.lane = steps;
 		this.laneNorth = { corner, north, width }; // its first leg, for the Casa da Música's terrace beside it
