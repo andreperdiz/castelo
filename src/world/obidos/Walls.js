@@ -831,13 +831,16 @@ export class Walls {
 		this.laneGate = block( at( corner, north, ( sL0 + sL1 ) / 2 ), north, sL1 - sL0, yT );
 		// (five, then the corner's landing and the diagonal step: six; their treads tilted up with the climb,
 		// half of each rise in the tread, so the risers stay low)
-		const N2 = 5, t2 = ( - width / 2 - sL1 ) / N2;
+		// (spread up to just short of the diagonal step's front, which crosses the lane's middle at the corner)
+		const N2 = 5, sEnd = - 0.6, t2 = ( sEnd - sL1 ) / N2;
 		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / N2;
 		for ( let k = 1; k <= N2; k ++ ) block( at( corner, north, sL1 + ( k - 0.5 ) * t2 ), north, t2, yT + rise2 * ( k - 0.5 ) ).slope = rise2 / 2;
 		// the corner's landing tilted on at the treads' tilt from the last step's back, with no riser between
-		const tilt = rise2 / 2 / ( t2 - KERB ), yL = yT + rise2 * N2;
-		block( corner, north, width, yL ).slope = Math.min( 0.35, tilt * width );
-		y = yL + Math.min( 0.35, tilt * width );
+		const tilt = rise2 / 2 / ( t2 - KERB ), yL = yT + rise2 * N2, cl = width / 2 - sEnd, cSlope = Math.min( 0.3, tilt * cl );
+		block( at( corner, north, ( sEnd + width / 2 ) / 2 ), north, cl, yL ).slope = cSlope;
+		y = yL + cSlope;
+		// (its top at p)
+		const landingY = ( p ) => yL + cSlope * clamp01( ( ( p[ 0 ] - corner[ 0 ] ) * north.dx + ( p[ 1 ] - corner[ 1 ] ) * north.dz - sEnd ) / cl );
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
 		// the ground; by the curtain they turn round to it in a fan, then go on along it
@@ -863,12 +866,42 @@ export class Walls {
 			}
 
 		};
-		// on the corner's landing one more step, its front on the diagonal from the flight's outer corner to
-		// the white wall's corner (as marked on the screenshots), then the strip from its back
+		// on the corner's landing one more step, its front on the diagonal from the white wall's corner toward
+		// the flight's outer corner (as marked on the screenshots), but only to the lane's middle; from its end a
+		// ramp down onto the landing; then the strip from its back
 		const fc = [ corner[ 0 ] + width / 2 - 0.05, corner[ 1 ] + width / 2 + 0.55 ], wc = [ corner[ 0 ] - width / 2 - 0.15, corner[ 1 ] - width / 2 - 0.3 ];
 		const eL = Math.hypot( wc[ 0 ] - fc[ 0 ], wc[ 1 ] - fc[ 1 ] ), ex = ( wc[ 0 ] - fc[ 0 ] ) / eL, ez = ( wc[ 1 ] - fc[ 1 ] ) / eL;
 		const up = { dx: ez, dz: - ex }, STEP1 = 0.8; // (across the diagonal, up the lane)
-		put( [ ( fc[ 0 ] + wc[ 0 ] ) / 2 + up.dx * STEP1 / 2, ( fc[ 1 ] + wc[ 1 ] ) / 2 + up.dz * STEP1 / 2 ], up, STEP1, [ 0.06, 0.24 ], eL );
+		const M = [ ( fc[ 0 ] + wc[ 0 ] ) / 2, ( fc[ 1 ] + wc[ 1 ] ) / 2 ];
+		put( [ ( M[ 0 ] + wc[ 0 ] ) / 2 + up.dx * STEP1 / 2, ( M[ 1 ] + wc[ 1 ] ) / 2 + up.dz * STEP1 / 2 ], up, STEP1, [ 0.06, 0.24 ], eL / 2 );
+		{
+
+			// the ramp: from the step's end, its top, down along the diagonal to the landing's top 1.3 m on
+			const RAMP = 1.3, yd = y;
+			const Ef = M, Eb = [ M[ 0 ] + up.dx * STEP1, M[ 1 ] + up.dz * STEP1 ];
+			const Rf = [ M[ 0 ] - ex * RAMP, M[ 1 ] - ez * RAMP ], Rb = [ Eb[ 0 ] - ex * RAMP, Eb[ 1 ] - ez * RAMP ];
+			const yR = ( p ) => landingY( p ) + 0.005, V = ( p, yy ) => [ p[ 0 ], yy, p[ 1 ] ];
+			const lo = Math.min( yR( Rf ), yR( Rb ) ) - 0.3;
+			kit.vdata = [ 0.71, 0.7, 0, 0 ];
+			kit.color = [ 0.74, 0.73, 0.7 ];
+			kit.quadFacing( V( Ef, lo ), V( Rf, lo ), V( Rf, yR( Rf ) ), V( Ef, yd ), [ - up.dx, 0, - up.dz ] );
+			kit.quadFacing( V( Eb, lo ), V( Rb, lo ), V( Rb, yR( Rb ) ), V( Eb, yd ), [ up.dx, 0, up.dz ] );
+			const uv = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 4.4, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.9 ];
+			const A = V( Ef, yd + 0.004 ), B = V( Eb, yd + 0.004 ), C = V( Rb, yR( Rb ) ), D = V( Rf, yR( Rf ) );
+			kit.vdata = [ 0.83, 0.9, 0, 0 ];
+			kit.color = [ 1.12, 1.11, 1.06 ];
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ uv( A ), uv( B ), uv( C ), uv( D ) ] );
+			// (walkable: in three pieces, each as high as its upper end's middle)
+			const yaw = Math.atan2( ez, - ex );
+			for ( let k = 0; k < 3; k ++ ) {
+
+				const f = ( k + 0.5 ) / 3, c = [ M[ 0 ] - ex * RAMP * f + up.dx * STEP1 / 2, M[ 1 ] - ez * RAMP * f + up.dz * STEP1 / 2 ];
+				const top = yd + ( yR( c ) - yd ) * ( k / 3 ), bot = lo;
+				this.colliders.addBox( new Vector3( c[ 0 ], ( top + bot ) / 2, c[ 1 ] ), new Vector3( RAMP / 6 + 0.01, ( top - bot ) / 2, STEP1 / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+			}
+
+		}
 		const FAN = 0.7, start = meet( leg, { a: [ fc[ 0 ] + up.dx * STEP1, fc[ 1 ] + up.dz * STEP1 ], dx: ex, dz: ez } );
 		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
 		// (three steps, each turned a little further, the middle one on the turn)
