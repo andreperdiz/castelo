@@ -180,8 +180,8 @@ const TERRAIN_SURFACE = /* wgsl */`
 	ground = mix( ground, paved, pavedW );
 	hd = mix( hd, pavedHd, pavedW );
 	// weeds in the setts' joints where the scrub mask is full on the town's paving (the feet of a few walls)
-	let weedW = smoothstep( 0.85, 1.0, sp.z ) * pavedW * townish * smoothstep( 0.2, 0.45, dN.w + ( dF.w - 0.5 ) * 0.8 );
-	ground = mix( ground, ${ S( 0.24, 0.36, 0.1 ) } * ( dF.y * 0.5 + 0.75 ), weedW * 0.95 );
+	let weedW = smoothstep( 0.85, 1.0, sp.z ) * pavedW * townish * smoothstep( 0.35, 0.62, dN.w + ( dF.w - 0.5 ) * 0.8 );
+	ground = mix( ground, ${ S( 0.24, 0.36, 0.1 ) } * ( dF.y * 0.5 + 0.75 ), weedW * 0.7 );
 
 	// ---- bare limestone
 	var rockW = 0.0;

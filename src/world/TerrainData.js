@@ -1253,12 +1253,12 @@ export class TerrainData {
 
 	}
 
-	// the lane up beside Porta da Vila's flight, from its corner to the curtain and along it: level across
-	// (as high as its middle), so its steps sit on the ground all the way across rather than poking out of
-	// a slope that leans sideways (the video references/IMG_4350: kerbs across a cobbled way)
+	// the lane up beside Porta da Vila's flight, from its corner to the curtain and along it: its middle level
+	// across, so its steps sit on the ground rather than poking out of a slope that leans sideways, and
+	// banks of setts rising either side of them (the video references/IMG_4350)
 	_pvLaneLevel() {
 
-		const C = [ [ - 66.1, 218.3 ], [ - 66.8, 230.8 ], [ - 69, 231.0 ], [ - 74.5, 230.6 ] ], { heights } = this;
+		const C = [ [ - 61.5, 218.65 ], [ - 66.1, 218.3 ], [ - 66.8, 230.8 ], [ - 69, 231.0 ], [ - 74.5, 230.6 ] ], { heights } = this;
 		// the middle's heights first, before any of it changes
 		const mid = C.slice( 0, - 1 ).map( ( a, s ) => {
 
@@ -1267,16 +1267,32 @@ export class TerrainData {
 			return out;
 
 		} );
+		// from the end of the first leg, round its corner and up the second to the curtain, an even climb: the
+		// ground rose a metre too steeply into the corner, over the steps (they climb about 20 cm a metre)
+		const h0 = mid[ 0 ][ 0 ], hc = h0 + 0.2 * Math.hypot( C[ 1 ][ 0 ] - C[ 0 ][ 0 ], C[ 1 ][ 1 ] - C[ 0 ][ 1 ] ), ht = mid[ 1 ][ 40 ];
+		for ( let k = 0; k <= 40; k ++ ) {
+
+			mid[ 0 ][ k ] = lerp( h0, hc, k / 40 );
+			mid[ 1 ][ k ] = lerp( hc, ht, k / 40 );
+
+		}
 		const best = new Map();
 		for ( let s = 0; s + 1 < C.length; s ++ ) this._stroke( [ C[ s ], C[ s + 1 ] ], 1.9, 1.0, ( k, w ) => {
 
 			const { res, texel, origin } = this;
-			const [ , t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, C[ s ], C[ s + 1 ] );
-			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i );
+			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, C[ s ], C[ s + 1 ] );
+			// (the strip of steps up the middle level, the banks either side rising 30 cm a metre)
+			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + 0.3 * Math.max( 0, d - 1.1 );
 			if ( ! best.has( k ) || best.get( k ).w < w ) best.set( k, { w, y } );
 
 		} );
-		for ( const [ k, { w, y } ] of best ) heights[ k ] = lerp( heights[ k ], y, w );
+		// (and setts all over it: the second leg's foot was bare earth)
+		for ( const [ k, { w, y } ] of best ) {
+
+			heights[ k ] = lerp( heights[ k ], y, w );
+			if ( w > 0.5 ) this.path[ k ] = this.scarp[ k ] = 255;
+
+		}
 
 	}
 

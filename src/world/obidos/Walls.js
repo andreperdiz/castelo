@@ -793,11 +793,11 @@ export class Walls {
 
 		const steps = [];
 		let y = - Infinity;
-		const put = ( p, l, len, rise ) => {
+		const put = ( p, l, len, rise, w = width ) => {
 
 			const g = T.heightAt( p[ 0 ], p[ 1 ] ), ahead = T.heightAt( p[ 0 ] + l.dx * len / 2, p[ 1 ] + l.dz * len / 2 );
 			y = y === - Infinity ? ahead + 0.12 : y + Math.min( rise[ 1 ], Math.max( rise[ 0 ], ahead + 0.08 - y ) );
-			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len } );
+			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len, w } );
 
 		};
 		// three short steps, two long, again and again, each 6-16 cm up, keeping to the ground
@@ -817,19 +817,37 @@ export class Walls {
 		const dStart = ( corner[ 0 ] - startX ) / north.dx;
 		flight( at( corner, north, - dStart ), north, dStart - width / 2 );
 		put( corner, west, width, [ 0.06, 0.16 ] ); // the corner
-		const stepsEnd = turn[ 1 ] - 5 - width / 2;
-		flight( at( corner, west, width / 2 ), west, ( stepsEnd - corner[ 1 ] ) / west.dz - width / 2 );
-		// the sloping path, following the ground, to the turn and a few metres along the curtain
-		const RUN = 0.3;
-		const slope = ( from, l, length ) => {
+		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
+		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
+		// the ground; by the curtain they turn round to it in a fan, then go on along it
+		const LEG2 = 2.2, PATTERN2 = [ 0.9, 0.75, 1.0 ];
+		let k2 = 0;
+		const flight2 = ( from, l, length ) => {
 
-			for ( let d = RUN / 2; d < length; d += RUN ) put( at( from, l, d ), l, RUN, [ 0, 0.1 ] );
+			for ( let d = 0; d < length - 0.2; k2 ++ ) {
+
+				const len = Math.min( PATTERN2[ k2 % PATTERN2.length ], length - d );
+				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.24 ], LEG2 );
+				d += len;
+
+			}
 
 		};
-		const sEnd = at( corner, west, width / 2 + ( stepsEnd - corner[ 1 ] ) / west.dz - width / 2 );
-		slope( sEnd, west, ( turn[ 1 ] - sEnd[ 1 ] ) / west.dz - width / 2 );
-		put( turn, curtain, width, [ 0, 0.06 ] );
-		slope( at( turn, curtain, width / 2 ), curtain, 5 );
+		const FAN = 1.3;
+		flight2( at( corner, west, width / 2 ), west, ( turn[ 1 ] - corner[ 1 ] ) / west.dz - width / 2 - FAN * 1.5 );
+		// (three steps, each turned a little further, the middle one on the turn)
+		const a0 = Math.atan2( west.dz, west.dx );
+		let da = Math.atan2( curtain.dz, curtain.dx ) - a0;
+		while ( da > Math.PI ) da -= 2 * Math.PI;
+		while ( da < - Math.PI ) da += 2 * Math.PI;
+		for ( const [ f, p ] of [ [ 0.2, at( turn, west, - FAN ) ], [ 0.5, turn ], [ 0.8, at( turn, curtain, FAN ) ] ] ) {
+
+			const a = a0 + da * f;
+			put( p, { dx: Math.cos( a ), dz: Math.sin( a ) }, FAN, [ 0.06, 0.24 ], LEG2 + 0.6 );
+
+		}
+
+		flight2( at( turn, curtain, FAN * 1.5 ), curtain, 5 );
 
 		// a landing level with the Casa da Música's terrace where you step onto it, part way up the first
 		// leg: the steps it covers become one, the steps below climb to it in even rises, those above ease back
@@ -867,15 +885,15 @@ export class Walls {
 		const KERB = 0.26;
 		steps.forEach( ( st, i ) => {
 
-			const bottom = st.g - 0.6, h = st.y - bottom;
+			const bottom = st.g - 0.6, h = st.y - bottom, sw = st.w ?? width;
 			kit.vdata = [ 0.29 + i * 0.07, 0.7, 0, 0 ];
 			kit.color = [ 0.74, 0.73, 0.7 ];
-			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, width, st.yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, width / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, sw, st.yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, sw / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
 			const kerb = i > 0 && st.y - steps[ i - 1 ].y > 0.05 && st.len > KERB + 0.15 ? KERB : 0;
 			const ax = Math.cos( st.yaw ), az = - Math.sin( st.yaw ), cx = Math.sin( st.yaw ), cz = Math.cos( st.yaw );
 			const at = ( u, w ) => [ st.x + ax * u + cx * w, st.y + 0.004, st.z + az * u + cz * w ];
-			const u0 = - st.len / 2 - 0.01 + kerb, u1 = st.len / 2 + 0.01, w0 = - width / 2, w1 = width / 2;
+			const u0 = - st.len / 2 - 0.01 + kerb, u1 = st.len / 2 + 0.01, w0 = - sw / 2, w1 = sw / 2;
 			const uv = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 4.4, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.9 ];
 			const A = at( u0, w0 ), B = at( u1, w0 ), C = at( u1, w1 ), D = at( u0, w1 );
 			kit.vdata = [ 0.83, 0.9, 0, 0 ];
