@@ -1269,7 +1269,10 @@ export class TerrainData {
 		} );
 		// from the end of the first leg, round its corner and up the second to the curtain, an even climb: the
 		// ground rose a metre too steeply into the corner, over the steps (they climb about 20 cm a metre)
-		const h0 = mid[ 1 ][ 0 ], hc = h0 + 0.2 * Math.hypot( C[ 2 ][ 0 ] - C[ 1 ][ 0 ], C[ 2 ][ 1 ] - C[ 1 ][ 1 ] ) - 0.3, ht = mid[ 2 ][ 40 ]; // (a little under the corner's landing: the first leg's steps fall behind)
+		// (the first leg's foot to its landing an even slope too, a little under its even steps)
+		const hf = mid[ 0 ][ 0 ] - 0.1, h0 = mid[ 1 ][ 0 ] - 0.1;
+		for ( let k = 0; k <= 40; k ++ ) mid[ 0 ][ k ] = lerp( hf, h0, k / 40 );
+		const hc = h0 + 0.2 * Math.hypot( C[ 2 ][ 0 ] - C[ 1 ][ 0 ], C[ 2 ][ 1 ] - C[ 1 ][ 1 ] ) - 0.3, ht = mid[ 2 ][ 40 ]; // (a little under the corner's landing: the first leg's steps fall behind)
 		// (level under the corner's landing, 1.5 m on past the turn)
 		const L1 = Math.hypot( C[ 3 ][ 0 ] - C[ 2 ][ 0 ], C[ 3 ][ 1 ] - C[ 2 ][ 1 ] );
 		for ( let k = 0; k <= 40; k ++ ) {

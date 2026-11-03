@@ -800,23 +800,38 @@ export class Walls {
 			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len, w } );
 
 		};
-		// three short steps, two long, again and again, each 6-16 cm up, keeping to the ground
-		const PATTERN = [ 0.45, 0.45, 0.45, 1.1, 1.1 ];
-		let k = 0;
-		const flight = ( from, l, length ) => {
+		// the first leg (the video references/IMG_4350 and the screenshots): ten steps in even rises up to a
+		// landing level with the Casa da Música's terrace, where its gateway opens, their treads all alike but
+		// the first's, whose front runs on the diagonal (further down on the flight's side); then even steps
+		// on to the corner's landing
+		const casa = this.casaOutline = this._casaOutline( { corner, north, width } ), yT = casa.yT;
+		const sAt = ( x ) => ( x - corner[ 0 ] ) / north.dx; // up the leg from the corner (below it, negative)
+		const block = ( p, l, len, yy, w = width ) => {
 
-			for ( let d = 0; d < length - 0.2; k ++ ) {
-
-				const len = Math.min( PATTERN[ k % PATTERN.length ], length - d );
-				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.16 ] );
-				d += len;
-
-			}
+			const g = Math.min( T.heightAt( p[ 0 ] - l.dx * len / 2, p[ 1 ] - l.dz * len / 2 ), T.heightAt( p[ 0 ] + l.dx * len / 2, p[ 1 ] + l.dz * len / 2 ) );
+			const st = { x: p[ 0 ], z: p[ 1 ], y: yy, g, yaw: Math.atan2( - l.dz, l.dx ), len, w };
+			steps.push( st );
+			y = yy;
+			return st;
 
 		};
-		const dStart = ( corner[ 0 ] - startX ) / north.dx;
-		flight( at( corner, north, - dStart ), north, dStart - width / 2 );
-		put( corner, west, width, [ 0.06, 0.16 ] ); // the corner
+		const sF = sAt( startX ), sL0 = sAt( - 59.03 ), sL1 = sAt( - 61.01 ), N1 = 10;
+		const D1 = 0.76, SKEW = 0.5, t1 = ( sL0 - sF - D1 ) / ( N1 - 1 ), south = [ north.dz, - north.dx ];
+		// (the first: a block whose front is the diagonal, reaching back under the second step; the rises
+		// counted from the ground at its front, the street's highest there)
+		const Fs = at( corner, north, sF - SKEW ), Fn = at( corner, north, sF + SKEW );
+		Fs[ 0 ] += south[ 0 ] * width / 2; Fs[ 1 ] += south[ 1 ] * width / 2;
+		Fn[ 0 ] -= south[ 0 ] * width / 2; Fn[ 1 ] -= south[ 1 ] * width / 2;
+		const g0 = Math.max( T.heightAt( ...Fs ), T.heightAt( ...Fn ), T.heightAt( ...at( corner, north, sF ) ) ), rise1 = ( yT - g0 ) / ( N1 + 1 );
+		const dL = Math.hypot( Fn[ 0 ] - Fs[ 0 ], Fn[ 1 ] - Fs[ 1 ] ), fx = ( Fn[ 0 ] - Fs[ 0 ] ) / dL, fz = ( Fn[ 1 ] - Fs[ 1 ] ) / dL;
+		const up1 = fz * north.dx - fx * north.dz > 0 ? { dx: fz, dz: - fx } : { dx: - fz, dz: fx }, D = ( D1 + SKEW ) * ( up1.dx * north.dx + up1.dz * north.dz );
+		block( [ ( Fs[ 0 ] + Fn[ 0 ] ) / 2 + up1.dx * D / 2, ( Fs[ 1 ] + Fn[ 1 ] ) / 2 + up1.dz * D / 2 ], up1, D, g0 + rise1, dL );
+		for ( let k = 1; k < N1; k ++ ) block( at( corner, north, sF + D1 + ( k - 0.5 ) * t1 ), north, t1, g0 + rise1 * ( k + 1 ) );
+		this.laneGate = block( at( corner, north, ( sL0 + sL1 ) / 2 ), north, sL1 - sL0, yT );
+		const N2 = Math.max( 1, Math.round( ( - width / 2 - sL1 ) / 0.45 ) ), t2 = ( - width / 2 - sL1 ) / N2;
+		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / ( N2 + 1 );
+		for ( let k = 1; k <= N2; k ++ ) block( at( corner, north, sL1 + ( k - 0.5 ) * t2 ), north, t2, yT + rise2 * k );
+		block( corner, west, width, yC ); // the corner's landing
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
 		// the ground; by the curtain they turn round to it in a fan, then go on along it
@@ -864,34 +879,6 @@ export class Walls {
 
 		flight2( at( turn2, along, FAN * 1.5 ), along, 5, 0.38 ); // (steeper along the curtain)
 
-		// a landing level with the Casa da Música's terrace where you step onto it, part way up the first
-		// leg: the steps it covers become one, the steps below climb to it in even rises, those above ease back
-		const casa = this.casaOutline = this._casaOutline( { corner, north, width } );
-		const yT = casa.yT, nLeg = steps.findIndex( ( st ) => st.x < corner[ 0 ] + width / 2 );
-		let g = - 1;
-		steps.forEach( ( st, i ) => {
-
-			if ( i < nLeg && st.x < - 57.6 && st.x > - 59.9 && ( g < 0 || Math.abs( st.y - yT + 0.15 ) < Math.abs( steps[ g ].y - yT + 0.15 ) ) ) g = i;
-
-		} );
-		if ( g > 0 ) {
-
-			const LAND = 0.85, gx = steps[ g ].x;
-			let a = g, b = g;
-			while ( a > 1 && Math.abs( steps[ a - 1 ].x - gx ) < LAND ) a --;
-			while ( b + 1 < nLeg && Math.abs( steps[ b + 1 ].x - gx ) < LAND ) b ++;
-			// from the first step's lower end to the last one's upper end (going up is westward, - x)
-			const x0 = steps[ a ].x - north.dx * steps[ a ].len / 2, x1 = steps[ b ].x + north.dx * steps[ b ].len / 2;
-			const y0 = steps[ 0 ].y;
-			for ( let i = 1; i < a; i ++ ) steps[ i ].y = y0 + ( yT - y0 ) * i / a;
-			const delta = yT - steps[ b ].y;
-			for ( let i = b + 1, j = 1; i < steps.length; i ++, j ++ ) steps[ i ].y += delta * Math.max( 0, 1 - j / 10 );
-			const lx = ( x0 + x1 ) / 2, d = ( lx - corner[ 0 ] ) / north.dx;
-			const landing = { x: lx, z: corner[ 1 ] + north.dz * d, y: yT, g: Math.min( ...steps.slice( a, b + 1 ).map( ( st ) => st.g ) ), yaw: steps[ a ].yaw, len: Math.abs( x1 - x0 ) };
-			steps.splice( a, b - a + 1, landing );
-			this.laneGate = landing;
-
-		}
 
 		// each step a kerb of grey stone along its front and setts behind it (the video references/IMG_4350):
 		// the step's block grey, and over its top, behind the kerb, the masonry drawn small, as setts (its
