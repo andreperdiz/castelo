@@ -864,6 +864,7 @@ export class Walls {
 
 				const len = Math.min( PATTERN2[ k2 % PATTERN2.length ], length - d );
 				put( at( from, l, d + len / 2 ), l, len, [ 0.06, most ], LEG2 );
+				steps[ steps.length - 1 ].bevel = true;
 				d += len;
 
 			}
@@ -905,7 +906,17 @@ export class Walls {
 
 		}
 		const FAN = 0.7, start = meet( leg, { a: [ fc[ 0 ] + up.dx * STEP1, fc[ 1 ] + up.dz * STEP1 ], dx: ex, dz: ez } );
+		const legFrom = steps.length;
 		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
+		// (its first three steps a ramp instead (as marked on the screenshot), from the diagonal step's top up to
+		// a low step onto the fourth)
+		{
+
+			const first = steps.splice( legFrom, 3 ), L3 = first.reduce( ( a, st ) => a + st.len, 0 ), y0 = steps[ legFrom - 1 ].y;
+			const c = at( start, leg, L3 / 2 );
+			steps.splice( legFrom, 0, { x: c[ 0 ], z: c[ 1 ], y: y0, g: Math.min( ...first.map( ( st ) => st.g ) ), yaw: first[ 0 ].yaw, len: L3, w: LEG2, slope: Math.max( 0, steps[ legFrom ].y - 0.06 - y0 ), bevel: true } );
+
+		}
 		// (three steps, each turned a little further, the middle one on the turn)
 		const a0 = Math.atan2( leg.dz, leg.dx );
 		let da = Math.atan2( along.dz, along.dx ) - a0;
@@ -915,6 +926,7 @@ export class Walls {
 
 			const a = a0 + da * f;
 			put( p, { dx: Math.cos( a ), dz: Math.sin( a ) }, FAN, [ 0.06, 0.24 ], LEG2 + 0.2 );
+			steps[ steps.length - 1 ].bevel = true;
 
 		}
 
@@ -954,6 +966,21 @@ export class Walls {
 			kit.vdata = [ 0.83, 0.9, 0, 0 ];
 			kit.color = SETT_TINT;
 			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ SETT_UV( A ), SETT_UV( B ), SETT_UV( C ), SETT_UV( D ) ] );
+			// the strip's open side (away from the wall, then from the curtain): setts sloping from its edge down
+			// to the ground 70 cm out, so it rises out of the setts round it instead of standing on them
+			if ( st.bevel ) {
+
+				const e0 = at( - st.len / 2 - 0.01, w0, 0.002 ), e1 = at( st.len / 2 + 0.01, w0, 0.002 );
+				const out = ( u, top ) => {
+
+					const q = at( u, w0 - 0.7 ), g = T.heightAt( q[ 0 ], q[ 2 ] ) + 0.01;
+					return [ q[ 0 ], Math.min( g, top ), q[ 2 ] ];
+
+				};
+				const o0 = out( - st.len / 2 - 0.01, e0[ 1 ] ), o1 = out( st.len / 2 + 0.01, e1[ 1 ] );
+				kit.quadFacing( e0, e1, o1, o0, [ 0, 1, 0 ], [ SETT_UV( e0 ), SETT_UV( e1 ), SETT_UV( o1 ), SETT_UV( o0 ) ] );
+
+			}
 
 		} );
 
