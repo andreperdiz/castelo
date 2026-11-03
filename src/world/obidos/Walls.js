@@ -825,7 +825,9 @@ export class Walls {
 		// curtain, as drawn on the screenshot)
 		const LEG2 = 0.8, PATTERN2 = [ 0.9, 0.75, 1.0 ];
 		const shift = ( l, nx, nz, d ) => ( { a: [ l.a[ 0 ] + nx * d, l.a[ 1 ] + nz * d ], dx: l.dx, dz: l.dz } );
-		const leg = shift( west, west.dz, - west.dx, - ( width / 2 + 0.15 - LEG2 / 2 ) ); // toward the wing (west)
+		// (straight along the wing's face, which runs due south, 3 cm off it: following the lane's own line,
+		// which leans a little west, it ran into the wall)
+		const leg = { a: [ corner[ 0 ] - width / 2 - 0.15 + LEG2 / 2 + 0.03, corner[ 1 ] ], dx: 0, dz: 1 };
 		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
 		const turn2 = meet( leg, along );
 		let k2 = 0;
@@ -840,7 +842,11 @@ export class Walls {
 			}
 
 		};
-		const FAN = 0.7, start = meet( leg, shift( north, north.dz, - north.dx, width / 2 ) ); // (from the corner step's far side)
+		// past the corner one more step the lane's whole width, from the flight to the wing's corner (as marked
+		// on the screenshot), then the strip
+		const STEP1 = 0.55;
+		put( at( corner, west, width / 2 + STEP1 / 2 ), west, STEP1, [ 0.06, 0.24 ] );
+		const FAN = 0.7, start = meet( leg, shift( north, north.dz, - north.dx, width / 2 + STEP1 ) );
 		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
 		// (three steps, each turned a little further, the middle one on the turn)
 		const a0 = Math.atan2( leg.dz, leg.dx );
