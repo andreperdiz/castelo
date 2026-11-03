@@ -820,11 +820,12 @@ export class Walls {
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
 		// the ground; by the curtain they turn round to it in a fan, then go on along it
-		// (its strip 80 cm wide, near the flight's side: 30 cm of setts between them; round the turn it runs
-		// along the curtain with a bank of setts between it and the curtain, as drawn on the screenshot)
+		// (its strip 80 cm wide, right against the Casa da Música's white wall (_casaWing: its face 15 cm off
+		// the lane's edge); round the turn it runs along the curtain with a bank of setts between it and the
+		// curtain, as drawn on the screenshot)
 		const LEG2 = 0.8, PATTERN2 = [ 0.9, 0.75, 1.0 ];
 		const shift = ( l, nx, nz, d ) => ( { a: [ l.a[ 0 ] + nx * d, l.a[ 1 ] + nz * d ], dx: l.dx, dz: l.dz } );
-		const leg = shift( west, west.dz, - west.dx, width / 2 - LEG2 / 2 - 0.3 ); // toward the flight (east)
+		const leg = shift( west, west.dz, - west.dx, - ( width / 2 + 0.15 - LEG2 / 2 ) ); // toward the wing (west)
 		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
 		const turn2 = meet( leg, along );
 		let k2 = 0;
@@ -833,7 +834,7 @@ export class Walls {
 			for ( let d = 0; d < length - 0.2; k2 ++ ) {
 
 				const len = Math.min( PATTERN2[ k2 % PATTERN2.length ], length - d );
-				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.24 ], LEG2 );
+				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.3 ], LEG2 );
 				d += len;
 
 			}

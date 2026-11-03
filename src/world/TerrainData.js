@@ -1281,8 +1281,11 @@ export class TerrainData {
 
 			const { res, texel, origin } = this;
 			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, C[ s ], C[ s + 1 ] );
-			// (the strip of steps up the middle level, the banks either side rising 30 cm a metre)
-			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + 0.3 * Math.max( 0, d - 1.1 );
+			// (level on the side of the strip of steps: against the Casa da Música's wall, then away from the
+			// curtain; on the other side a bank rising 30 cm a metre)
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel, a = C[ s ], b = C[ s + 1 ];
+			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
+			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + ( side < 0 ? 0.3 * Math.max( 0, d - 0.3 ) : 0 );
 			if ( ! best.has( k ) || best.get( k ).w < w ) best.set( k, { w, y } );
 
 		} );
