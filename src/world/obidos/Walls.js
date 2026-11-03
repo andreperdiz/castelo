@@ -166,6 +166,7 @@ export class Walls {
 		this._escadariaBiblioteca( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 		this._pvAlley( materials );
+		this._casaWing( materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
 		mesh.name = 'walls';
@@ -199,6 +200,78 @@ export class Walls {
 		// and a low guard wall along their town side (the void's side has the crenellated parapet)
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ - 64, 221, - 58.5, 227 ], exact: pts, town: () => 'low', lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE, capStart: false } ); // (its east end runs into the curtain's corner)
 		this.portaDaVila.gates = [ outerGate, inner ];
+
+	}
+
+	// The Casa da Música's south wing (OSM 298902328 has it; Town's outline leaves it out), as in the video
+	// references/IMG_4350: right against the stepped lane, its blank white wall closing the head of the first
+	// leg, where the lane turns left, and running on beside the second leg for a few metres. From the
+	// terrace's corner along the first leg (its south side), the head wall, the end, the back; tiled roofs:
+	// a lean-to over the strip along the first leg, a gable over the block at its head
+	_casaWing( materials ) {
+
+		if ( ! this.laneNorth || ! this.casaOutline ) return;
+		const T = this.terrain, plaster = new MeshKit(), roof = new MeshKit();
+		const { corner, north, width } = this.laneNorth, FS = this.casaOutline.FS;
+		const xE = corner[ 0 ] - width / 2 - 0.15, xW = - 72.3, zS = 223.3, zN = 214.3;
+		// the lane's north edge at x (FS is on it)
+		const edge = ( x ) => FS[ 1 ] + north.dz / north.dx * ( x - FS[ 0 ] );
+		const A = FS, B = [ xE, edge( xE ) ], C = [ xE, zS ], D = [ xW, zS ], E = [ xW, zN ], F = [ FS[ 0 ], zN ];
+		const top = T.heightAt( ...B ) + 6.6, base = Math.min( ...[ A, B, C, D ].map( ( q ) => T.heightAt( ...q ) ) ) - 0.8;
+		const WHITE = lin( [ 0.93, 0.92, 0.89 ] );
+		// a blank whitewashed face from p to q, outward n
+		const face = ( p, q, n, seed ) => {
+
+			const L = Math.hypot( q[ 0 ] - p[ 0 ], q[ 1 ] - p[ 1 ] ), gp = T.heightAt( ...p ), gq = T.heightAt( ...q );
+			plaster.vdata = [ L, 1, seed, 0 ];
+			plaster.color = WHITE;
+			plaster.quadFacing( [ p[ 0 ], base, p[ 1 ] ], [ q[ 0 ], base, q[ 1 ] ], [ q[ 0 ], top, q[ 1 ] ], [ p[ 0 ], top, p[ 1 ] ], n,
+				[ [ 0, base - gp ], [ L, base - gq ], [ L, top - gq ], [ 0, top - gp ] ] );
+
+		};
+		face( A, B, [ 0, 0, 1 ], 0.17 );
+		face( B, C, [ 1, 0, 0 ], 0.43 );
+		face( C, D, [ 0, 0, 1 ], 0.71 );
+		face( D, E, [ - 1, 0, 0 ], 0.29 );
+		face( F, A, [ 1, 0, 0 ], 0.57 );
+		const solid = ( x0, x1, z0, z1 ) => this.colliders.addBox( new Vector3( ( x0 + x1 ) / 2, ( top + base ) / 2, ( z0 + z1 ) / 2 ), new Vector3( Math.abs( x1 - x0 ) / 2, ( top - base ) / 2, Math.abs( z1 - z0 ) / 2 ), 0, { walkable: false, tag: 'wall' } );
+		solid( xW, xE, zN, zS );
+		solid( xE, A[ 0 ], zN, Math.max( A[ 1 ], B[ 1 ] ) );
+
+		// the roofs, eaves 25 cm out
+		const O = 0.25, V = ( x, y, z ) => [ x, y, z ];
+		roof.vdata = [ 0.37, 0.6, 0, 0 ];
+		roof.color = [ 1, 1, 1 ];
+		const xm = ( xE + xW ) / 2, yr = top + 1.3, s1 = Math.hypot( ( xE - xW ) / 2 + O, 1.3 ), Lz = zS - zN + 2 * O;
+		roof.quadFacing( V( xE + O, top - 0.1, zN - O ), V( xE + O, top - 0.1, zS + O ), V( xm, yr, zS + O ), V( xm, yr, zN - O ), [ 0, 1, 0 ], [ [ 0, s1 ], [ Lz, s1 ], [ Lz, 0 ], [ 0, 0 ] ] );
+		roof.quadFacing( V( xW - O, top - 0.1, zN - O ), V( xW - O, top - 0.1, zS + O ), V( xm, yr, zS + O ), V( xm, yr, zN - O ), [ 0, 1, 0 ], [ [ 0, s1 ], [ Lz, s1 ], [ Lz, 0 ], [ 0, 0 ] ] );
+		plaster.vdata = [ 0, 0, 0.53, 4 ];
+		plaster.color = WHITE;
+		for ( const [ z, n ] of [ [ zS, 1 ], [ zN, - 1 ] ] ) plaster.quadFacing( V( xE, top, z ), V( xW, top, z ), V( xm, yr - 0.05, z ), V( xm, yr - 0.05, z ), [ 0, 0, n ] );
+		const zl = Math.max( A[ 1 ], B[ 1 ] ), s2 = Math.hypot( zl - zN + O, 0.9 ), Lx = A[ 0 ] - xE + O;
+		roof.quadFacing( V( xE, top + 0.8, zN ), V( A[ 0 ] + O, top + 0.8, zN ), V( A[ 0 ] + O, top - 0.1, zl + O ), V( xE, top - 0.1, zl + O ), [ 0, 1, 0 ], [ [ 0, 0 ], [ Lx, 0 ], [ Lx, s2 ], [ 0, s2 ] ] );
+		plaster.quadFacing( V( A[ 0 ], top, zN ), V( A[ 0 ], top, zl ), V( A[ 0 ], top + 0.8, zN ), V( A[ 0 ], top + 0.8, zN ), [ 1, 0, 0 ] );
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'casa-wing' ], [ roof, materials.roof, 'casa-wing-roof' ] ] ) {
+
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+		this.casaWing = [ A, B, C, D, E, F ];
+
+	}
+
+	// no trees on the lane by Porta da Vila's flight, nor in the Casa da Música's wing (Trees asks)
+	treeFree( x, z ) {
+
+		if ( this.lane && this.lane.some( ( st ) => Math.hypot( st.x - x, st.z - z ) < 3.5 ) ) return true;
+		return !! this.casaWing && pointInPolygon( x, z, this.casaWing );
 
 	}
 

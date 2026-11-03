@@ -41,6 +41,7 @@ export class Trees {
 			if ( T.path[ k ] > 60 ) return true;
 			if ( town && town._inOther( x, z, null ) ) return true;
 			if ( walls && walls._nearestWalk( x, z, clear + 1.4 ) ) return true;
+			if ( walls && walls.treeFree && walls.treeFree( x, z ) ) return true;
 			return false;
 
 		};
