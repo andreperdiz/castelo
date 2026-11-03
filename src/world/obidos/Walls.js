@@ -805,6 +805,9 @@ export class Walls {
 		// the first's, whose front runs on the diagonal (further down on the flight's side); then even steps
 		// on to the corner's landing
 		const KERB = 0.26; // the kerb along a step's front
+		// the setts on the treads: the masonry drawn at the ground's setts' size (its stones 44 x 19 cm, so
+		// about 17 cm each way), tinted to their warmer grey, so the treads and the ground round them match
+		const SETT_UV = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 2.6, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.12 ], SETT_TINT = [ 1.0, 0.95, 0.87 ];
 		const casa = this.casaOutline = this._casaOutline( { corner, north, width } ), yT = casa.yT;
 		const sAt = ( x ) => ( x - corner[ 0 ] ) / north.dx; // up the leg from the corner (below it, negative)
 		const block = ( p, l, len, yy, w = width ) => {
@@ -886,11 +889,10 @@ export class Walls {
 			kit.color = [ 0.74, 0.73, 0.7 ];
 			kit.quadFacing( V( Ef, lo ), V( Rf, lo ), V( Rf, yR( Rf ) ), V( Ef, yd ), [ - up.dx, 0, - up.dz ] );
 			kit.quadFacing( V( Eb, lo ), V( Rb, lo ), V( Rb, yR( Rb ) ), V( Eb, yd ), [ up.dx, 0, up.dz ] );
-			const uv = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 4.4, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.9 ];
 			const A = V( Ef, yd + 0.004 ), B = V( Eb, yd + 0.004 ), C = V( Rb, yR( Rb ) ), D = V( Rf, yR( Rf ) );
 			kit.vdata = [ 0.83, 0.9, 0, 0 ];
-			kit.color = [ 1.12, 1.11, 1.06 ];
-			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ uv( A ), uv( B ), uv( C ), uv( D ) ] );
+			kit.color = SETT_TINT;
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ SETT_UV( A ), SETT_UV( B ), SETT_UV( C ), SETT_UV( D ) ] );
 			// (walkable: in three pieces, each as high as its upper end's middle)
 			const yaw = Math.atan2( ez, - ex );
 			for ( let k = 0; k < 3; k ++ ) {
@@ -920,8 +922,7 @@ export class Walls {
 
 
 		// each step a kerb of grey stone along its front and setts behind it (the video references/IMG_4350):
-		// the step's block grey, and over its top, behind the kerb, the masonry drawn small, as setts (its
-		// stones 44 x 19 cm, so the uvs scaled to make them about 10 cm square); the sloping path's low
+		// the step's block grey, and over its top, behind the kerb, the setts (SETT_UV); the sloping path's low
 		// slabs have no kerb
 		steps.forEach( ( st, i ) => {
 
@@ -949,11 +950,10 @@ export class Walls {
 
 			}
 
-			const uv = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 4.4, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.9 ];
 			const A = at( u0, w0 ), B = at( u1, w0 ), C = at( u1, w1 ), D = at( u0, w1 );
 			kit.vdata = [ 0.83, 0.9, 0, 0 ];
-			kit.color = [ 1.12, 1.11, 1.06 ];
-			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ uv( A ), uv( B ), uv( C ), uv( D ) ] );
+			kit.color = SETT_TINT;
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ SETT_UV( A ), SETT_UV( B ), SETT_UV( C ), SETT_UV( D ) ] );
 
 		} );
 
