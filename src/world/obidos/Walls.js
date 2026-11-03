@@ -828,9 +828,11 @@ export class Walls {
 		block( [ ( Fs[ 0 ] + Fn[ 0 ] ) / 2 + up1.dx * D / 2, ( Fs[ 1 ] + Fn[ 1 ] ) / 2 + up1.dz * D / 2 ], up1, D, g0 + rise1, dL );
 		for ( let k = 1; k < N1; k ++ ) block( at( corner, north, sF + D1 + ( k - 0.5 ) * t1 ), north, t1, g0 + rise1 * ( k + 1 ) );
 		this.laneGate = block( at( corner, north, ( sL0 + sL1 ) / 2 ), north, sL1 - sL0, yT );
-		const N2 = Math.max( 1, Math.round( ( - width / 2 - sL1 ) / 0.45 ) ), t2 = ( - width / 2 - sL1 ) / N2;
-		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / ( N2 + 1 );
-		for ( let k = 1; k <= N2; k ++ ) block( at( corner, north, sL1 + ( k - 0.5 ) * t2 ), north, t2, yT + rise2 * k );
+		// (five, then the corner's landing and the diagonal step: six; their treads tilted up with the climb,
+		// half of each rise in the tread, so the risers stay low)
+		const N2 = 5, t2 = ( - width / 2 - sL1 ) / N2;
+		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / ( N2 + 0.5 ); // (the corner's landing a half rise over the last)
+		for ( let k = 1; k <= N2; k ++ ) block( at( corner, north, sL1 + ( k - 0.5 ) * t2 ), north, t2, yT + rise2 * ( k - 0.5 ) ).slope = rise2 / 2;
 		block( corner, west, width, yC ); // the corner's landing
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
@@ -887,15 +889,30 @@ export class Walls {
 		const KERB = 0.26;
 		steps.forEach( ( st, i ) => {
 
-			const bottom = st.g - 0.6, h = st.y - bottom, sw = st.w ?? width;
+			const bottom = st.g - 0.6, h = st.y - bottom, sw = st.w ?? width, slope = st.slope ?? 0;
 			kit.vdata = [ 0.29 + i * 0.07, 0.7, 0, 0 ];
 			kit.color = [ 0.74, 0.73, 0.7 ];
 			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, sw, st.yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, sw / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
-			const kerb = i > 0 && st.y - steps[ i - 1 ].y > 0.04 && st.len > KERB + 0.15 ? KERB : 0;
+			// (a tilted tread's collider half way up its tilt)
+			const hc = h + slope / 2;
+			this.colliders.addBox( new Vector3( st.x, bottom + hc / 2, st.z ), new Vector3( st.len / 2 + 0.01, hc / 2, sw / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+			const kerb = i > 0 && st.y - ( steps[ i - 1 ].y + ( steps[ i - 1 ].slope ?? 0 ) ) > 0.04 && st.len > KERB + 0.15 ? KERB : 0;
 			const ax = Math.cos( st.yaw ), az = - Math.sin( st.yaw ), cx = Math.sin( st.yaw ), cz = Math.cos( st.yaw );
-			const at = ( u, w ) => [ st.x + ax * u + cx * w, st.y + 0.004, st.z + az * u + cz * w ];
 			const u0 = - st.len / 2 - 0.01 + kerb, u1 = st.len / 2 + 0.01, w0 = - sw / 2, w1 = sw / 2;
+			// (behind the kerb the tread rises by slope to its back)
+			const lift = ( u ) => slope * Math.max( 0, ( u - u0 ) / ( u1 - u0 ) );
+			const at = ( u, w, dy = 0.004 ) => [ st.x + ax * u + cx * w, st.y + lift( u ) + dy, st.z + az * u + cz * w ];
+			if ( slope > 0 ) {
+
+				// the wedge under the tilted tread: its sides and back
+				const P = ( u, w, top ) => at( u, w, top ? 0 : - lift( u ) );
+				kit.vdata = [ 0.29 + i * 0.07, 0.7, 0, 0 ];
+				kit.color = [ 0.74, 0.73, 0.7 ];
+				for ( const [ w, n ] of [ [ w0, - 1 ], [ w1, 1 ] ] ) kit.quadFacing( P( u0, w, false ), P( u1, w, false ), P( u1, w, true ), P( u0, w, true ), [ cx * n, 0, cz * n ] );
+				kit.quadFacing( P( u1, w0, false ), P( u1, w1, false ), P( u1, w1, true ), P( u1, w0, true ), [ ax, 0, az ] );
+
+			}
+
 			const uv = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 4.4, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.9 ];
 			const A = at( u0, w0 ), B = at( u1, w0 ), C = at( u1, w1 ), D = at( u0, w1 );
 			kit.vdata = [ 0.83, 0.9, 0, 0 ];
