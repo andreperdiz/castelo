@@ -831,12 +831,12 @@ export class Walls {
 		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
 		const turn2 = meet( leg, along );
 		let k2 = 0;
-		const flight2 = ( from, l, length ) => {
+		const flight2 = ( from, l, length, most = 0.3 ) => {
 
 			for ( let d = 0; d < length - 0.2; k2 ++ ) {
 
 				const len = Math.min( PATTERN2[ k2 % PATTERN2.length ], length - d );
-				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.3 ], LEG2 );
+				put( at( from, l, d + len / 2 ), l, len, [ 0.06, most ], LEG2 );
 				d += len;
 
 			}
@@ -862,7 +862,7 @@ export class Walls {
 
 		}
 
-		flight2( at( turn2, along, FAN * 1.5 ), along, 5 );
+		flight2( at( turn2, along, FAN * 1.5 ), along, 5, 0.38 ); // (steeper along the curtain)
 
 		// a landing level with the Casa da Música's terrace where you step onto it, part way up the first
 		// leg: the steps it covers become one, the steps below climb to it in even rises, those above ease back

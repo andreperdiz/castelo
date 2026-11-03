@@ -1253,12 +1253,12 @@ export class TerrainData {
 
 	}
 
-	// the lane up beside Porta da Vila's flight, from its corner to the curtain and along it: its middle level
-	// across, so its steps sit on the ground rather than poking out of a slope that leans sideways, and
+	// the lane up beside Porta da Vila's flight, from its foot round its corner to the curtain and along it:
+	// level across, so its steps sit on the ground rather than poking out of a slope that leans sideways, and
 	// banks of setts rising either side of them (the video references/IMG_4350)
 	_pvLaneLevel() {
 
-		const C = [ [ - 61.5, 218.65 ], [ - 66.1, 218.3 ], [ - 66.8, 230.8 ], [ - 69, 231.0 ], [ - 74.5, 230.6 ] ], { heights } = this;
+		const C = [ [ - 54.5, 219.4 ], [ - 61.5, 218.65 ], [ - 66.1, 218.3 ], [ - 66.8, 230.8 ], [ - 69, 231.0 ], [ - 74.5, 230.6 ] ], { heights } = this;
 		// the middle's heights first, before any of it changes
 		const mid = C.slice( 0, - 1 ).map( ( a, s ) => {
 
@@ -1269,25 +1269,28 @@ export class TerrainData {
 		} );
 		// from the end of the first leg, round its corner and up the second to the curtain, an even climb: the
 		// ground rose a metre too steeply into the corner, over the steps (they climb about 20 cm a metre)
-		const h0 = mid[ 0 ][ 0 ], hc = h0 + 0.2 * Math.hypot( C[ 1 ][ 0 ] - C[ 0 ][ 0 ], C[ 1 ][ 1 ] - C[ 0 ][ 1 ] ) - 0.15, ht = mid[ 1 ][ 40 ]; // (a little under the corner's landing)
-		// (level under the corner's landing, 1.5 m either side of the turn)
-		const L0 = Math.hypot( C[ 1 ][ 0 ] - C[ 0 ][ 0 ], C[ 1 ][ 1 ] - C[ 0 ][ 1 ] ), L1 = Math.hypot( C[ 2 ][ 0 ] - C[ 1 ][ 0 ], C[ 2 ][ 1 ] - C[ 1 ][ 1 ] );
+		const h0 = mid[ 1 ][ 0 ], hc = h0 + 0.2 * Math.hypot( C[ 2 ][ 0 ] - C[ 1 ][ 0 ], C[ 2 ][ 1 ] - C[ 1 ][ 1 ] ) - 0.3, ht = mid[ 2 ][ 40 ]; // (a little under the corner's landing: the first leg's steps fall behind)
+		// (level under the corner's landing, 1.5 m on past the turn)
+		const L1 = Math.hypot( C[ 3 ][ 0 ] - C[ 2 ][ 0 ], C[ 3 ][ 1 ] - C[ 2 ][ 1 ] );
 		for ( let k = 0; k <= 40; k ++ ) {
 
-			mid[ 0 ][ k ] = lerp( h0, hc, clamp( k / 40 * L0 / ( L0 - 1.5 ), 0, 1 ) );
-			mid[ 1 ][ k ] = lerp( hc, ht, clamp( ( k / 40 * L1 - 1.5 ) / ( L1 - 1.5 ), 0, 1 ) );
+			mid[ 1 ][ k ] = lerp( h0, hc, k / 40 );
+			mid[ 2 ][ k ] = lerp( hc, ht, clamp( ( k / 40 * L1 - 1.5 ) / ( L1 - 1.5 ), 0, 1 ) );
 
 		}
 		const best = new Map();
-		for ( let s = 0; s + 1 < C.length; s ++ ) this._stroke( [ C[ s ], C[ s + 1 ] ], 1.9, 1.0, ( k, w ) => {
+		for ( let s = 0; s + 1 < C.length; s ++ ) this._stroke( [ C[ s ], C[ s + 1 ] ], 2.4, 1.0, ( k, w ) => {
 
 			const { res, texel, origin } = this;
 			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, C[ s ], C[ s + 1 ] );
 			// (level on the side of the strip of steps: against the Casa da Música's wall, then away from the
 			// curtain; on the other side a bank rising 30 cm a metre)
 			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel, a = C[ s ], b = C[ s + 1 ];
+			// (the first leg level right across, its steps the lane's whole width; and no bank off a segment's
+			// ends, round the corner's landing)
 			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
-			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + ( side < 0 ? 0.3 * Math.max( 0, d - 0.3 ) : 0 );
+			const bank = s >= 2 && side < 0 && t > 0 && t < 1 ? 0.3 * Math.max( 0, d - 0.3 ) : 0;
+			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + bank;
 			if ( ! best.has( k ) || best.get( k ).w < w ) best.set( k, { w, y } );
 
 		} );
