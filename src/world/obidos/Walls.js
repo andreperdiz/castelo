@@ -842,11 +842,13 @@ export class Walls {
 			}
 
 		};
-		// past the corner one more step the lane's whole width, from the flight to the wing's corner (as marked
-		// on the screenshot), then the strip
-		const STEP1 = 0.55;
-		put( at( corner, west, width / 2 + STEP1 / 2 ), west, STEP1, [ 0.06, 0.24 ] );
-		const FAN = 0.7, start = meet( leg, shift( north, north.dz, - north.dx, width / 2 + STEP1 ) );
+		// on the corner's landing one more step, its front on the diagonal from the flight's outer corner to
+		// the white wall's corner (as marked on the screenshots), then the strip from its back
+		const fc = [ corner[ 0 ] + width / 2 - 0.05, corner[ 1 ] + width / 2 + 0.55 ], wc = [ corner[ 0 ] - width / 2 - 0.15, corner[ 1 ] - width / 2 - 0.3 ];
+		const eL = Math.hypot( wc[ 0 ] - fc[ 0 ], wc[ 1 ] - fc[ 1 ] ), ex = ( wc[ 0 ] - fc[ 0 ] ) / eL, ez = ( wc[ 1 ] - fc[ 1 ] ) / eL;
+		const up = { dx: ez, dz: - ex }, STEP1 = 0.8; // (across the diagonal, up the lane)
+		put( [ ( fc[ 0 ] + wc[ 0 ] ) / 2 + up.dx * STEP1 / 2, ( fc[ 1 ] + wc[ 1 ] ) / 2 + up.dz * STEP1 / 2 ], up, STEP1, [ 0.06, 0.24 ], eL );
+		const FAN = 0.7, start = meet( leg, { a: [ fc[ 0 ] + up.dx * STEP1, fc[ 1 ] + up.dz * STEP1 ], dx: ex, dz: ez } );
 		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
 		// (three steps, each turned a little further, the middle one on the turn)
 		const a0 = Math.atan2( leg.dz, leg.dx );
@@ -903,7 +905,7 @@ export class Walls {
 			kit.color = [ 0.74, 0.73, 0.7 ];
 			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, sw, st.yaw, 'bottom' );
 			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, sw / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
-			const kerb = i > 0 && st.y - steps[ i - 1 ].y > 0.05 && st.len > KERB + 0.15 ? KERB : 0;
+			const kerb = i > 0 && st.y - steps[ i - 1 ].y > 0.04 && st.len > KERB + 0.15 ? KERB : 0;
 			const ax = Math.cos( st.yaw ), az = - Math.sin( st.yaw ), cx = Math.sin( st.yaw ), cz = Math.cos( st.yaw );
 			const at = ( u, w ) => [ st.x + ax * u + cx * w, st.y + 0.004, st.z + az * u + cz * w ];
 			const u0 = - st.len / 2 - 0.01 + kerb, u1 = st.len / 2 + 0.01, w0 = - sw / 2, w1 = sw / 2;
