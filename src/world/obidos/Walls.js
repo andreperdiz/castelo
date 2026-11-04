@@ -931,6 +931,18 @@ export class Walls {
 		}
 
 		flight2( at( turn2, along, FAN * 1.5 ), along, 5, 0.38 ); // (steeper along the curtain)
+		// the strip's steps lower: each tread tilted up by 70 % of its step's rise, so each riser keeps only
+		// 30 % of it, and the tops come out where they were
+		for ( let i = 1; i < steps.length; i ++ ) {
+
+			const st = steps[ i ], prev = steps[ i - 1 ];
+			if ( ! st.bevel || st.slope ) continue;
+			const rise = st.y - ( prev.y + ( prev.slope ?? 0 ) );
+			if ( rise <= 0.08 ) continue;
+			st.y -= rise * 0.7;
+			st.slope = rise * 0.7;
+
+		}
 
 
 		// each step a kerb of grey stone along its front and setts behind it (the video references/IMG_4350):
