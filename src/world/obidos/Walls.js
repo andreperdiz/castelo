@@ -858,7 +858,7 @@ export class Walls {
 		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
 		const turn2 = meet( leg, along );
 		let k2 = 0;
-		const flight2 = ( from, l, length, most = 0.3 ) => {
+		const flight2 = ( from, l, length, most = 0.36 ) => {
 
 			for ( let d = 0; d < length - 0.2; k2 ++ ) {
 

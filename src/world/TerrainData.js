@@ -41,6 +41,11 @@ export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 47.8, 223.6 ], [ - 43.4, 215.4 ]
 export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ], [ - 42.5, 208.7 ], [ - 41, 197.9 ], [ - 40.4, 191 ], [ - 47.3, 191 ], [ - 47.2, 195.8 ], [ - 49.3, 213.6 ] ];
 // the narrow way on from the lane by Porta da Vila's flight (the video references/IMG_4350): along the
 // curtain south-west between it and a garden wall, then right between two gardens' walls; its middle
+// across the lane by Porta da Vila's flight past its corner, and along the curtain: the ground's rise at a
+// signed distance from the middle (positive toward the strip of steps): low by the flight's wall or the
+// curtain, climbing 12 cm a metre to the strip
+const CROSS = ( sd ) => 0.12 * Math.max( - 2.0, Math.min( 1.2, sd ) );
+const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
 export const PV_ALLEY = [ [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ], [ - 94.6, 235.7 ], [ - 101.5, 231.4 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
 // Rua Dom João de Ornelas, going down from the square outside the gate toward the walls' east side
@@ -1290,10 +1295,11 @@ export class TerrainData {
 			// (level on the side of the strip of steps: against the Casa da Música's wall, then away from the
 			// curtain; on the other side a bank rising 30 cm a metre)
 			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel, a = C[ s ], b = C[ s + 1 ];
-			// (the first leg level right across, its steps the lane's whole width; and no bank off a segment's
-			// ends, round the corner's landing)
+			// (the first leg level right across, its steps the lane's whole width; past the corner's landing the
+			// ground low by the flight's wall, rising across to the strip of steps by the white wall (the
+			// strip's side positive), easing in over 1.5 m past the landing)
 			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
-			const bank = s >= 2 && side < 0 && t * Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) > 2 && t < 1 ? 0.3 * Math.max( 0, d - 0.3 ) : 0; // (not by the corner's landing)
+			const bank = s >= 2 && t < 1 ? CROSS( side * d ) * clamp01( ( t * Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) - 1.5 ) / 1.5 ) : 0;
 			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + bank;
 			const o = best.get( k );
 			if ( ! o || o.w < w || ( o.w === w && o.d > d ) ) best.set( k, { w, d, y } ); // (on a tie, from the nearest segment)
@@ -1359,7 +1365,12 @@ export class TerrainData {
 			const { res, texel, origin } = this;
 			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, P[ seg ], P[ seg + 1 ] );
 			if ( ( seg === 0 && t === 0 ) || ( seg === L.length - 1 && t === 1 ) ) return; // (nothing beyond its ends)
-			if ( ! best.has( k ) || best.get( k ).d > d ) best.set( k, { w, d, y: at( start[ seg ] + t * L[ seg ] ) } );
+			// (along the curtain low by it, rising across to the strip of steps, the strip's side (north) positive;
+			// easing out into the narrow way)
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel, a = P[ seg ], b = P[ seg + 1 ];
+			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
+			const ease = seg < 2 ? 1 : seg === 2 ? clamp01( 1 - t * L[ seg ] / 2 ) : 0;
+			if ( ! best.has( k ) || best.get( k ).d > d ) best.set( k, { w, d, y: at( start[ seg ] + t * L[ seg ] ) + CROSS( side * d ) * ease } );
 
 		} );
 		for ( const [ k, { w, y } ] of best ) heights[ k ] = lerp( heights[ k ], y, w );
