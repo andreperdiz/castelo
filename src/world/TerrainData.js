@@ -114,6 +114,7 @@ export class TerrainData {
 		this._misericordia();
 		this._escadariaBiblioteca();
 		this._pvLaneLevel();
+		this._pvClimb();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
@@ -1292,9 +1293,10 @@ export class TerrainData {
 			// (the first leg level right across, its steps the lane's whole width; and no bank off a segment's
 			// ends, round the corner's landing)
 			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
-			const bank = s >= 2 && side < 0 && t > 0 && t < 1 ? 0.3 * Math.max( 0, d - 0.3 ) : 0;
+			const bank = s >= 2 && side < 0 && t * Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) > 2 && t < 1 ? 0.3 * Math.max( 0, d - 0.3 ) : 0; // (not by the corner's landing)
 			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + bank;
-			if ( ! best.has( k ) || best.get( k ).w < w ) best.set( k, { w, y } );
+			const o = best.get( k );
+			if ( ! o || o.w < w || ( o.w === w && o.d > d ) ) best.set( k, { w, d, y } ); // (on a tie, from the nearest segment)
 
 		} );
 		// (and setts all over it: the second leg's foot was bare earth)
@@ -1307,24 +1309,80 @@ export class TerrainData {
 
 	}
 
+	// along the curtain from the lane's turn into the narrow way on (PV_ALLEY): the ground always climbing, at
+	// least 6 cm a metre (it dipped where the lane met the narrow way, and went flat in places), level across
+	_pvClimb() {
+
+		const P = [ [ - 66.8, 229.5 ], [ - 69, 231.0 ], [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ] ], { heights } = this;
+		const L = P.slice( 1 ).map( ( b, i ) => Math.hypot( b[ 0 ] - P[ i ][ 0 ], b[ 1 ] - P[ i ][ 1 ] ) );
+		const start = [ 0 ];
+		for ( const l of L ) start.push( start[ start.length - 1 ] + l );
+		const STEP = 0.25, n = Math.ceil( start[ start.length - 1 ] / STEP ) + 1, h = [];
+		for ( let i = 0, seg = 0; i < n; i ++ ) {
+
+			const sx = Math.min( i * STEP, start[ start.length - 1 ] );
+			while ( seg < L.length - 1 && sx > start[ seg + 1 ] ) seg ++;
+			const f = ( sx - start[ seg ] ) / L[ seg ], a = P[ seg ], b = P[ seg + 1 ];
+			h.push( this.heightAt( a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * f ) );
+
+		}
+
+		// (climbing, smoothed over a couple of metres, climbing again)
+		const climb = () => {
+
+			for ( let i = 1; i < n; i ++ ) h[ i ] = Math.max( h[ i ], h[ i - 1 ] + 0.06 * STEP );
+
+		};
+		climb();
+		// (not at the ends, where a shorter window would lift them off the ground they join)
+		const sm = h.map( ( v, i ) => {
+
+			if ( i < 4 || i > n - 5 ) return v;
+			let t = 0;
+			for ( let j = i - 4; j <= i + 4; j ++ ) t += h[ j ];
+			return t / 9;
+
+		} );
+		h.splice( 0, n, ...sm );
+		climb();
+		const at = ( sx ) => {
+
+			const f = clamp( sx / STEP, 0, n - 1 ), i = Math.min( n - 2, Math.floor( f ) );
+			return lerp( h[ i ], h[ i + 1 ], f - i );
+
+		};
+		const best = new Map();
+		// (each texel from the nearest segment: past a segment's end its height stays put, which flattened the
+		// climb where the next one took over)
+		for ( let seg = 0; seg < L.length; seg ++ ) this._stroke( [ P[ seg ], P[ seg + 1 ] ], 2.0, 1.0, ( k, w ) => {
+
+			const { res, texel, origin } = this;
+			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, P[ seg ], P[ seg + 1 ] );
+			if ( ( seg === 0 && t === 0 ) || ( seg === L.length - 1 && t === 1 ) ) return; // (nothing beyond its ends)
+			if ( ! best.has( k ) || best.get( k ).d > d ) best.set( k, { w, d, y: at( start[ seg ] + t * L[ seg ] ) } );
+
+		} );
+		for ( const [ k, { w, y } ] of best ) heights[ k ] = lerp( heights[ k ], y, w );
+
+	}
+
 	// grass between the setts at the foot of Porta da Vila's flight and of the curtain west of it (photo
-	// references/...-escadasmuralha2-1): the scrub mask full there, which on paving in the town the shader
-	// reads as weeds in the joints (nowhere else in the town's paving does it reach that high)
+	// references/...-escadasmuralha2-1): the scrub mask over 0.86 there, which on paving in the town the shader
+	// reads as weeds in the joints, the more the higher (nowhere else in the town's paving does it reach 0.86)
 	_weeds() {
 
 		const gully = this.gully;
-		this._stroke( [ [ - 65.0, 221.5 ], [ - 65.4, 231.0 ], [ - 66, 232.4 ], [ - 77, 231.6 ] ], 0.7, 0.6, ( k, t ) => {
+		// (the mask from 0.86 at the edge, where the weeds give out, to full; over a wide edge, so they thin out
+		// gradually)
+		const weedy = ( k, t ) => {
 
-			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * t ) );
+			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * ( 0.86 + 0.14 * t ) ) );
 
-		} );
+		};
+		this._stroke( [ [ - 65.0, 221.5 ], [ - 65.4, 231.0 ], [ - 66, 232.4 ], [ - 77, 231.6 ] ], 0.4, 1.6, weedy );
 		// and all over the open stretch where the lane comes up to the curtain and turns along it (the video
 		// references/IMG_4350)
-		this._stroke( [ [ - 66.3, 222.5 ], [ - 66.8, 230.5 ], [ - 69, 231 ], [ - 77, 231.2 ] ], 1.8, 1.0, ( k, t ) => {
-
-			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * t ) );
-
-		} );
+		this._stroke( [ [ - 66.3, 222.5 ], [ - 66.8, 230.5 ], [ - 69, 231 ], [ - 77, 231.2 ] ], 1.0, 3.0, weedy );
 
 	}
 
