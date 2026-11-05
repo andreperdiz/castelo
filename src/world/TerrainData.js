@@ -43,8 +43,9 @@ export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ]
 // curtain south-west between it and a garden wall, then right between two gardens' walls; its middle
 // across the lane by Porta da Vila's flight past its corner, and along the curtain: the ground's rise at a
 // signed distance from the middle (positive toward the strip of steps): low by the flight's wall or the
-// curtain, climbing 12 cm a metre to the middle, level from there across the strip, so it lies on the ground
-const CROSS = ( sd ) => 0.12 * Math.max( - 2.0, Math.min( 0, sd ) );
+// curtain, climbing 12 cm a metre to 60 cm short of the middle, level from there across the strip, so it lies
+// on the ground
+const CROSS = ( sd ) => 0.12 * Math.max( - 2.0, Math.min( 0, sd + 0.6 ) );
 const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
 export const PV_ALLEY = [ [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ], [ - 94.6, 235.7 ], [ - 101.5, 231.4 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
@@ -1317,7 +1318,7 @@ export class TerrainData {
 	// least 6 cm a metre (it dipped where the lane met the narrow way, and went flat in places), level across
 	_pvClimb() {
 
-		const P = [ [ - 67.3, 228.0 ], [ - 67.3, 230.6 ], [ - 73.8, 230.0 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ] ], { heights } = this; // (on the strip of steps' line, round the turn)
+		const P = [ [ - 67.2, 228.0 ], [ - 67.2, 230.6 ], [ - 73.8, 230.0 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ] ], { heights } = this; // (on the strip of steps' line, round the turn)
 		const L = P.slice( 1 ).map( ( b, i ) => Math.hypot( b[ 0 ] - P[ i ][ 0 ], b[ 1 ] - P[ i ][ 1 ] ) );
 		const start = [ 0 ];
 		for ( const l of L ) start.push( start[ start.length - 1 ] + l );

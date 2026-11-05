@@ -845,10 +845,10 @@ export class Walls {
 		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
 		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
 		// the ground; by the curtain they turn round to it in a fan, then go on along it
-		// (its strip 80 cm wide, right against the Casa da Música's white wall (_casaWing: its face 15 cm off
+		// (its strip 1 m wide, right against the Casa da Música's white wall (_casaWing: its face 15 cm off
 		// the lane's edge); round the turn it runs along the curtain with a bank of setts between it and the
 		// curtain, as drawn on the screenshot)
-		const LEG2 = 0.8, PATTERN2 = [ 0.9, 0.75, 1.0 ];
+		const LEG2 = 1, PATTERN2 = [ 0.9, 0.75, 1.0 ];
 		const shift = ( l, nx, nz, d ) => ( { a: [ l.a[ 0 ] + nx * d, l.a[ 1 ] + nz * d ], dx: l.dx, dz: l.dz } );
 		// (straight along the wing's face, which runs due south, 3 cm off it: following the lane's own line,
 		// which leans a little west, it ran into the wall)
