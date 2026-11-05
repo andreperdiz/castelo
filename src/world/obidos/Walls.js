@@ -1,7 +1,7 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
-import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
-import { VALE_STEPS } from '../TerrainData.js';
+import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
+import { PV_ALLEY, VALE_STEPS } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -41,6 +41,7 @@ const PV_TOWER = 13.2; // Porta da Vila's tower: its four walls' walk this high 
 const PV_EAST_FACE = - 48.6; // the tower's east side (the curtain): its face on the void
 const PV_FLIGHT = 2.3; // the L-shaped flight's width, as in the photo (references/...-duasescadas)
 const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
+const segDist = ( x, z, a, b ) => segmentDistance( x, z, a, b )[ 0 ];
 
 // a bar of iron into kit from a to b ([ x, y, z ]), w thick (square in section)
 function ironBar( kit, a, b, w ) {
@@ -254,6 +255,8 @@ export class Walls {
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
+		this._pvAlley( materials );
+		this._casaWing( materials );
 
 		const mesh = new Mesh( this.kit.build(), materials.stone );
 		mesh.name = 'walls';
@@ -287,6 +290,157 @@ export class Walls {
 		// and a low guard wall along their town side (the void's side has the crenellated parapet)
 		this.portaDaVila = this._wallLine( prof, [ inner ], 0.37, { sharp: [ [ - 64, 221, - 58.5, 227 ] ], exact: pts, town: () => 'low', lowOuter: true, bare: ( p ) => p.x > PV_EAST_FACE, capStart: false } ); // (its east end runs into the curtain's corner)
 		this.portaDaVila.gates = [ outerGate, inner ];
+
+	}
+
+	// The Casa da Música's south wing (OSM 298902328 has it; Town's outline leaves it out), as in the video
+	// references/IMG_4350: right against the stepped lane, its blank white wall closing the head of the first
+	// leg, where the lane turns left, and running on beside the second leg for a few metres. From the
+	// terrace's corner along the first leg (its south side), the head wall, the end, the back; tiled roofs:
+	// a lean-to over the strip along the first leg, a gable over the block at its head
+	_casaWing( materials ) {
+
+		if ( ! this.laneNorth || ! this.casaOutline ) return;
+		const T = this.terrain, plaster = new MeshKit(), roof = new MeshKit();
+		const { corner, north, width } = this.laneNorth, FS = this.casaOutline.FS;
+		const xE = corner[ 0 ] - width / 2 - 0.15, xW = - 72.3, zS = 223.3, zN = 214.3;
+		// the lane's north edge at x (FS is on it)
+		const edge = ( x ) => FS[ 1 ] + north.dz / north.dx * ( x - FS[ 0 ] );
+		const A = FS, B = [ xE, edge( xE ) ], C = [ xE, zS ], D = [ xW, zS ], E = [ xW, zN ], F = [ FS[ 0 ], zN ];
+		const top = T.heightAt( ...B ) + 6.6, base = Math.min( ...[ A, B, C, D ].map( ( q ) => T.heightAt( ...q ) ) ) - 0.8;
+		const WHITE = lin( [ 0.93, 0.92, 0.89 ] );
+		// a blank whitewashed face from p to q, outward n
+		const face = ( p, q, n, seed ) => {
+
+			const L = Math.hypot( q[ 0 ] - p[ 0 ], q[ 1 ] - p[ 1 ] ), gp = T.heightAt( ...p ), gq = T.heightAt( ...q );
+			plaster.vdata = [ L, 1, seed, 0 ];
+			plaster.color = WHITE;
+			plaster.quadFacing( [ p[ 0 ], base, p[ 1 ] ], [ q[ 0 ], base, q[ 1 ] ], [ q[ 0 ], top, q[ 1 ] ], [ p[ 0 ], top, p[ 1 ] ], n,
+				[ [ 0, base - gp ], [ L, base - gq ], [ L, top - gq ], [ 0, top - gp ] ] );
+
+		};
+		face( A, B, [ 0, 0, 1 ], 0.17 );
+		face( B, C, [ 1, 0, 0 ], 0.43 );
+		face( C, D, [ 0, 0, 1 ], 0.71 );
+		face( D, E, [ - 1, 0, 0 ], 0.29 );
+		face( F, A, [ 1, 0, 0 ], 0.57 );
+		const solid = ( x0, x1, z0, z1 ) => this.colliders.addBox( new Vector3( ( x0 + x1 ) / 2, ( top + base ) / 2, ( z0 + z1 ) / 2 ), new Vector3( Math.abs( x1 - x0 ) / 2, ( top - base ) / 2, Math.abs( z1 - z0 ) / 2 ), 0, { walkable: false, tag: 'wall' } );
+		solid( xW, xE, zN, zS );
+		solid( xE, A[ 0 ], zN, Math.max( A[ 1 ], B[ 1 ] ) );
+
+		// the roofs, eaves 25 cm out
+		const O = 0.25, V = ( x, y, z ) => [ x, y, z ];
+		roof.vdata = [ 0.37, 0.6, 0, 0 ];
+		roof.color = [ 1, 1, 1 ];
+		const xm = ( xE + xW ) / 2, yr = top + 1.3, s1 = Math.hypot( ( xE - xW ) / 2 + O, 1.3 ), Lz = zS - zN + 2 * O;
+		roof.quadFacing( V( xE + O, top - 0.1, zN - O ), V( xE + O, top - 0.1, zS + O ), V( xm, yr, zS + O ), V( xm, yr, zN - O ), [ 0, 1, 0 ], [ [ 0, s1 ], [ Lz, s1 ], [ Lz, 0 ], [ 0, 0 ] ] );
+		roof.quadFacing( V( xW - O, top - 0.1, zN - O ), V( xW - O, top - 0.1, zS + O ), V( xm, yr, zS + O ), V( xm, yr, zN - O ), [ 0, 1, 0 ], [ [ 0, s1 ], [ Lz, s1 ], [ Lz, 0 ], [ 0, 0 ] ] );
+		plaster.vdata = [ 0, 0, 0.53, 4 ];
+		plaster.color = WHITE;
+		for ( const [ z, n ] of [ [ zS, 1 ], [ zN, - 1 ] ] ) plaster.quadFacing( V( xE, top, z ), V( xW, top, z ), V( xm, yr - 0.05, z ), V( xm, yr - 0.05, z ), [ 0, 0, n ] );
+		const zl = Math.max( A[ 1 ], B[ 1 ] ), s2 = Math.hypot( zl - zN + O, 0.9 ), Lx = A[ 0 ] - xE + O;
+		roof.quadFacing( V( xE, top + 0.8, zN ), V( A[ 0 ] + O, top + 0.8, zN ), V( A[ 0 ] + O, top - 0.1, zl + O ), V( xE, top - 0.1, zl + O ), [ 0, 1, 0 ], [ [ 0, 0 ], [ Lx, 0 ], [ Lx, s2 ], [ 0, s2 ] ] );
+		plaster.quadFacing( V( A[ 0 ], top, zN ), V( A[ 0 ], top, zl ), V( A[ 0 ], top + 0.8, zN ), V( A[ 0 ], top + 0.8, zN ), [ 1, 0, 0 ] );
+
+		for ( const [ k, mat, name ] of [ [ plaster, materials.plaster, 'casa-wing' ], [ roof, materials.roof, 'casa-wing-roof' ] ] ) {
+
+			const mesh = new Mesh( k.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+		this.casaWing = [ A, B, C, D, E, F ];
+
+	}
+
+	// no trees on the lane by Porta da Vila's flight, nor in the Casa da Música's wing (Trees asks)
+	treeFree( x, z ) {
+
+		if ( this.lane && this.lane.some( ( st ) => Math.hypot( st.x - x, st.z - z ) < 3.5 ) ) return true;
+		return !! this.casaWing && pointInPolygon( x, z, this.casaWing );
+
+	}
+
+	// The narrow way on from the lane by Porta da Vila's flight (the video references/IMG_4350, after OSM's
+	// garden walls 299071660 and 299071694): south-west along the curtain between it and a garden's wall,
+	// then right between two gardens' walls; whitewashed, a yellow barra along their foot, the gardens'
+	// trees leaning over, low kerbs of grey stone across the setts where it steps up
+	_pvAlley( materials ) {
+
+		const T = this.terrain, kit = this.kit, plaster = new MeshKit();
+		const H = 3.4, TH = 0.4;
+		// a wall along pts, H over the ground, its barra following the ground
+		const wall = ( pts, seed ) => {
+
+			for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+				const a = pts[ i ], c = pts[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+				const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L, nx = - uz, nz = ux;
+				// (each piece runs on past its ends by half the wall's thickness, closing the corners)
+				const A = [ a[ 0 ] - ux * TH / 2, a[ 1 ] - uz * TH / 2 ], C = [ c[ 0 ] + ux * TH / 2, c[ 1 ] + uz * TH / 2 ];
+				const ga = T.heightAt( ...a ), gc = T.heightAt( ...c ), base = Math.min( ga, gc ) - 0.6, ta = ga + H, tc = gc + H;
+				// (the seed picks the barra's height: about 0.65 m, as in the video)
+				plaster.vdata = [ L + TH, 1, ( seed + i * 3 ) / 13.7 + 0.015, 0 ];
+				plaster.color = lin( [ 0.76, 0.6, 0.27 ] );
+				for ( const s of [ - 1, 1 ] ) {
+
+					const o = s * TH / 2, P = ( q, y ) => [ q[ 0 ] + nx * o, y, q[ 1 ] + nz * o ];
+					plaster.quadFacing( P( A, base ), P( C, base ), P( C, tc ), P( A, ta ), [ nx * s, 0, nz * s ],
+						[ [ 0, base - ga ], [ L + TH, base - gc ], [ L + TH, H ], [ 0, H ] ] );
+
+				}
+
+				const Q = ( q, o, y ) => [ q[ 0 ] + nx * o, y, q[ 1 ] + nz * o ];
+				plaster.quadFacing( Q( A, - TH / 2, ta ), Q( C, - TH / 2, tc ), Q( C, TH / 2, tc ), Q( A, TH / 2, ta ), [ 0, 1, 0 ] );
+				if ( i === 0 ) plaster.quadFacing( Q( A, - TH / 2, base ), Q( A, TH / 2, base ), Q( A, TH / 2, ta ), Q( A, - TH / 2, ta ), [ - ux, 0, - uz ] );
+				if ( i === pts.length - 2 ) plaster.quadFacing( Q( C, - TH / 2, base ), Q( C, TH / 2, base ), Q( C, TH / 2, tc ), Q( C, - TH / 2, tc ), [ ux, 0, uz ] );
+				const top = Math.max( ta, tc );
+				this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2, ( top + base ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 ), new Vector3( ( L + TH ) / 2, ( top - base ) / 2, TH / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
+
+			}
+
+		};
+		// the garden on the right going up (its wall a little in from OSM's line, which leaves the way along
+		// the curtain too narrow), and the one on the left past the turn, its wall from the curtain
+		wall( [ [ - 75.6, 232.3 ], [ - 76.7, 233.6 ], [ - 84.1, 238.2 ], [ - 89.6, 235.9 ], [ - 95.0, 233.3 ], [ - 102.6, 227.5 ] ], 17 );
+		wall( [ [ - 82.3, 242.9 ], [ - 98.6, 236.4 ] ], 41 );
+		this.extraTrees = this.extraTrees || [];
+		for ( const [ x, z, kind, scale ] of [ [ - 80.2, 231.4, 'garden', 0.9 ], [ - 86.4, 234.2, 'olive', 0.85 ], [ - 92.3, 231.2, 'garden', 1.0 ], [ - 98.6, 228.4, 'garden', 0.85 ], [ - 88.5, 243.6, 'garden', 0.95 ], [ - 95.2, 240.6, 'olive', 0.8 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+
+		// the kerbs, every 1.9 m along the way, each one long stone, level; narrower along the curtain
+		kit.color = [ 0.74, 0.73, 0.7 ];
+		let walked = 0, next = 1.2, n = 0;
+		for ( let i = 0; i + 1 < PV_ALLEY.length; i ++ ) {
+
+			const a = PV_ALLEY[ i ], c = PV_ALLEY[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+			const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L, yaw = Math.atan2( - uz, ux ), w = i < 2 ? 1.5 : 2.9;
+			for ( ; next < walked + L; next += 1.9 ) {
+
+				const d = next - walked, x = a[ 0 ] + ux * d, z = a[ 1 ] + uz * d;
+				// (its top a few cm over the ground in front of it, at its middle)
+				const top = T.heightAt( x - ux * 0.15, z - uz * 0.15 ) + 0.07;
+				let lo = Infinity;
+				for ( const r of [ - 1, 0, 1 ] ) lo = Math.min( lo, T.heightAt( x - uz * w / 2 * r, z + ux * w / 2 * r ) );
+				kit.vdata = [ 0.53 + n * 0.11, 0.7, 0, 0 ];
+				kit.box( x, ( top + lo - 0.2 ) / 2, z, 0.24, top - lo + 0.2, w, yaw, 'bottom' );
+				n ++;
+
+			}
+
+			walked += L;
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'pv-alley';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
 
 	}
 
@@ -1406,80 +1560,201 @@ export class Walls {
 
 		const steps = [];
 		let y = - Infinity;
-		const put = ( p, l, len, rise ) => {
+		const put = ( p, l, len, rise, w = width ) => {
 
 			const g = T.heightAt( p[ 0 ], p[ 1 ] ), ahead = T.heightAt( p[ 0 ] + l.dx * len / 2, p[ 1 ] + l.dz * len / 2 );
 			y = y === - Infinity ? ahead + 0.12 : y + Math.min( rise[ 1 ], Math.max( rise[ 0 ], ahead + 0.08 - y ) );
-			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len } );
+			steps.push( { x: p[ 0 ], z: p[ 1 ], y, g: Math.min( g, ahead ), yaw: Math.atan2( - l.dz, l.dx ), len, w } );
 
 		};
-		// three short steps, two long, again and again, each 6-16 cm up, keeping to the ground
-		const PATTERN = [ 0.45, 0.45, 0.45, 1.1, 1.1 ];
-		let k = 0;
-		const flight = ( from, l, length ) => {
+		// the first leg (the video references/IMG_4350 and the screenshots): ten steps in even rises up to a
+		// landing level with the Casa da Música's terrace, where its gateway opens, their treads all alike but
+		// the first's, whose front runs on the diagonal (further down on the flight's side); then even steps
+		// on to the corner's landing
+		const KERB = 0.26; // the kerb along a step's front
+		const ROWS = [ 0, 0, 0, 1 ]; // (the stone material's setts in rows, in the colours of the ground's)
+		const casa = this.casaOutline = this._casaOutline( { corner, north, width } ), yT = casa.yT;
+		const sAt = ( x ) => ( x - corner[ 0 ] ) / north.dx; // up the leg from the corner (below it, negative)
+		const block = ( p, l, len, yy, w = width ) => {
 
-			for ( let d = 0; d < length - 0.2; k ++ ) {
+			const g = Math.min( T.heightAt( p[ 0 ] - l.dx * len / 2, p[ 1 ] - l.dz * len / 2 ), T.heightAt( p[ 0 ] + l.dx * len / 2, p[ 1 ] + l.dz * len / 2 ) );
+			const st = { x: p[ 0 ], z: p[ 1 ], y: yy, g, yaw: Math.atan2( - l.dz, l.dx ), len, w };
+			steps.push( st );
+			y = yy;
+			return st;
 
-				const len = Math.min( PATTERN[ k % PATTERN.length ], length - d );
-				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.16 ] );
+		};
+		const sF = sAt( startX ), sL0 = sAt( - 59.03 ), sL1 = sAt( - 61.01 ), N1 = 10;
+		const D1 = 0.76, SKEW = 0.5, t1 = ( sL0 - sF - D1 ) / ( N1 - 1 ), south = [ north.dz, - north.dx ];
+		// (the first: a block whose front is the diagonal, reaching back under the second step; the rises
+		// counted from the ground at its front, the street's highest there)
+		const Fs = at( corner, north, sF - SKEW ), Fn = at( corner, north, sF + SKEW );
+		Fs[ 0 ] += south[ 0 ] * width / 2; Fs[ 1 ] += south[ 1 ] * width / 2;
+		Fn[ 0 ] -= south[ 0 ] * width / 2; Fn[ 1 ] -= south[ 1 ] * width / 2;
+		const g0 = Math.max( T.heightAt( ...Fs ), T.heightAt( ...Fn ), T.heightAt( ...at( corner, north, sF ) ) ), rise1 = ( yT - g0 ) / ( N1 + 1 );
+		const dL = Math.hypot( Fn[ 0 ] - Fs[ 0 ], Fn[ 1 ] - Fs[ 1 ] ), fx = ( Fn[ 0 ] - Fs[ 0 ] ) / dL, fz = ( Fn[ 1 ] - Fs[ 1 ] ) / dL;
+		const up1 = fz * north.dx - fx * north.dz > 0 ? { dx: fz, dz: - fx } : { dx: - fz, dz: fx }, D = ( D1 + SKEW ) * ( up1.dx * north.dx + up1.dz * north.dz );
+		block( [ ( Fs[ 0 ] + Fn[ 0 ] ) / 2 + up1.dx * D / 2, ( Fs[ 1 ] + Fn[ 1 ] ) / 2 + up1.dz * D / 2 ], up1, D, g0 + rise1, dL );
+		for ( let k = 1; k < N1; k ++ ) block( at( corner, north, sF + D1 + ( k - 0.5 ) * t1 ), north, t1, g0 + rise1 * ( k + 1 ) );
+		this.laneGate = block( at( corner, north, ( sL0 + sL1 ) / 2 ), north, sL1 - sL0, yT );
+		// (five, then the corner's landing and the diagonal step: six; their treads tilted up with the climb,
+		// half of each rise in the tread, so the risers stay low)
+		// (spread up to just short of the diagonal step's front, which crosses the lane's middle at the corner)
+		const N2 = 5, sEnd = - 0.6, t2 = ( sEnd - sL1 ) / N2;
+		const yC = Math.max( yT + 0.06 * ( N2 + 1 ), T.heightAt( ...corner ) + 0.08 ), rise2 = ( yC - yT ) / N2;
+		for ( let k = 1; k <= N2; k ++ ) block( at( corner, north, sL1 + ( k - 0.5 ) * t2 ), north, t2, yT + rise2 * ( k - 0.5 ) ).slope = rise2 / 2;
+		// the corner's landing tilted on at the treads' tilt from the last step's back, with no riser between
+		const tilt = rise2 / 2 / ( t2 - KERB ), yL = yT + rise2 * N2, cl = width / 2 - sEnd, cSlope = Math.min( 0.3, tilt * cl );
+		block( at( corner, north, ( sEnd + width / 2 ) / 2 ), north, cl, yL ).slope = cSlope;
+		y = yL + cSlope;
+		// (its top at p)
+		const landingY = ( p ) => yL + cSlope * clamp01( ( ( p[ 0 ] - corner[ 0 ] ) * north.dx + ( p[ 1 ] - corner[ 1 ] ) * north.dz - sEnd ) / cl );
+		// the second leg (the video references/IMG_4350): a strip of steps 2.2 m wide up the middle, banks of
+		// setts sloping up either side (TerrainData shapes them), its steps short and high enough to keep up with
+		// the ground; by the curtain they turn round to it in a fan, then go on along it
+		// (its strip 1 m wide, right against the Casa da Música's white wall (_casaWing: its face 15 cm off
+		// the lane's edge); round the turn it runs along the curtain with a bank of setts between it and the
+		// curtain, as drawn on the screenshot)
+		const LEG2 = 1, PATTERN2 = [ 0.9, 0.75, 1.0 ];
+		const shift = ( l, nx, nz, d ) => ( { a: [ l.a[ 0 ] + nx * d, l.a[ 1 ] + nz * d ], dx: l.dx, dz: l.dz } );
+		// (straight along the wing's face, which runs due south, 3 cm off it: following the lane's own line,
+		// which leans a little west, it ran into the wall)
+		const leg = { a: [ corner[ 0 ] - width / 2 - 0.15 + LEG2 / 2 + 0.03, corner[ 1 ] ], dx: 0, dz: 1 };
+		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
+		const turn2 = meet( leg, along );
+		let k2 = 0;
+		const flight2 = ( from, l, length ) => {
+
+			for ( let d = 0; d < length - 0.2; k2 ++ ) {
+
+				const len = Math.min( PATTERN2[ k2 % PATTERN2.length ], length - d );
+				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.36 ], LEG2 );
+				steps[ steps.length - 1 ].strip = true;
 				d += len;
 
 			}
 
 		};
-		const dStart = ( corner[ 0 ] - startX ) / north.dx;
-		flight( at( corner, north, - dStart ), north, dStart - width / 2 );
-		put( corner, west, width, [ 0.06, 0.16 ] ); // the corner
-		const stepsEnd = turn[ 1 ] - 5 - width / 2;
-		flight( at( corner, west, width / 2 ), west, ( stepsEnd - corner[ 1 ] ) / west.dz - width / 2 );
-		// the sloping path, following the ground, to the turn and a few metres along the curtain
-		const RUN = 0.3;
-		const slope = ( from, l, length ) => {
+		// on the corner's landing one more step, its front on the diagonal from the white wall's corner toward
+		// the flight's outer corner (as marked on the screenshots), but only to the lane's middle; from its end a
+		// ramp down onto the landing; then the strip from its back
+		const fc = [ corner[ 0 ] + width / 2 - 0.05, corner[ 1 ] + width / 2 + 0.55 ], wc = [ corner[ 0 ] - width / 2 - 0.15, corner[ 1 ] - width / 2 - 0.3 ];
+		const eL = Math.hypot( wc[ 0 ] - fc[ 0 ], wc[ 1 ] - fc[ 1 ] ), ex = ( wc[ 0 ] - fc[ 0 ] ) / eL, ez = ( wc[ 1 ] - fc[ 1 ] ) / eL;
+		const up = { dx: ez, dz: - ex }, STEP1 = 0.8; // (across the diagonal, up the lane)
+		const M = [ ( fc[ 0 ] + wc[ 0 ] ) / 2, ( fc[ 1 ] + wc[ 1 ] ) / 2 ];
+		put( [ ( M[ 0 ] + wc[ 0 ] ) / 2 + up.dx * STEP1 / 2, ( M[ 1 ] + wc[ 1 ] ) / 2 + up.dz * STEP1 / 2 ], up, STEP1, [ 0.06, 0.24 ], eL / 2 );
+		steps[ steps.length - 1 ].strip = true;
+		{
 
-			for ( let d = RUN / 2; d < length; d += RUN ) put( at( from, l, d ), l, RUN, [ 0, 0.1 ] );
+			// the ramp: from the step's end, its top, down along the diagonal to the landing's top 1.3 m on
+			const RAMP = 1.3, yd = y;
+			const Ef = M, Eb = [ M[ 0 ] + up.dx * STEP1, M[ 1 ] + up.dz * STEP1 ];
+			const Rf = [ M[ 0 ] - ex * RAMP, M[ 1 ] - ez * RAMP ], Rb = [ Eb[ 0 ] - ex * RAMP, Eb[ 1 ] - ez * RAMP ];
+			const yR = ( p ) => landingY( p ) + 0.005, V = ( p, yy ) => [ p[ 0 ], yy, p[ 1 ] ];
+			const lo = Math.min( yR( Rf ), yR( Rb ) ) - 0.3;
+			kit.vdata = ROWS;
+			kit.color = [ 1, 1, 1 ];
+			kit.quadFacing( V( Ef, lo ), V( Rf, lo ), V( Rf, yR( Rf ) ), V( Ef, yd ), [ - up.dx, 0, - up.dz ] );
+			kit.quadFacing( V( Eb, lo ), V( Rb, lo ), V( Rb, yR( Rb ) ), V( Eb, yd ), [ up.dx, 0, up.dz ] );
+			const A = V( Ef, yd + 0.004 ), B = V( Eb, yd + 0.004 ), C = V( Rb, yR( Rb ) ), D = V( Rf, yR( Rf ) );
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ [ 0, 0 ], [ STEP1, 0 ], [ STEP1, RAMP ], [ 0, RAMP ] ] );
+			// (walkable: in three pieces, each as high as its upper end's middle)
+			const yaw = Math.atan2( ez, - ex );
+			for ( let k = 0; k < 3; k ++ ) {
 
-		};
-		const sEnd = at( corner, west, width / 2 + ( stepsEnd - corner[ 1 ] ) / west.dz - width / 2 );
-		slope( sEnd, west, ( turn[ 1 ] - sEnd[ 1 ] ) / west.dz - width / 2 );
-		put( turn, curtain, width, [ 0, 0.06 ] );
-		slope( at( turn, curtain, width / 2 ), curtain, 5 );
+				const f = ( k + 0.5 ) / 3, c = [ M[ 0 ] - ex * RAMP * f + up.dx * STEP1 / 2, M[ 1 ] - ez * RAMP * f + up.dz * STEP1 / 2 ];
+				const top = yd + ( yR( c ) - yd ) * ( k / 3 ), bot = lo;
+				this.colliders.addBox( new Vector3( c[ 0 ], ( top + bot ) / 2, c[ 1 ] ), new Vector3( RAMP / 6 + 0.01, ( top - bot ) / 2, STEP1 / 2 ), yaw, { walkable: true, tag: 'stair' } );
 
-		// a landing level with the Casa da Música's terrace where you step onto it, part way up the first
-		// leg: the steps it covers become one, the steps below climb to it in even rises, those above ease back
-		const casa = this.casaOutline = this._casaOutline( { corner, north, width } );
-		const yT = casa.yT, nLeg = steps.findIndex( ( st ) => st.x < corner[ 0 ] + width / 2 );
-		let g = - 1;
-		steps.forEach( ( st, i ) => {
+			}
 
-			if ( i < nLeg && st.x < - 57.6 && st.x > - 59.9 && ( g < 0 || Math.abs( st.y - yT + 0.15 ) < Math.abs( steps[ g ].y - yT + 0.15 ) ) ) g = i;
+		}
+		const FAN = 0.7, start = meet( leg, { a: [ fc[ 0 ] + up.dx * STEP1, fc[ 1 ] + up.dz * STEP1 ], dx: ex, dz: ez } );
+		const legFrom = steps.length;
+		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
+		// (its first three steps one long tread instead, a ramp (as marked on the screenshot))
+		{
 
-		} );
-		if ( g > 0 ) {
+			const first = steps.splice( legFrom, 3 ), L3 = first.reduce( ( a, st ) => a + st.len, 0 ), y0 = steps[ legFrom - 1 ].y;
+			const c = at( start, leg, L3 / 2 );
+			steps.splice( legFrom, 0, { x: c[ 0 ], z: c[ 1 ], y: y0, g: Math.min( ...first.map( ( st ) => st.g ) ), yaw: first[ 0 ].yaw, len: L3, w: LEG2, strip: true } );
 
-			const LAND = 0.85, gx = steps[ g ].x;
-			let a = g, b = g;
-			while ( a > 1 && Math.abs( steps[ a - 1 ].x - gx ) < LAND ) a --;
-			while ( b + 1 < nLeg && Math.abs( steps[ b + 1 ].x - gx ) < LAND ) b ++;
-			// from the first step's lower end to the last one's upper end (going up is westward, - x)
-			const x0 = steps[ a ].x - north.dx * steps[ a ].len / 2, x1 = steps[ b ].x + north.dx * steps[ b ].len / 2;
-			const y0 = steps[ 0 ].y;
-			for ( let i = 1; i < a; i ++ ) steps[ i ].y = y0 + ( yT - y0 ) * i / a;
-			const delta = yT - steps[ b ].y;
-			for ( let i = b + 1, j = 1; i < steps.length; i ++, j ++ ) steps[ i ].y += delta * Math.max( 0, 1 - j / 10 );
-			const lx = ( x0 + x1 ) / 2, d = ( lx - corner[ 0 ] ) / north.dx;
-			const landing = { x: lx, z: corner[ 1 ] + north.dz * d, y: yT, g: Math.min( ...steps.slice( a, b + 1 ).map( ( st ) => st.g ) ), yaw: steps[ a ].yaw, len: Math.abs( x1 - x0 ) };
-			steps.splice( a, b - a + 1, landing );
-			this.laneGate = landing;
+		}
+		// (three steps, each turned a little further, the middle one on the turn)
+		const a0 = Math.atan2( leg.dz, leg.dx );
+		let da = Math.atan2( along.dz, along.dx ) - a0;
+		while ( da > Math.PI ) da -= 2 * Math.PI;
+		while ( da < - Math.PI ) da += 2 * Math.PI;
+		for ( const [ f, p ] of [ [ 0.2, at( turn2, leg, - FAN ) ], [ 0.5, turn2 ], [ 0.8, at( turn2, along, FAN ) ] ] ) {
+
+			const a = a0 + da * f;
+			put( p, { dx: Math.cos( a ), dz: Math.sin( a ) }, FAN, [ 0.06, 0.24 ], LEG2 + 0.2 );
+			steps[ steps.length - 1 ].strip = true;
 
 		}
 
-		kit.vdata = [ 0.29, 0.6, 0, 0 ];
-		kit.color = [ 1.06, 1.05, 1.02 ]; // pale limestone
-		steps.forEach( ( st ) => {
+		flight2( at( turn2, along, FAN * 1.5 ), along, 5 );
+		// the strip is part of the ground, not a stair on it: each tread lies on the ground's own slope, a few cm
+		// over it, tilted a little less than it, so a riser of 6 cm comes at each joint
+		for ( let i = 1; i < steps.length; i ++ ) {
 
-			const bottom = st.g - 0.6, h = st.y - bottom;
-			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, width, st.yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( st.x, bottom + h / 2, st.z ), new Vector3( st.len / 2 + 0.01, h / 2, width / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+			const st = steps[ i ], prev = steps[ i - 1 ];
+			if ( ! st.strip ) continue;
+			if ( st.w === eL / 2 ) continue; // (not the diagonal step: the landing sets its height)
+			const dx = Math.cos( st.yaw ) * st.len / 2, dz = - Math.sin( st.yaw ) * st.len / 2, base = prev.y + ( prev.slope ?? 0 );
+			const y0 = Math.max( T.heightAt( st.x - dx, st.z - dz ) + 0.07, base ), y1 = Math.max( y0, T.heightAt( st.x + dx, st.z + dz ) + 0.01 );
+			st.y = y0;
+			st.slope = y1 - y0;
+
+		}
+
+		// each step a kerb of grey stone along its front and setts behind it (the video references/IMG_4350):
+		// the step's block grey, and over its top, behind the kerb, the setts in rows; on the strip of steps and
+		// the diagonal one no grey: all the same stones, the kerb a row of long ones
+		steps.forEach( ( st, i ) => {
+
+			const bottom = st.g - 0.6, h = st.y - bottom, sw = st.w ?? width, slope = st.slope ?? 0;
+			const body = () => {
+
+				kit.vdata = st.strip ? ROWS : [ 0.29 + i * 0.07, 0.7, 0, 0 ];
+				kit.color = st.strip ? [ 1, 1, 1 ] : [ 0.74, 0.73, 0.7 ];
+
+			};
+			body();
+			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, sw, st.yaw, 'bottom' );
+			// (a tilted tread's collider half way up its tilt)
+			const hc = h + slope / 2;
+			this.colliders.addBox( new Vector3( st.x, bottom + hc / 2, st.z ), new Vector3( st.len / 2 + 0.01, hc / 2, sw / 2 ), st.yaw, { walkable: true, tag: 'stair' } );
+			const kerb = i > 0 && st.y - ( steps[ i - 1 ].y + ( steps[ i - 1 ].slope ?? 0 ) ) > 0.04 && st.len > KERB + 0.15 ? KERB : 0;
+			const ax = Math.cos( st.yaw ), az = - Math.sin( st.yaw ), cx = Math.sin( st.yaw ), cz = Math.cos( st.yaw );
+			const u0 = - st.len / 2 - 0.01 + kerb, u1 = st.len / 2 + 0.01, w0 = - sw / 2, w1 = sw / 2;
+			// (behind the kerb the tread rises by slope to its back)
+			const lift = ( u ) => slope * Math.max( 0, ( u - u0 ) / ( u1 - u0 ) );
+			const at = ( u, w, dy = 0.004 ) => [ st.x + ax * u + cx * w, st.y + lift( u ) + dy, st.z + az * u + cz * w ];
+			if ( slope > 0 ) {
+
+				// the wedge under the tilted tread: its sides and back
+				const P = ( u, w, top ) => at( u, w, top ? 0 : - lift( u ) );
+				body();
+				for ( const [ w, n ] of [ [ w0, - 1 ], [ w1, 1 ] ] ) kit.quadFacing( P( u0, w, false ), P( u1, w, false ), P( u1, w, true ), P( u0, w, true ), [ cx * n, 0, cz * n ] );
+				kit.quadFacing( P( u1, w0, false ), P( u1, w1, false ), P( u1, w1, true ), P( u1, w0, true ), [ ax, 0, az ] );
+
+			}
+
+			const A = at( u0, w0 ), B = at( u1, w0 ), C = at( u1, w1 ), D = at( u0, w1 );
+			kit.vdata = ROWS;
+			kit.color = [ 1, 1, 1 ];
+			// (the rows across the way up; each tread's own, so they don't line up from one to the next)
+			const r0 = i * 0.37, q = ( u, w ) => [ w + r0, u + r0 ];
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ q( u0, w0 ), q( u1, w0 ), q( u1, w1 ), q( u0, w1 ) ] );
+			if ( st.strip && kerb ) {
+
+				const ku = - st.len / 2 - 0.01;
+				const k0 = at( ku, w0 ), k1 = at( u0, w0 ), k2 = at( u0, w1 ), k3 = at( ku, w1 );
+				// (stones about 40 cm long, the row's depth the kerb's)
+				kit.quadFacing( k0, k1, k2, k3, [ 0, 1, 0 ], [ [ w0 * 0.42 + r0, 0 ], [ w0 * 0.42 + r0, 0.15 ], [ w1 * 0.42 + r0, 0.15 ], [ w1 * 0.42 + r0, 0 ] ] );
+
+			}
 
 		} );
 
@@ -3856,6 +4131,9 @@ export class Walls {
 			// only along straight-ish stretches (on a bend the wall's pieces crowd the flight)
 			if ( a.tx * p.tx + a.tz * p.tz < Math.cos( 0.3 ) ) return null;
 			const cx = q.x - q.nx * off, cz = q.z - q.nz * off;
+			// not in or beside the narrow way along the curtain west of Porta da Vila (none in the video: it
+			// would fill the way, or stand in the garden past its wall)
+			for ( let e = 0; e + 1 < PV_ALLEY.length; e ++ ) if ( segDist( cx, cz, PV_ALLEY[ e ], PV_ALLEY[ e + 1 ] ) < 3.5 ) return null;
 			const g = T.heightAt( cx, cz );
 			if ( y - g < 0.12 ) break;
 			// the walk beside the flight must not be lower than the step (a flight rising under the walk)

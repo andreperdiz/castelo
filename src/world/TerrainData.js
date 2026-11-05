@@ -39,6 +39,15 @@ export const PV_PRACETA = [ [ - 55, 196.2 ], [ - 47.6, 195.7 ], [ - 49.5, 213.8 
 export const PV_FORK = [ [ - 53.6, 223.2 ], [ - 47.8, 223.6 ], [ - 43.4, 215.4 ], [ - 45, 213.4 ], [ - 52.6, 213.4 ], [ - 53.6, 223.2 ] ];
 // the lane on the right of the small square, from its wall to the houses' fronts, down to the crossing
 export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ], [ - 42.5, 208.7 ], [ - 41, 197.9 ], [ - 40.4, 191 ], [ - 47.3, 191 ], [ - 47.2, 195.8 ], [ - 49.3, 213.6 ] ];
+// the narrow way on from the lane by Porta da Vila's flight (the video references/IMG_4350): along the
+// curtain south-west between it and a garden wall, then right between two gardens' walls; its middle
+// across the lane by Porta da Vila's flight past its corner, and along the curtain: the ground's rise at a
+// signed distance from the middle (positive toward the strip of steps): low by the flight's wall or the
+// curtain, climbing 12 cm a metre to 60 cm short of the middle, level from there across the strip, so it lies
+// on the ground
+const CROSS = ( sd ) => 0.12 * Math.max( - 2.0, Math.min( 0, sd + 0.6 ) );
+const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
+export const PV_ALLEY = [ [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ], [ - 94.6, 235.7 ], [ - 101.5, 231.4 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
 // Rua Dom João de Ornelas, going down from the square outside the gate toward the walls' east side
 // (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
@@ -148,11 +157,14 @@ export class TerrainData {
 		this._beneficiado();
 		this._misericordia();
 		this._escadariaBiblioteca();
+		this._pvLaneLevel();
+		this._pvClimb();
 		this._valeLane();
 		this._valeSteps();
 		mark( 'wall' );
 		this._streets();
 		this._landcover();
+		this._weeds();
 		mark( 'masks' );
 		this.buildMinMax();
 		mark( 'minmax' );
@@ -1263,6 +1275,14 @@ export class TerrainData {
 			this.scarp[ k ] = 255;
 
 		} );
+		// the narrow way on from it, setts from wall to wall
+		this._stroke( PV_ALLEY, 1.3, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
+			path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
 		this._stroke( ORNELAS, 2.6, 0.6, ( k, t ) => {
 
 			if ( t < 0.5 ) return;
@@ -1341,6 +1361,148 @@ export class TerrainData {
 			} );
 
 		}
+
+	}
+
+	// the lane up beside Porta da Vila's flight, from its foot round its corner to the curtain and along it:
+	// level across, so its steps sit on the ground rather than poking out of a slope that leans sideways, and
+	// banks of setts rising either side of them (the video references/IMG_4350)
+	_pvLaneLevel() {
+
+		const C = [ [ - 54.5, 219.4 ], [ - 61.5, 218.65 ], [ - 66.1, 218.3 ], [ - 66.8, 230.8 ], [ - 69, 231.0 ], [ - 74.5, 230.6 ] ], { heights } = this;
+		// the middle's heights first, before any of it changes
+		const mid = C.slice( 0, - 1 ).map( ( a, s ) => {
+
+			const b = C[ s + 1 ], out = [];
+			for ( let k = 0; k <= 40; k ++ ) out.push( this.heightAt( a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * k / 40, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * k / 40 ) );
+			return out;
+
+		} );
+		// from the end of the first leg, round its corner and up the second to the curtain, an even climb: the
+		// ground rose a metre too steeply into the corner, over the steps (they climb about 20 cm a metre)
+		// (the first leg's foot to its landing an even slope too, a little under its even steps)
+		const hf = mid[ 0 ][ 0 ] - 0.1, h0 = mid[ 1 ][ 0 ] - 0.1;
+		for ( let k = 0; k <= 40; k ++ ) mid[ 0 ][ k ] = lerp( hf, h0, k / 40 );
+		const hc = h0 + 0.2 * Math.hypot( C[ 2 ][ 0 ] - C[ 1 ][ 0 ], C[ 2 ][ 1 ] - C[ 1 ][ 1 ] ) - 0.3, ht = mid[ 2 ][ 40 ]; // (a little under the corner's landing: the first leg's steps fall behind)
+		for ( let k = 0; k <= 40; k ++ ) {
+
+			mid[ 1 ][ k ] = lerp( h0, hc, k / 40 );
+			mid[ 2 ][ k ] = lerp( hc, ht, k / 40 );
+
+		}
+		const best = new Map();
+		for ( let s = 0; s + 1 < C.length; s ++ ) this._stroke( [ C[ s ], C[ s + 1 ] ], 2.4, 1.0, ( k, w ) => {
+
+			const { res, texel, origin } = this;
+			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, C[ s ], C[ s + 1 ] );
+			// (level on the side of the strip of steps: against the Casa da Música's wall, then away from the
+			// curtain; on the other side a bank rising 30 cm a metre)
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel, a = C[ s ], b = C[ s + 1 ];
+			// (the first leg level right across, its steps the lane's whole width; past the corner's landing the
+			// ground low by the flight's wall, rising across to the strip of steps by the white wall (the
+			// strip's side positive), easing in over 1.5 m past the landing)
+			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
+			const bank = s >= 2 && t < 1 ? CROSS( side * d ) * clamp01( ( t * Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) - 1.5 ) / 1.5 ) : 0;
+			const f = clamp( t, 0, 1 ) * 40, i = Math.min( 39, Math.floor( f ) ), y = lerp( mid[ s ][ i ], mid[ s ][ i + 1 ], f - i ) + bank;
+			const o = best.get( k );
+			if ( ! o || o.w < w || ( o.w === w && o.d > d ) ) best.set( k, { w, d, y } ); // (on a tie, from the nearest segment)
+
+		} );
+		// (and setts all over it: the second leg's foot was bare earth)
+		for ( const [ k, { w, y } ] of best ) {
+
+			heights[ k ] = lerp( heights[ k ], y, w );
+			if ( w > 0.5 ) this.path[ k ] = this.scarp[ k ] = 255;
+
+		}
+
+	}
+
+	// along the curtain from the lane's turn into the narrow way on (PV_ALLEY): the ground always climbing, at
+	// least 6 cm a metre (it dipped where the lane met the narrow way, and went flat in places), level across
+	_pvClimb() {
+
+		const P = [ [ - 67.2, 228.0 ], [ - 67.2, 230.6 ], [ - 73.8, 230.0 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ] ], { heights } = this; // (on the strip of steps' line, round the turn)
+		const L = P.slice( 1 ).map( ( b, i ) => Math.hypot( b[ 0 ] - P[ i ][ 0 ], b[ 1 ] - P[ i ][ 1 ] ) );
+		const start = [ 0 ];
+		for ( const l of L ) start.push( start[ start.length - 1 ] + l );
+		const STEP = 0.25, n = Math.ceil( start[ start.length - 1 ] / STEP ) + 1, h = [];
+		for ( let i = 0, seg = 0; i < n; i ++ ) {
+
+			const sx = Math.min( i * STEP, start[ start.length - 1 ] );
+			while ( seg < L.length - 1 && sx > start[ seg + 1 ] ) seg ++;
+			const f = ( sx - start[ seg ] ) / L[ seg ], a = P[ seg ], b = P[ seg + 1 ];
+			h.push( this.heightAt( a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * f ) );
+
+		}
+
+		// (climbing, smoothed over a couple of metres, climbing again)
+		const climb = () => {
+
+			for ( let i = 1; i < n; i ++ ) h[ i ] = Math.max( h[ i ], h[ i - 1 ] + 0.06 * STEP );
+
+		};
+		climb();
+		// (not at the ends, where a shorter window would lift them off the ground they join)
+		const sm = h.map( ( v, i ) => {
+
+			if ( i < 4 || i > n - 5 ) return v;
+			let t = 0;
+			for ( let j = i - 4; j <= i + 4; j ++ ) t += h[ j ];
+			return t / 9;
+
+		} );
+		h.splice( 0, n, ...sm );
+		climb();
+		const at = ( sx ) => {
+
+			const f = clamp( sx / STEP, 0, n - 1 ), i = Math.min( n - 2, Math.floor( f ) );
+			return lerp( h[ i ], h[ i + 1 ], f - i );
+
+		};
+		const best = new Map();
+		// (each texel from the nearest segment: past a segment's end its height stays put, which flattened the
+		// climb where the next one took over)
+		for ( let seg = 0; seg < L.length; seg ++ ) this._stroke( [ P[ seg ], P[ seg + 1 ] ], 2.0, 1.0, ( k, w ) => {
+
+			const { res, texel, origin } = this;
+			const [ d, t ] = segmentDistance( origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel, P[ seg ], P[ seg + 1 ] );
+			if ( ( seg === 0 && t === 0 ) || ( seg === L.length - 1 && t === 1 ) ) return; // (nothing beyond its ends)
+			// (along the curtain low by it, rising across to the strip of steps, the strip's side (north) positive;
+			// easing out into the narrow way)
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel, a = P[ seg ], b = P[ seg + 1 ];
+			const side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) > 0 ? 1 : - 1;
+			const ease = seg < 2 ? 1 : seg === 2 ? clamp01( 1 - t * L[ seg ] / 2 ) : 0;
+			if ( ! best.has( k ) || best.get( k ).d > d ) best.set( k, { w, d, y: at( start[ seg ] + t * L[ seg ] ) + CROSS( side * d ) * ease } );
+
+		} );
+		for ( const [ k, { w, y } ] of best ) heights[ k ] = lerp( heights[ k ], y, w );
+
+	}
+
+	// grass between the setts at the foot of Porta da Vila's flight and of the curtain west of it (photo
+	// references/...-escadasmuralha2-1): the scrub mask over 0.86 there, which on paving in the town the shader
+	// reads as weeds in the joints, the more the higher (nowhere else in the town's paving does it reach 0.86)
+	_weeds() {
+
+		const gully = this.gully;
+		// (the mask from 0.86 at the edge, where the weeds give out, to full; over a wide edge, so they thin out
+		// gradually)
+		const weedy = ( k, t ) => {
+
+			gully[ k ] = Math.max( gully[ k ], Math.round( 255 * ( 0.86 + 0.14 * t ) ) );
+
+		};
+		this._stroke( [ [ - 65.0, 221.5 ], [ - 65.4, 231.0 ], [ - 66, 232.4 ], [ - 77, 231.6 ] ], 0.4, 1.6, weedy );
+		// and all over the open stretch where the lane comes up to the curtain and turns along it (the video
+		// references/IMG_4350)
+		this._stroke( [ [ - 66.3, 222.5 ], [ - 66.8, 230.5 ], [ - 69, 231 ], [ - 77, 231.2 ] ], 1.0, 3.0, weedy );
+		// (thinning out toward the strip of steps, whose treads have none)
+		this._stroke( [ [ - 67.3, 218.5 ], [ - 67.3, 230.3 ], [ - 74, 230 ] ], 0.6, 1.2, ( k, t ) => {
+
+			gully[ k ] = Math.min( gully[ k ], Math.round( 255 - 40 * t ) );
+
+		} );
 
 	}
 

@@ -6,7 +6,7 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 // Procedural materials for the walls and the houses of Óbidos (no textures: patterns from the mesh
 // uvs, which are in metres, plus the shared detail noise texture for breakup). The geometry carries
 //   tint  vec3  stone tone / trim paint colour (the barra and the window surrounds)
-//   vdata vec4  stone:   x seed, y weathering 0..1
+//   vdata vec4  stone:   x seed, y weathering 0..1, w 1 = setts in rows (townRowSetts)
 //               plaster: x facade length (m), y storeys, z seed, w 1 = facade with windows and doors
 //                        (0 = a blank wall), plus 0.4 x the ground's slope along it (-0.95..0.95);
 //                        w 2-4: the finishes of townTiles (azulejos, a painted vault, flat paint)
@@ -23,6 +23,12 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 //   fn townRoof( uv, seed, age, px ) -> TownSurf        Roman (canudo) terracotta tiles in channels
 // TownSurf { albedo, rough, hd (bump height, m), ao }.
 const C = {
+	// the setts of the ground (GroundShading), for townRowSetts
+	settLight: srgb( 0.72, 0.69, 0.62 ),
+	settMid: srgb( 0.58, 0.55, 0.49 ),
+	settDark: srgb( 0.44, 0.42, 0.38 ),
+	settWarm: srgb( 0.68, 0.6, 0.5 ),
+	settJoint: srgb( 0.4, 0.36, 0.29 ),
 	stoneA: srgb( 0.66, 0.65, 0.6 ),
 	stoneB: srgb( 0.56, 0.55, 0.51 ),
 	stoneC: srgb( 0.7, 0.66, 0.57 ),
@@ -125,6 +131,31 @@ fn townMasonry( uvIn: vec2f, seed: f32, wear: f32, px: f32 ) -> TownSurf {
 	o.rough = mix( 0.88, 0.95, joint );
 	o.hd = ( smoothstep( 0.0, 0.12, v.y ) * 0.012 + n1.x * 0.008 ) * ( 1.0 - fade );
 	o.ao = mix( 1.0, 0.7, joint * ( 1.0 - fade ) );
+	return o;
+}
+
+// setts laid in rows, in the same colours as the ground's random cobbles (only their order differs): uv in
+// metres, the rows along u
+fn townRowSetts( uv: vec2f, px: f32 ) -> TownSurf {
+	let rh = 0.15; let sl = 0.17;
+	let row = floor( uv.y / rh );
+	let x = uv.x / sl + row * 0.5 + townHash( vec2f( row, 3.1 ) ) * 0.6;
+	let id = vec2f( floor( x ), row );
+	let fx = fract( x ); let fy = fract( uv.y / rh );
+	let e = min( min( fx, 1.0 - fx ) * sl, min( fy, 1.0 - fy ) * rh );
+	var col = mix( TC_settMid, TC_settLight, townHash( id ) );
+	col = mix( col, TC_settDark, smoothstep( 0.78, 0.92, townHash( id + 11.7 ) ) );
+	col = mix( col, TC_settWarm, smoothstep( 0.6, 0.85, townHash( id + 4.4 ) ) * 0.5 );
+	let pxS = px / 0.17;
+	let joint = 1.0 - smoothstep( 0.005, 0.015 + px, e );
+	let fade = smoothstep( 0.08, 0.3, pxS );
+	col = mix( mix( col, TC_settJoint, joint * 0.7 ), mix( TC_settMid, TC_settJoint, 0.18 ), fade );
+	var o: TownSurf;
+	o.em = vec3f( 0.0 );
+	o.albedo = col;
+	o.rough = 0.9;
+	o.hd = mix( smoothstep( 0.0, 0.04, e ) * 0.016 - joint * 0.006, 0.0, fade );
+	o.ao = 1.0;
 	return o;
 }
 
@@ -378,7 +409,8 @@ export function createTownMaterials() {
 ` ),
 		stone: make( 'TownStone', /* wgsl */`
 	${ PX }
-	let t = townMasonry( in.uv, in.vs.vData.x, in.vs.vData.y, px );
+	var t = townMasonry( in.uv, in.vs.vData.x, in.vs.vData.y, px );
+	if ( in.vs.vData.w > 0.5 ) { t = townRowSetts( in.uv, px ); }
 	s.albedo = t.albedo * in.vs.vTint;
 	s.roughness = t.rough;
 	s.normal = terrainPerturbNormal( in.P, in.N, t.hd, 1.0 );
