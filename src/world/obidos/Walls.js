@@ -284,6 +284,7 @@ export class Walls {
 			}
 
 		}
+		this._ornelasForkStone();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 		this._pvAlley( materials );
 		this._casaWing( materials );
@@ -1908,6 +1909,41 @@ export class Walls {
 				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / n / 2 + 0.01, ( top - bottom ) / 2, 0.4 ), yaw, { walkable: false, tag: 'wall' } );
 
 			}
+
+		}
+
+	}
+
+	// by the fork where Rua Dom João de Ornelas leaves the curtain (photo references/...-img-4390): the stone either
+	// side of the green gate (Town._ornelasFork paints the gate), and worn stones along the curtain's foot
+	_ornelasForkStone() {
+
+		const kit = this.kit, T = this.terrain, r = mulberry32( 4390 );
+		if ( ! T.ornelasEast ) return;
+		kit.vdata = [ 0.41, 0.75, 0, 0 ];
+		kit.color = [ 0.9, 0.78, 0.6 ];
+		// on the gate's line, its pillars standing out from the white
+		const ux = - 0.126, uz = - 0.992, nx = - 0.992, nz = 0.126, ox = 83.4, oz = 81.4, yaw = Math.atan2( - uz, ux );
+		for ( const [ t0, t1 ] of [ [ - 0.05, 0.9 ], [ 5.4, 6.2 ] ] ) {
+
+			const t = ( t0 + t1 ) / 2, x = ox + ux * t + nx * 0.17, z = oz + uz * t + nz * 0.17, g = T.heightAt( x, z );
+			kit.box( x, g + 1.1, z, t1 - t0, 3.6, 0.34, yaw, 'bottom' );
+
+		}
+
+		// and the wall on from it to the white wall's end, up to the eave
+		{
+
+			const x = 84.7 - 0.55 * 0.12, z = 82.25 + 0.84 * 0.12, L = 3.15;
+			kit.box( x, T.heightAt( x, z ) + 0.8, z, L, 5.2, 0.24, Math.atan2( - 0.55, 0.84 ), 'bottom' );
+
+		}
+
+		for ( let i = 0; i < 16; i ++ ) {
+
+			const zr = 96 + r() * 13, x = 67.8 + ( 109 - zr ) * 0.112 + 0.9 + r() * 0.9, s = 0.08 + r() * 0.14, v = 0.8 + r() * 0.2;
+			kit.color = [ v * 1.02, v * 0.93, v * 0.76 ];
+			kit.box( x, T.heightAt( x, zr ) + s * 0.3 - 0.03, zr, s * 1.5, s * 0.75, s * 1.1, r() * 3, 'bottom' );
 
 		}
 
