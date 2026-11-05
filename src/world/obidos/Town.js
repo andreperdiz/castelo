@@ -19,8 +19,9 @@ const SKIP = new Set( [ 'roof', 'static_caravan', 'transformer_tower' ] );
 const SKIP_MAN_MADE = new Set( [ 'bridge', 'water_tap', 'storage_tank', 'windmill' ] );
 // the Oratório inside Porta da Vila (the gate tower is open to the sky in the game), and the Passo da Porta
 // da Vila, built as a portal on the tower's face (Walls._passoPortal); the Chafariz Novo below Porta Este, a
-// fountain, not a house (Walls._portaEste)
-const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566 ] );
+// fountain, not a house (Walls._portaEste); the Oratório da Nossa Senhora da Graça, inside the tower by
+// Porta do Vale (Walls builds the tower)
+const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566, 1276297062 ] );
 // streets passing under a building (OSM building_passage) built as such: the building split along the
 // passage into its two wings, and over the passage the body joining them, arched on both sides. By the
 // building's id: the passage's street, its half width (Rua Padre António Almeida, between the two wings of
@@ -35,10 +36,20 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	299068737: [ 0.86, 0.64, 0.17 ],
 	// the house on the right going up the Calçada da Misericórdia: a charcoal foot (photo
 	// references/...-whatsapp-image-2026-10-21-at-10-05-24)
-	299064166: [ 0.27, 0.27, 0.28 ] };
+	299064166: [ 0.27, 0.27, 0.28 ],
+	// down Rua Porta do Vale from the tower by the gate (photo references/...-img-4397): on the right, between
+	// it and Rua da Porta da Senhora da Graça, red; on the left a yellow foot, then blue
+	299086795: [ 0.62, 0.13, 0.1 ],
+	299135575: [ 0.86, 0.64, 0.17 ],
+	299135581: [ 0.13, 0.27, 0.58 ] };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
-	299088208: 1 };
+	299088208: 1,
+	// the houses either side of the top of Rua Porta do Vale: one storey (photo references/...-img-4397)
+	299086795: 1, 299135575: 1, 299135581: 1,
+	// behind the garden wall across the lane from Porta do Vale's block: only trees show over it (photo
+	// references/...-img-4410)
+	299083844: 1 };
 
 // trim paints: Óbidos blue and yellow, some ochre red, a few grey
 const TRIMS = [
@@ -182,6 +193,8 @@ export class Town {
 		for ( const f of list ) this._building( f, rand );
 		for ( const p of this.passages ) this._passageBody( p, rand );
 		this._slabPath( [ [ - 58.5, 236.4 ], [ - 58.7, 241.1 ], [ - 56.6, 246.5 ], [ - 54.6, 261 ] ] );
+		// a narrower one through Porta do Vale's hall and out of it (photo references/...-img-4407)
+		if ( walls?.valePath ) this._slabPath( walls.valePath, 0.62, 0.03 );
 		// the Passo da Porta da Vila's dressed stone (Walls._passoPortal): smooth, pale cream
 		if ( walls?.passo ) {
 
@@ -309,8 +322,9 @@ export class Town {
 	}
 
 	// A path of big pale limestone slabs set in the setts (the one across the square to Porta da Vila, as in
-	// the photo): about a metre wide, each slab 0.5-0.9 m long, nudged a little left or right of the line.
-	_slabPath( pts ) {
+	// the photo): about a metre wide (or width), each slab 0.5-0.9 m long, nudged a little left or right of the
+	// line (up to nudge either way).
+	_slabPath( pts, width = 1, nudge = 0.15 ) {
 
 		const T = this.terrain, kit = this.walls, rand = mulberry32( 2207 );
 		kit.color = srgbToLinear( [ 0.82, 0.8, 0.74 ] );
@@ -321,7 +335,7 @@ export class Town {
 			const yaw = Math.atan2( - uz, ux );
 			for ( let d = 0; d < L - 0.3; ) {
 
-				const len = Math.min( 0.5 + rand() * 0.4, L - d ), w = 0.85 + rand() * 0.3, off = ( rand() - 0.5 ) * 0.3;
+				const len = Math.min( 0.5 + rand() * 0.4, L - d ), w = ( 0.85 + rand() * 0.3 ) * width, off = ( rand() - 0.5 ) * 2 * nudge;
 				const x = a[ 0 ] + ux * ( d + len / 2 ) - uz * off, z = a[ 1 ] + uz * ( d + len / 2 ) + ux * off;
 				const y = T.heightAt( x, z );
 				kit.vdata = [ len, 1, rand(), 0 ]; // no windows

@@ -17,8 +17,9 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 //                                                       rain streaks, lichen, a damp dark foot
 //   fn townPlaster( uv, P, d, trim, px ) -> TownSurf    whitewash with a painted base band (barra),
 //                                                       painted window and door surrounds, dark openings
-//   fn townTiles( uv, P, d, trim, px ) -> TownSurf      blue-and-white azulejos, a painted vault, or
-//                                                       flat paint in the trim colour (stone dressings)
+//   fn townTiles( uv, P, d, trim, px ) -> TownSurf      blue-and-white azulejos, a painted vault,
+//                                                       flat paint in the trim colour (stone dressings),
+//                                                       or boards (wood, d.w = 5)
 //   fn townRoof( uv, seed, age, px ) -> TownSurf        Roman (canudo) terracotta tiles in channels
 // TownSurf { albedo, rough, hd (bump height, m), ao }.
 const C = {
@@ -283,6 +284,22 @@ fn townTiles( uv: vec2f, P: vec3f, d: vec4f, trim: vec3f, px: f32 ) -> TownSurf 
 		col = col * ( 1.0 - ( 1.0 - smoothstep( 0.0, 0.04, abs( fract( s * 4.0 ) - 0.5 ) ) ) * 0.5 );
 		rough = 0.85;
 		ao = 0.9;
+	} else if ( d.w > 4.5 ) {
+		// boards of pine: uv.x across them, uv.y along; grain, a few knots, dark joints
+		let bw = 0.16;
+		let fx = fract( uv.x / bw );
+		let hb = townHash( vec2f( floor( uv.x / bw ), d.z * 17.0 ) );
+		let grain = townNoise( vec2f( uv.x * 9.0, uv.y * 0.6 ) + hb * 7.0 ).w;
+		col = trim * ( 0.8 + hb * 0.35 ) * ( 0.85 + grain * 0.3 );
+		let knot = smoothstep( 0.82, 0.9, townNoise( uv / 0.35 + hb * 3.0 ).x );
+		col = mix( col, trim * 0.35, knot * 0.6 );
+		let aa = max( px, 0.002 ) / bw * 1.5;
+		let fade = smoothstep( 0.01, 0.04, px );
+		let joint = ( 1.0 - smoothstep( 0.0, 0.04 + aa, min( fx, 1.0 - fx ) ) ) * ( 1.0 - fade );
+		col = mix( col, trim * 0.3, joint * 0.8 );
+		rough = 0.75;
+		hd = - joint * 0.003;
+		ao = 1.0 - joint * 0.3;
 	}
 	var o: TownSurf;
 	o.em = vec3f( 0.0 );

@@ -5,6 +5,7 @@
 //   - Rua Direita can be walked from Porta da Vila to the castle end
 //   - Porta da Vila can be walked through, in by one arch and out by the other
 //   - Porta Este too, and up the flight of steps inside it
+//   - Porta do Vale, round the corner of its covered passage
 //   - every flight of steps can be climbed onto the wall walk
 //   - on the walk the parapet holds you in; stepping off the town side drops you into the street
 //   node test/world-obidos.mjs
@@ -95,6 +96,50 @@ if ( ok ) {
 }
 
 check( ok && P.position.y > pe.surf( pe.ST ), `walked in through Porta Este and up its steps (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) }, y ${ P.position.y.toFixed( 1 ) })` );
+
+// in through Porta do Vale: the arch, to the whitewashed wall ahead, then right along the covered passage
+// and out into the town (OSM's building passage)
+{
+
+	const g = T.gates.find( ( q ) => Math.hypot( q.x - 97.4, q.z + 37.3 ) < 2 );
+	ok = !! g;
+	if ( ok ) {
+
+		P.placeAt( 104, T.heightAt( 104, - 34.1 ) + 0.2, - 34.1 );
+		for ( const [ x, z ] of [ [ g.x, g.z ], [ 93.6, - 39.2 ], [ 96.1, - 44.2 ], [ 97.4, - 47 ] ] ) if ( ok ) ok = walkTo( x, z, 20, 0.6 );
+
+	}
+
+	check( ok, `walked in through Porta do Vale and round its passage (${ P.position.x.toFixed( 0 ) }, ${ P.position.z.toFixed( 0 ) })` );
+	// straight on from the arch is the passage's back wall
+	if ( g ) P.placeAt( 95.5, T.heightAt( 95.5, - 38.2 ) + 0.2, - 38.2 );
+	check( g && ! walkTo( 88, - 41.8, 6 ), `the passage's back wall stops you going straight on (${ P.position.x.toFixed( 1 ) })` );
+	// and on the curtain north of it, along the walk past the house over it, up onto the tower's top
+	const run = W.curtain.samples.filter( ( q ) => q.z < - 35.6 && q.z > - 50 && q.x > 96 ).sort( ( a, b ) => a.z - b.z );
+	ok = run.length > 5 && W.valeTowerTop !== undefined;
+	if ( ok ) {
+
+		P.placeAt( run[ 0 ].x - run[ 0 ].nx * 0.3, run[ 0 ].y + 0.2, run[ 0 ].z - run[ 0 ].nz * 0.3 );
+		for ( const q of run ) if ( ok ) ok = walkTo( q.x - q.nx * 0.3, q.z - q.nz * 0.3, 5, 0.4 );
+		ok = ok && walkTo( 95, - 31, 6, 0.6 ) && Math.abs( P.position.y - W.valeTowerTop ) < 0.3;
+
+	}
+
+	check( ok, `along the walk past Porta do Vale's house onto its tower (y ${ P.position.y.toFixed( 1 ) } of ${ W.valeTowerTop?.toFixed( 1 ) })` );
+	// and along the curtain coming up from the south, onto it as well
+	const south = W.curtain.samples.filter( ( q ) => Math.abs( q.x - 86.5 ) < 1 && q.z > - 30 && q.z < - 2 ).sort( ( a, b ) => b.z - a.z );
+	ok = south.length > 5 && W.valeTowerTop !== undefined;
+	if ( ok ) {
+
+		P.placeAt( south[ 0 ].x - south[ 0 ].nx * 0.3, south[ 0 ].y + 0.2, south[ 0 ].z - south[ 0 ].nz * 0.3 );
+		for ( const q of south ) if ( ok ) ok = walkTo( q.x - q.nx * 0.3, q.z - q.nz * 0.3, 5, 0.4 );
+		ok = ok && walkTo( 91, - 31, 6, 0.6 ) && Math.abs( P.position.y - W.valeTowerTop ) < 0.3;
+
+	}
+
+	check( ok, `up the curtain from the south onto the same tower (y ${ P.position.y.toFixed( 1 ) } of ${ W.valeTowerTop?.toFixed( 1 ) })` );
+
+}
 
 // and from just inside it up the short flight to the plane trees' bed
 if ( pe ) {
