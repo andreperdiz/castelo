@@ -805,9 +805,7 @@ export class Walls {
 		// the first's, whose front runs on the diagonal (further down on the flight's side); then even steps
 		// on to the corner's landing
 		const KERB = 0.26; // the kerb along a step's front
-		// the setts on the treads: the masonry drawn at the ground's setts' size (its stones 44 x 19 cm, so
-		// about 17 cm each way), tinted to their warmer grey, so the treads and the ground round them match
-		const SETT_UV = ( p ) => [ ( p[ 0 ] * 0.6 + p[ 2 ] * 0.8 ) * 2.6, ( - p[ 0 ] * 0.8 + p[ 2 ] * 0.6 ) * 1.12 ], SETT_TINT = [ 1.0, 0.95, 0.87 ];
+		const ROWS = [ 0, 0, 0, 1 ]; // (the stone material's setts in rows, in the colours of the ground's)
 		const casa = this.casaOutline = this._casaOutline( { corner, north, width } ), yT = casa.yT;
 		const sAt = ( x ) => ( x - corner[ 0 ] ) / north.dx; // up the leg from the corner (below it, negative)
 		const block = ( p, l, len, yy, w = width ) => {
@@ -858,13 +856,13 @@ export class Walls {
 		const along = shift( curtain, curtain.dz, - curtain.dx, - 0.6 ); // away from the curtain (north)
 		const turn2 = meet( leg, along );
 		let k2 = 0;
-		const flight2 = ( from, l, length, most = 0.36 ) => {
+		const flight2 = ( from, l, length ) => {
 
 			for ( let d = 0; d < length - 0.2; k2 ++ ) {
 
 				const len = Math.min( PATTERN2[ k2 % PATTERN2.length ], length - d );
-				put( at( from, l, d + len / 2 ), l, len, [ 0.06, most ], LEG2 );
-				steps[ steps.length - 1 ].bevel = true;
+				put( at( from, l, d + len / 2 ), l, len, [ 0.06, 0.36 ], LEG2 );
+				steps[ steps.length - 1 ].strip = true;
 				d += len;
 
 			}
@@ -878,6 +876,7 @@ export class Walls {
 		const up = { dx: ez, dz: - ex }, STEP1 = 0.8; // (across the diagonal, up the lane)
 		const M = [ ( fc[ 0 ] + wc[ 0 ] ) / 2, ( fc[ 1 ] + wc[ 1 ] ) / 2 ];
 		put( [ ( M[ 0 ] + wc[ 0 ] ) / 2 + up.dx * STEP1 / 2, ( M[ 1 ] + wc[ 1 ] ) / 2 + up.dz * STEP1 / 2 ], up, STEP1, [ 0.06, 0.24 ], eL / 2 );
+		steps[ steps.length - 1 ].strip = true;
 		{
 
 			// the ramp: from the step's end, its top, down along the diagonal to the landing's top 1.3 m on
@@ -886,14 +885,12 @@ export class Walls {
 			const Rf = [ M[ 0 ] - ex * RAMP, M[ 1 ] - ez * RAMP ], Rb = [ Eb[ 0 ] - ex * RAMP, Eb[ 1 ] - ez * RAMP ];
 			const yR = ( p ) => landingY( p ) + 0.005, V = ( p, yy ) => [ p[ 0 ], yy, p[ 1 ] ];
 			const lo = Math.min( yR( Rf ), yR( Rb ) ) - 0.3;
-			kit.vdata = [ 0.71, 0.7, 0, 0 ];
-			kit.color = [ 0.74, 0.73, 0.7 ];
+			kit.vdata = ROWS;
+			kit.color = [ 1, 1, 1 ];
 			kit.quadFacing( V( Ef, lo ), V( Rf, lo ), V( Rf, yR( Rf ) ), V( Ef, yd ), [ - up.dx, 0, - up.dz ] );
 			kit.quadFacing( V( Eb, lo ), V( Rb, lo ), V( Rb, yR( Rb ) ), V( Eb, yd ), [ up.dx, 0, up.dz ] );
 			const A = V( Ef, yd + 0.004 ), B = V( Eb, yd + 0.004 ), C = V( Rb, yR( Rb ) ), D = V( Rf, yR( Rf ) );
-			kit.vdata = [ 0.83, 0.9, 0, 0 ];
-			kit.color = SETT_TINT;
-			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ SETT_UV( A ), SETT_UV( B ), SETT_UV( C ), SETT_UV( D ) ] );
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ [ 0, 0 ], [ STEP1, 0 ], [ STEP1, RAMP ], [ 0, RAMP ] ] );
 			// (walkable: in three pieces, each as high as its upper end's middle)
 			const yaw = Math.atan2( ez, - ex );
 			for ( let k = 0; k < 3; k ++ ) {
@@ -908,13 +905,12 @@ export class Walls {
 		const FAN = 0.7, start = meet( leg, { a: [ fc[ 0 ] + up.dx * STEP1, fc[ 1 ] + up.dz * STEP1 ], dx: ex, dz: ez } );
 		const legFrom = steps.length;
 		flight2( start, leg, ( turn2[ 1 ] - start[ 1 ] ) / leg.dz - FAN * 1.5 );
-		// (its first three steps a ramp instead (as marked on the screenshot), from the diagonal step's top up to
-		// a low step onto the fourth)
+		// (its first three steps one long tread instead, a ramp (as marked on the screenshot))
 		{
 
 			const first = steps.splice( legFrom, 3 ), L3 = first.reduce( ( a, st ) => a + st.len, 0 ), y0 = steps[ legFrom - 1 ].y;
 			const c = at( start, leg, L3 / 2 );
-			steps.splice( legFrom, 0, { x: c[ 0 ], z: c[ 1 ], y: y0, g: Math.min( ...first.map( ( st ) => st.g ) ), yaw: first[ 0 ].yaw, len: L3, w: LEG2, slope: Math.max( 0, steps[ legFrom ].y - 0.06 - y0 ), bevel: true } );
+			steps.splice( legFrom, 0, { x: c[ 0 ], z: c[ 1 ], y: y0, g: Math.min( ...first.map( ( st ) => st.g ) ), yaw: first[ 0 ].yaw, len: L3, w: LEG2, strip: true } );
 
 		}
 		// (three steps, each turned a little further, the middle one on the turn)
@@ -926,33 +922,38 @@ export class Walls {
 
 			const a = a0 + da * f;
 			put( p, { dx: Math.cos( a ), dz: Math.sin( a ) }, FAN, [ 0.06, 0.24 ], LEG2 + 0.2 );
-			steps[ steps.length - 1 ].bevel = true;
+			steps[ steps.length - 1 ].strip = true;
 
 		}
 
-		flight2( at( turn2, along, FAN * 1.5 ), along, 5, 0.38 ); // (steeper along the curtain)
-		// the strip's steps lower: each tread tilted up by 70 % of its step's rise, so each riser keeps only
-		// 30 % of it, and the tops come out where they were
+		flight2( at( turn2, along, FAN * 1.5 ), along, 5 );
+		// the strip is part of the ground, not a stair on it: each tread lies on the ground's own slope, a few cm
+		// over it, tilted a little less than it, so a riser of 6 cm comes at each joint
 		for ( let i = 1; i < steps.length; i ++ ) {
 
 			const st = steps[ i ], prev = steps[ i - 1 ];
-			if ( ! st.bevel || st.slope ) continue;
-			const rise = st.y - ( prev.y + ( prev.slope ?? 0 ) );
-			if ( rise <= 0.08 ) continue;
-			st.y -= rise * 0.7;
-			st.slope = rise * 0.7;
+			if ( ! st.strip ) continue;
+			if ( st.w === eL / 2 ) continue; // (not the diagonal step: the landing sets its height)
+			const dx = Math.cos( st.yaw ) * st.len / 2, dz = - Math.sin( st.yaw ) * st.len / 2, base = prev.y + ( prev.slope ?? 0 );
+			const y0 = Math.max( T.heightAt( st.x - dx, st.z - dz ) + 0.07, base ), y1 = Math.max( y0, T.heightAt( st.x + dx, st.z + dz ) + 0.01 );
+			st.y = y0;
+			st.slope = y1 - y0;
 
 		}
 
-
 		// each step a kerb of grey stone along its front and setts behind it (the video references/IMG_4350):
-		// the step's block grey, and over its top, behind the kerb, the setts (SETT_UV); the sloping path's low
-		// slabs have no kerb
+		// the step's block grey, and over its top, behind the kerb, the setts in rows; on the strip of steps and
+		// the diagonal one no grey: all the same stones, the kerb a row of long ones
 		steps.forEach( ( st, i ) => {
 
 			const bottom = st.g - 0.6, h = st.y - bottom, sw = st.w ?? width, slope = st.slope ?? 0;
-			kit.vdata = [ 0.29 + i * 0.07, 0.7, 0, 0 ];
-			kit.color = [ 0.74, 0.73, 0.7 ];
+			const body = () => {
+
+				kit.vdata = st.strip ? ROWS : [ 0.29 + i * 0.07, 0.7, 0, 0 ];
+				kit.color = st.strip ? [ 1, 1, 1 ] : [ 0.74, 0.73, 0.7 ];
+
+			};
+			body();
 			kit.box( st.x, bottom + h / 2, st.z, st.len + 0.02, h, sw, st.yaw, 'bottom' );
 			// (a tilted tread's collider half way up its tilt)
 			const hc = h + slope / 2;
@@ -967,30 +968,24 @@ export class Walls {
 
 				// the wedge under the tilted tread: its sides and back
 				const P = ( u, w, top ) => at( u, w, top ? 0 : - lift( u ) );
-				kit.vdata = [ 0.29 + i * 0.07, 0.7, 0, 0 ];
-				kit.color = [ 0.74, 0.73, 0.7 ];
+				body();
 				for ( const [ w, n ] of [ [ w0, - 1 ], [ w1, 1 ] ] ) kit.quadFacing( P( u0, w, false ), P( u1, w, false ), P( u1, w, true ), P( u0, w, true ), [ cx * n, 0, cz * n ] );
 				kit.quadFacing( P( u1, w0, false ), P( u1, w1, false ), P( u1, w1, true ), P( u1, w0, true ), [ ax, 0, az ] );
 
 			}
 
 			const A = at( u0, w0 ), B = at( u1, w0 ), C = at( u1, w1 ), D = at( u0, w1 );
-			kit.vdata = [ 0.83, 0.9, 0, 0 ];
-			kit.color = SETT_TINT;
-			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ SETT_UV( A ), SETT_UV( B ), SETT_UV( C ), SETT_UV( D ) ] );
-			// the strip's open side (away from the wall, then from the curtain): setts sloping from its edge down
-			// to the ground 70 cm out, so it rises out of the setts round it instead of standing on them
-			if ( st.bevel ) {
+			kit.vdata = ROWS;
+			kit.color = [ 1, 1, 1 ];
+			// (the rows across the way up; each tread's own, so they don't line up from one to the next)
+			const r0 = i * 0.37, q = ( u, w ) => [ w + r0, u + r0 ];
+			kit.quadFacing( A, B, C, D, [ 0, 1, 0 ], [ q( u0, w0 ), q( u1, w0 ), q( u1, w1 ), q( u0, w1 ) ] );
+			if ( st.strip && kerb ) {
 
-				const e0 = at( - st.len / 2 - 0.01, w0, 0.002 ), e1 = at( st.len / 2 + 0.01, w0, 0.002 );
-				const out = ( u, top ) => {
-
-					const q = at( u, w0 - 0.7 ), g = T.heightAt( q[ 0 ], q[ 2 ] ) + 0.01;
-					return [ q[ 0 ], Math.min( g, top ), q[ 2 ] ];
-
-				};
-				const o0 = out( - st.len / 2 - 0.01, e0[ 1 ] ), o1 = out( st.len / 2 + 0.01, e1[ 1 ] );
-				kit.quadFacing( e0, e1, o1, o0, [ 0, 1, 0 ], [ SETT_UV( e0 ), SETT_UV( e1 ), SETT_UV( o1 ), SETT_UV( o0 ) ] );
+				const ku = - st.len / 2 - 0.01;
+				const k0 = at( ku, w0 ), k1 = at( u0, w0 ), k2 = at( u0, w1 ), k3 = at( ku, w1 );
+				// (stones about 40 cm long, the row's depth the kerb's)
+				kit.quadFacing( k0, k1, k2, k3, [ 0, 1, 0 ], [ [ w0 * 0.42 + r0, 0 ], [ w0 * 0.42 + r0, 0.15 ], [ w1 * 0.42 + r0, 0.15 ], [ w1 * 0.42 + r0, 0 ] ] );
 
 			}
 

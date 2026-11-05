@@ -43,8 +43,8 @@ export const PV_LANE = [ [ - 49.3, 213.6 ], [ - 43.2, 215.3 ], [ - 43.5, 211.2 ]
 // curtain south-west between it and a garden wall, then right between two gardens' walls; its middle
 // across the lane by Porta da Vila's flight past its corner, and along the curtain: the ground's rise at a
 // signed distance from the middle (positive toward the strip of steps): low by the flight's wall or the
-// curtain, climbing 12 cm a metre to the strip
-const CROSS = ( sd ) => 0.12 * Math.max( - 2.0, Math.min( 1.2, sd ) );
+// curtain, climbing 12 cm a metre to the middle, level from there across the strip, so it lies on the ground
+const CROSS = ( sd ) => 0.12 * Math.max( - 2.0, Math.min( 0, sd ) );
 const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
 export const PV_ALLEY = [ [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ], [ - 94.6, 235.7 ], [ - 101.5, 231.4 ] ];
 export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44, 252 ], [ - 50, 262 ], [ - 60.2, 262 ], [ - 60.2, 236.4 ] ];
@@ -1279,12 +1279,10 @@ export class TerrainData {
 		const hf = mid[ 0 ][ 0 ] - 0.1, h0 = mid[ 1 ][ 0 ] - 0.1;
 		for ( let k = 0; k <= 40; k ++ ) mid[ 0 ][ k ] = lerp( hf, h0, k / 40 );
 		const hc = h0 + 0.2 * Math.hypot( C[ 2 ][ 0 ] - C[ 1 ][ 0 ], C[ 2 ][ 1 ] - C[ 1 ][ 1 ] ) - 0.3, ht = mid[ 2 ][ 40 ]; // (a little under the corner's landing: the first leg's steps fall behind)
-		// (level under the corner's landing, 1.5 m on past the turn)
-		const L1 = Math.hypot( C[ 3 ][ 0 ] - C[ 2 ][ 0 ], C[ 3 ][ 1 ] - C[ 2 ][ 1 ] );
 		for ( let k = 0; k <= 40; k ++ ) {
 
 			mid[ 1 ][ k ] = lerp( h0, hc, k / 40 );
-			mid[ 2 ][ k ] = lerp( hc, ht, clamp( ( k / 40 * L1 - 1.5 ) / ( L1 - 1.5 ), 0, 1 ) );
+			mid[ 2 ][ k ] = lerp( hc, ht, k / 40 );
 
 		}
 		const best = new Map();
@@ -1319,7 +1317,7 @@ export class TerrainData {
 	// least 6 cm a metre (it dipped where the lane met the narrow way, and went flat in places), level across
 	_pvClimb() {
 
-		const P = [ [ - 66.8, 229.5 ], [ - 69, 231.0 ], [ - 73.8, 231.4 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ] ], { heights } = this;
+		const P = [ [ - 67.3, 228.0 ], [ - 67.3, 230.6 ], [ - 73.8, 230.0 ], [ - 77.0, 235.3 ], [ - 83.1, 240.4 ] ], { heights } = this; // (on the strip of steps' line, round the turn)
 		const L = P.slice( 1 ).map( ( b, i ) => Math.hypot( b[ 0 ] - P[ i ][ 0 ], b[ 1 ] - P[ i ][ 1 ] ) );
 		const start = [ 0 ];
 		for ( const l of L ) start.push( start[ start.length - 1 ] + l );
@@ -1394,6 +1392,12 @@ export class TerrainData {
 		// and all over the open stretch where the lane comes up to the curtain and turns along it (the video
 		// references/IMG_4350)
 		this._stroke( [ [ - 66.3, 222.5 ], [ - 66.8, 230.5 ], [ - 69, 231 ], [ - 77, 231.2 ] ], 1.0, 3.0, weedy );
+		// (thinning out toward the strip of steps, whose treads have none)
+		this._stroke( [ [ - 67.3, 218.5 ], [ - 67.3, 230.3 ], [ - 74, 230 ] ], 0.6, 1.2, ( k, t ) => {
+
+			gully[ k ] = Math.min( gully[ k ], Math.round( 255 - 40 * t ) );
+
+		} );
 
 	}
 
