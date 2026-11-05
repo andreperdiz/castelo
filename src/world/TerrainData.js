@@ -53,6 +53,18 @@ export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44
 // (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
 // holding the square up on its left
 export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], [ - 35.7, 234.9 ], [ - 31.4, 221.8 ] ];
+// The same street further on, along the curtain's foot below Porta Este's corner (photo references/...-img-4391):
+// the setts stop at a line of pale stones (guide, going up); between it and the wall a strip of worn ground
+// with patches of setts (strip); then a whitewashed wall across the strip and on up the street's edge
+// (wall: from the curtain's foot to the corner, then up the street), holding up a garden against the curtain
+// (garden: the ground raised inside it, far enough in for the wall to hide the slope).
+export const ORNELAS_EAST = {
+	street: [ [ 72.8, 110 ], [ 68.1, 114.4 ], [ 60.1, 120.3 ], [ 54.7, 124.2 ], [ 48.3, 127.8 ], [ 41.8, 131.3 ] ],
+	guide: [ [ 72.2, 106.5 ], [ 71.6, 108.8 ], [ 66.9, 113.1 ], [ 59.1, 118.9 ] ],
+	strip: [ [ 72.2, 106.5 ], [ 71.6, 108.8 ], [ 66.9, 113.1 ], [ 59.1, 118.9 ], [ 55.9, 114.4 ], [ 60.5, 112.3 ], [ 66.1, 110.1 ], [ 68.3, 105.2 ] ],
+	wall: [ [ 56.6, 115.5 ], [ 59.1, 118.9 ], [ 53.7, 122.8 ], [ 50.7, 124.5 ] ],
+	garden: [ [ 55.63, 116.2 ], [ 57.42, 118.64 ], [ 53, 121.83 ], [ 50.12, 123.45 ], [ 46, 122.5 ], [ 44.5, 119.5 ], [ 50, 114.5 ], [ 55.6, 112.5 ] ],
+};
 // Porta Este, the gate in the east curtain where Travessa do Poço comes out (photo
 // references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
 export const PORTA_ESTE = [ 74.9, 48.5 ];
@@ -618,6 +630,7 @@ export class TerrainData {
 		} );
 
 		this._ornelas();
+		this._ornelasEast();
 
 		// the small square inside the inner arch: level, 0.6 m over the street. Walls builds its floor,
 		// steps and walls and the stone column; the ground under it is left as it is
@@ -1194,6 +1207,38 @@ export class TerrainData {
 
 	}
 
+	// ORNELAS_EAST: the street's levels; the garden 1.4 m over the street at the wall's corner (never lowering the ground, which
+	// climbs to the curtain). this.ornelasEast tells Town the wall's top, 0.3 m over it.
+	_ornelasEast() {
+
+		const E = ORNELAS_EAST, { heights, res, texel, origin } = this;
+		// the street an even climb from point to point, without the ground's small waves
+		const R = E.street, ys = R.map( ( q ) => this.heightAt( q[ 0 ], q[ 1 ] ) );
+		this._stroke( R, 3.4, 3, ( k, t ) => {
+
+			if ( this.inside[ k ] ) return;
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < R.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, R[ i ], R[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, y: lerp( ys[ i ], ys[ i + 1 ], u ) };
+
+			}
+
+			heights[ k ] = lerp( heights[ k ], best.y, 1 - smoothstep( 3.4, 6.4, best.d ) );
+
+		} );
+		const y = this.heightAt( ...E.wall[ 1 ] ) + 1.4;
+		this._fill( E.garden, ( k ) => {
+
+			heights[ k ] = Math.max( heights[ k ], y );
+
+		} );
+		this.ornelasEast = { ...E, top: y + 0.3 };
+
+	}
+
 	// rasterize a thick polyline: cb( k, t ) with t = 1 on the centre line .. 0 at half + soft
 	_stroke( pts, half, soft, cb ) {
 
@@ -1288,6 +1333,44 @@ export class TerrainData {
 			if ( t < 0.5 ) return;
 			path[ k ] = 255;
 			this.scarp[ k ] = 255;
+
+		} );
+		// the strip along the curtain beside Rua Dom João de Ornelas: worn ground (a dusty track's), patches of
+		// setts, more of them toward the street, none at the wall's foot
+		{
+
+			const { street, guide, strip } = ORNELAS_EAST, foot = strip.slice( 4 );
+			// the setts reach the houses' fronts
+			this._stroke( street, 3.2, 0.6, ( k, t ) => {
+
+				if ( t < 0.5 ) return;
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			} );
+			const near = ( line, x, z ) => {
+
+				let d = Infinity;
+				for ( let i = 0; i + 1 < line.length; i ++ ) d = Math.min( d, segmentDistance( x, z, line[ i ], line[ i + 1 ] )[ 0 ] );
+				return d;
+
+			};
+			this._fill( strip, ( k ) => {
+
+				const x = this.origin + ( k % this.res + 0.5 ) * this.texel, z = this.origin + ( Math.floor( k / this.res ) + 0.5 ) * this.texel;
+				const n = this.noise2.fbm( x / 2.3, z / 2.3, 2 ) * 0.5 + 0.5, toRoad = near( guide, x, z );
+				path[ k ] = near( foot, x, z ) > 2.2 && n + 0.3 * ( 1 - toRoad / 3 ) > 0.55 ? 255 : 110;
+
+			} );
+
+		}
+
+				// the garden over the wall beside it: planted ground, not the town's dust
+		this._fill( ORNELAS_EAST.garden, ( k ) => {
+
+			path[ k ] = 0;
+			this.scarp[ k ] = 0;
+			this.gully[ k ] = 180;
 
 		} );
 		// outside Porta do Vale the streets to the gate are setts too, not asphalt (photo

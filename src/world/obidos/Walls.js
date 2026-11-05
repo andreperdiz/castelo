@@ -1,5 +1,6 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
+import { mulberry32 } from '../../util/Noise.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
 import { PV_ALLEY, VALE_STEPS } from '../TerrainData.js';
 
@@ -254,6 +255,35 @@ export class Walls {
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
+		// the trees in the garden against the curtain beside Rua Dom João de Ornelas (photo references/...-img-4391)
+		this.extraTrees = this.extraTrees || [];
+		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 1.15 ], [ 50.4, 120.2, 'olive', 1.1 ], [ 55.2, 116.9, 'garden', 0.8 ], [ 47.6, 120.8, 'garden', 1 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+		// and the worn stones along the curtain's foot there, and the two small marker stones
+		{
+
+			const kit = this.kit, r = mulberry32( 4391 ), T = terrain;
+			kit.vdata = [ 0.29, 0.7, 0, 0 ];
+			const lump = ( x, z, sx, sy, sz, yaw ) => kit.box( x, T.heightAt( x, z ) + sy / 2 - 0.05, z, sx, sy, sz, yaw, 'bottom' );
+			for ( let i = 0; i < 10; i ++ ) {
+
+				const x = 59 + r() * 8, z = 110 + ( 66.1 - x ) * 0.4 + 1.7 + r() * 0.5, sz = 0.1 + r() * 0.16, v = 0.85 + r() * 0.2;
+				kit.color = [ v * 1.05, v * 0.92, v * 0.72 ];
+				lump( x, z, sz * 1.5, sz * 0.8, sz * 1.1, r() * 3 );
+
+			}
+
+			kit.color = [ 0.95, 0.88, 0.72 ];
+			for ( const [ x, z ] of [ [ 67.1, 111.9 ], [ 59.45, 118.75 ] ] ) {
+
+				lump( x, z, 0.3, 0.5, 0.24, - 0.6 );
+				kit.color = [ 0.14, 0.12, 0.13 ];
+				const y = T.heightAt( x, z ) + 0.3;
+				kit.box( x + 0.1, y, z + 0.075, 0.1, 0.24, 0.12, - 0.6, 'bottom' );
+				kit.color = [ 0.95, 0.88, 0.72 ];
+
+			}
+
+		}
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 		this._pvAlley( materials );
 		this._casaWing( materials );

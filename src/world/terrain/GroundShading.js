@@ -198,7 +198,7 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	col = mix( col, GC_settWarm, smoothstep( 0.6, 0.85, groundHash( v.zw + 4.4 ) ) * 0.5 );
 	let pxS = px / s;
 	let joint = 1.0 - smoothstep( 0.03, 0.09 + pxS, v.y );
-	let fade = smoothstep( 0.08, 0.3, pxS );
+	let fade = smoothstep( 0.2, 0.75, pxS ); // (the stones stay legible well down a street)
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
 	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;
