@@ -695,17 +695,18 @@ export class Town {
 	}
 
 	// the steps up into the garden (photo references/...-img-4389): against the white wall's face, on the street's
-	// side, they climb along it toward the curtain, past the wall's end, to a landing that opens on the left into
-	// the garden. On their right a low block between them and the street, yellow below; on the landing, against
-	// the curtain, a whitewashed collar on a yellow base round an iron pipe.
+	// side, they climb along it toward the curtain, past the wall's end, their open side showing their stepped
+	// shape, to a landing. From there one low rise, painted yellow, to the garden's edge: earth and weeds behind the
+	// wall's end, to the left of a whitewashed collar on a yellow base round an iron pipe, against the curtain.
 	_gardenSteps( E ) {
 
 		const T = this.terrain, kit = this.walls, cx = 59.1, cz = 118.9, dx = - 0.592, dz = - 0.806, nx = 0.806, nz = - 0.592, yaw = Math.atan2( - dz, dx );
 		// t along the wall's face from its corner, o out from the face toward the street
 		const P = ( t, o ) => [ cx + dx * t + nx * o, cz + dz * t + nz * o ];
-		const WIDTH = 1.08, N = 5, TREAD = 0.3, START = 2.05, WALL_END = 2.62, TOP = START + TREAD * ( N - 1 ), BACK = 4.05;
-		const yG = E.top - 0.3, foot = T.heightAt( ...P( START - 0.25, WIDTH / 2 ) ) - 0.03, rise = ( yG - foot ) / N;
-		const CONCRETE = srgbToLinear( [ 0.74, 0.72, 0.64 ] ), EDGE = srgbToLinear( [ 0.55, 0.53, 0.47 ] ), YELLOW = srgbToLinear( [ 0.78, 0.6, 0.2 ] ), WORN = srgbToLinear( [ 0.7, 0.67, 0.56 ] ), WHITE = srgbToLinear( [ 0.88, 0.87, 0.82 ] ), IRON = srgbToLinear( [ 0.4, 0.4, 0.38 ] );
+		const WIDTH = 1.08, N = 5, TREAD = 0.3, START = 2.05, WALL_END = 2.62, TOP = START + TREAD * ( N - 1 ), EDGE_T = TOP + 0.38, BACK = 4.3;
+		const yG = E.top - 0.3, SILL = 0.18, foot = T.heightAt( ...P( START - 0.25, WIDTH / 2 ) ) - 0.03, rise = ( yG - SILL - foot ) / N;
+		const CONCRETE = srgbToLinear( [ 0.74, 0.72, 0.64 ] ), EDGE = srgbToLinear( [ 0.55, 0.53, 0.47 ] ), YELLOW = srgbToLinear( [ 0.78, 0.6, 0.2 ] ), WHITE = srgbToLinear( [ 0.88, 0.87, 0.82 ] ), IRON = srgbToLinear( [ 0.4, 0.4, 0.38 ] );
+		const EARTH = srgbToLinear( [ 0.5, 0.41, 0.27 ] ), KERB = srgbToLinear( [ 0.7, 0.68, 0.6 ] ), LEAF = srgbToLinear( [ 0.27, 0.37, 0.14 ] ), LEAF2 = srgbToLinear( [ 0.18, 0.28, 0.1 ] ), TILE = srgbToLinear( [ 0.68, 0.36, 0.22 ] );
 		const block = ( t0, t1, o0, o1, y0, y1, color, walk ) => {
 
 			const [ x, z ] = P( ( t0 + t1 ) / 2, ( o0 + o1 ) / 2 );
@@ -715,28 +716,37 @@ export class Town {
 			if ( walk !== undefined ) this.colliders.addBox( new Vector3( x, ( y0 + y1 ) / 2, z ), new Vector3( ( t1 - t0 ) / 2, ( y1 - y0 ) / 2, ( o1 - o0 ) / 2 ), yaw, { walkable: walk, tag: walk ? 'stair' : 'wall' } );
 
 		};
-		// the steps, the last the landing, running on to the curtain
+		// the steps, the last the landing; each runs back only to the next, so that the open side shows their shape
 		for ( let i = 0; i < N; i ++ ) {
 
-			const t0 = START + TREAD * i, top = foot + rise * ( i + 1 );
-			block( t0, BACK, 0.01, WIDTH, foot - 0.4, top, CONCRETE, true );
+			const t0 = START + TREAD * i, t1 = i < N - 1 ? t0 + TREAD + 0.01 : EDGE_T, top = foot + rise * ( i + 1 );
+			block( t0, t1, 0.01, WIDTH, foot - 0.4, top, CONCRETE, true );
 			block( t0 - 0.012, t0 + 0.01, 0.01, WIDTH, top - rise, top, EDGE ); // their risers, a darker line
 
 		}
 
-		// the landing carries on left, over the wall's line, to the garden's ground; past the wall's end the same
-		// mass holds up the ground beside the steps, yellow
-		block( TOP, BACK, - 1.35, 0.01, foot - 0.4, yG, CONCRETE, true );
-		block( WALL_END, TOP, - 1.35, 0.01, foot - 0.4, yG, YELLOW, false );
-		// the low block on their right
-		const R0 = START + 0.55, RW = 0.58, sideTop = yG + 0.08;
-		block( R0, BACK, WIDTH, WIDTH + RW, foot - 0.4, sideTop, WORN, false );
-		block( R0 - 0.012, BACK, WIDTH + RW - 0.001, WIDTH + RW + 0.012, foot - 0.2, foot + 0.72, YELLOW );
-		block( R0 - 0.012, R0 + 0.001, WIDTH, WIDTH + RW + 0.012, foot - 0.2, foot + 0.72, YELLOW );
-		// the collar with its pipe, on its base, at the head of the landing by the curtain
-		block( 3.68, BACK, 0.12, 0.92, yG, yG + 0.2, YELLOW, false );
-		block( 3.74, 4.05, 0.28, 0.76, yG + 0.2, yG + 0.78, WHITE );
-		block( 3.87, 3.91, 0.5, 0.54, yG + 0.78, yG + 1.3, IRON );
+		// beside them past the wall's end the same mass holds up the garden, yellow
+		block( WALL_END, EDGE_T, - 1.35, 0.01, foot - 0.4, yG, YELLOW, false );
+		block( WALL_END, EDGE_T, - 1.35, 0.01, yG - 0.001, yG + 0.002, EARTH );
+		// the low rise, and the garden's edge behind it
+		block( EDGE_T - 0.012, EDGE_T + 0.01, 0.01, WIDTH, yG - SILL, yG, YELLOW );
+		block( EDGE_T, BACK, - 1.35, WIDTH, foot - 0.4, yG, EARTH, true );
+		block( EDGE_T, BACK, WIDTH - 0.001, WIDTH + 0.008, foot - 0.2, yG, CONCRETE ); // (its open side, like the steps')
+		// the collar with its pipe, on its base, a thin kerb to the left of them
+		block( EDGE_T + 0.1, 4.08, 0.42, WIDTH, yG, yG + 0.2, YELLOW, false );
+		block( EDGE_T + 0.17, 4.05, 0.55, 1.0, yG + 0.2, yG + 0.78, WHITE );
+		block( 3.87, 3.91, 0.76, 0.8, yG + 0.78, yG + 1.3, IRON );
+		block( EDGE_T + 0.02, 4.1, 0.3, 0.38, yG, yG + 0.05, KERB );
+		// weeds in the gap beside it, bits of tile about the wall's end and, over the wall, a small heap of them
+		const r = mulberry32( 4388 );
+		for ( let i = 0; i < 46; i ++ ) {
+
+			const t = EDGE_T + 0.05 + r() * 0.58, o = - 0.22 + r() * 0.5, h = 0.05 + r() * r() * 0.28, sT = 0.005 + r() * 0.006, sO = 0.008 + r() * 0.012;
+			block( t - sT, t + sT, o - sO, o + sO, yG, yG + h, r() < 0.5 ? LEAF : LEAF2 );
+
+		}
+
+		for ( const [ t, o, w, h ] of [ [ WALL_END + 0.22, - 0.28, 0.2, 0.05 ], [ WALL_END + 0.5, - 0.5, 0.14, 0.04 ], [ 1.55, - 0.72, 0.32, 0.34 ], [ 1.75, - 0.78, 0.26, 0.4 ], [ 1.42, - 0.8, 0.22, 0.44 ], [ 1.62, - 0.88, 0.3, 0.52 ] ] ) block( t - w / 2, t + w / 2, o - w * 0.35, o + w * 0.35, yG - 0.01, yG + h, TILE );
 
 	}
 
