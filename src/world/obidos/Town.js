@@ -554,7 +554,7 @@ export class Town {
 		if ( ! E ) return;
 		const T = this.terrain, kit = this.walls;
 		const YELLOW = srgbToLinear( [ 0.88, 0.66, 0.2 ] ), CREAM = srgbToLinear( [ 0.92, 0.86, 0.71 ] ), WOOD = srgbToLinear( [ 0.2, 0.12, 0.07 ] ), FRAME = srgbToLinear( [ 0.3, 0.36, 0.28 ] );
-		const GREEN = srgbToLinear( [ 0.27, 0.47, 0.38 ] ), GREEN_DARK = srgbToLinear( [ 0.18, 0.34, 0.27 ] ), WHITE = srgbToLinear( [ 0.93, 0.92, 0.88 ] ), BLUE = srgbToLinear( [ 0.08, 0.25, 0.68 ] );
+		const GREEN = srgbToLinear( [ 0.36, 0.6, 0.48 ] ), GREEN_DARK = srgbToLinear( [ 0.25, 0.44, 0.35 ] ), WHITE = srgbToLinear( [ 0.93, 0.92, 0.88 ] ), BLUE = srgbToLinear( [ 0.08, 0.25, 0.68 ] );
 		this._footedWall( E.forkWall, E.forkTop );
 
 		// the house with the steps: cream over a yellow foot, a yellow pilaster at its far corner
@@ -577,8 +577,13 @@ export class Town {
 			part( DOOR_T - 0.95, DOOR_T + 0.95, h1.base, stepY + 0.34, 0.55, STONE );
 			{
 
-				const [ cx, cz ] = out( DOOR_T, 0.52 ), yaw = at( DOOR_T ).yaw;
-				this.colliders.addBox( new Vector3( cx, stepY + 0.17, cz ), new Vector3( 1.1, 0.17, 0.53 ), yaw, { walkable: true, tag: 'stair' } );
+				const yaw = at( DOOR_T ).yaw, foot = stepY - 0.4;
+				for ( const [ proud, half, top ] of [ [ 1.05, 1.1, 0.17 ], [ 0.55, 0.95, 0.34 ] ] ) {
+
+					const [ cx, cz ] = out( DOOR_T, proud / 2 ), y1 = stepY + top;
+					this.colliders.addBox( new Vector3( cx, ( foot + y1 ) / 2, cz ), new Vector3( half, ( y1 - foot ) / 2, proud / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+				}
 
 			}
 
@@ -625,6 +630,25 @@ export class Town {
 			R.part( 0.8, 1.5, gr + 1.6, gr + 1.95, 0.32, BLUE );
 			R.part( 2.25, 2.4, gr + 1.95, gr + 2.3, 0.45, srgbToLinear( [ 0.12, 0.12, 0.12 ] ) );
 			R.part( 2.27, 2.38, gr + 1.65, gr + 1.95, 0.45, srgbToLinear( [ 0.86, 0.84, 0.72 ] ) );
+
+		}
+
+		// the small round metal lid set in the setts near the climb's start
+		{
+
+			const x = 72.1, z = 107.5, y = T.heightAt( x, z ) + 0.02, n = 12;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			for ( const [ r, up, c ] of [ [ 0.09, 0, [ 0.1, 0.1, 0.1 ] ], [ 0.06, 0.004, [ 0.3, 0.31, 0.3 ] ] ] ) {
+
+				kit.color = srgbToLinear( c );
+				for ( let i = 0; i < n; i ++ ) {
+
+					const a0 = i / n * Math.PI * 2, a1 = ( i + 1 ) / n * Math.PI * 2;
+					kit.tri( [ x, y + up, z ], [ x + Math.cos( a1 ) * r, y + up, z + Math.sin( a1 ) * r ], [ x + Math.cos( a0 ) * r, y + up, z + Math.sin( a0 ) * r ], [ [ 0, 0 ], [ 0, 0 ], [ 0, 0 ] ], [ 0, 1, 0 ] );
+
+				}
+
+			}
 
 		}
 

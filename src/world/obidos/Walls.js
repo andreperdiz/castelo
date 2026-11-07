@@ -257,7 +257,9 @@ export class Walls {
 		this._valePassage( materials );
 		// the trees in the garden against the curtain beside Rua Dom João de Ornelas (photo references/...-img-4391)
 		this.extraTrees = this.extraTrees || [];
-		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 1.15 ], [ 50.4, 120.2, 'olive', 1.1 ], [ 55.2, 116.9, 'garden', 0.8 ], [ 47.6, 120.8, 'garden', 1 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 1.15 ], [ 50.4, 120.2, 'olive', 1.1 ], [ 55.2, 116.9, 'garden', 0.8 ], [ 47.6, 120.8, 'garden', 1 ],
+			// and the one showing over the green gate at the fork (photo references/...-img-4390), in the yard behind it
+			[ 87, 74.5, 'olive', 1.25 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 		// and the worn stones along the curtain's foot there, and the two small marker stones
 		{
 
@@ -1921,7 +1923,7 @@ export class Walls {
 		const kit = this.kit, T = this.terrain, r = mulberry32( 4390 );
 		if ( ! T.ornelasEast ) return;
 		kit.vdata = [ 0.41, 0.75, 0, 0 ];
-		kit.color = [ 0.9, 0.78, 0.6 ];
+		kit.color = [ 1.25, 1.1, 0.88 ]; // (it stands in shade most of the day)
 		// on the gate's line, its pillars standing out from the white
 		const ux = - 0.126, uz = - 0.992, nx = - 0.992, nz = 0.126, ox = 83.4, oz = 81.4, yaw = Math.atan2( - uz, ux );
 		for ( const [ t0, t1 ] of [ [ - 0.05, 0.9 ], [ 5.4, 6.2 ] ] ) {

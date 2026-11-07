@@ -36,10 +36,10 @@ const C = {
 	scrubDry: srgb( 0.42, 0.4, 0.26 ),
 	hedge: srgb( 0.17, 0.21, 0.11 ),
 	track: srgb( 0.66, 0.57, 0.43 ),
-	settLight: srgb( 0.72, 0.69, 0.62 ),
-	settMid: srgb( 0.58, 0.55, 0.49 ),
-	settDark: srgb( 0.44, 0.42, 0.38 ),
-	settWarm: srgb( 0.68, 0.6, 0.5 ),
+	settLight: srgb( 0.6, 0.58, 0.53 ),
+	settMid: srgb( 0.46, 0.44, 0.4 ),
+	settDark: srgb( 0.33, 0.32, 0.3 ),
+	settWarm: srgb( 0.55, 0.49, 0.42 ),
 	joint: srgb( 0.27, 0.25, 0.21 ),
 };
 
@@ -198,7 +198,7 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	col = mix( col, GC_settWarm, smoothstep( 0.6, 0.85, groundHash( v.zw + 4.4 ) ) * 0.5 );
 	let pxS = px / s;
 	let joint = 1.0 - smoothstep( 0.03, 0.09 + pxS, v.y );
-	let fade = smoothstep( 0.3, 1.1, pxS ); // (the stones stay legible well down a street)
+	let fade = smoothstep( 0.4, 1.6, pxS ); // (the stones stay legible well down a street)
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
 	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;

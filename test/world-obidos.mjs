@@ -226,6 +226,26 @@ for ( const st of W.lane ) if ( ok && st.x >= ct.gate.x - 0.01 ) ok = walkTo( st
 ok = ok && walkTo( ct.gate.x, ct.gate.z - 2.5, 5, 0.4 ) && walkTo( - 60.6, 205, 8, 0.4 ) && Math.abs( P.position.y - ct.floor ) < 0.1;
 check( ok, `up the steps onto the Casa da Música's terrace (y ${ P.position.y.toFixed( 1 ) } of ${ ct.floor.toFixed( 1 ) })` );
 
+// down Rua Dom João de Ornelas along the curtain to the fork: the way is clear, the door's steps can be climbed,
+// the wall between the streets and the wall across the yard's mouth stop you
+{
+
+	const at = ( x, z ) => P.placeAt( x, T.heightAt( x, z ) + 0.2, z );
+	at( 72, 108 );
+	check( walkTo( 75, 96, 15 ) && walkTo( 76, 80, 15 ) && walkTo( 77, 66, 15 ), 'down the street along the curtain to the fork and on' );
+	at( 74.6, 104.1 );
+	const y0 = T.heightAt( 76.35, 104.45 );
+	walkTo( 76.35, 104.45, 5, 0.08 );
+	check( P.position.y > y0 + 0.25, `up the steps to the door before the fork (${ ( P.position.y - y0 ).toFixed( 2 ) } m up)` );
+	at( 83.5, 88.8 );
+	const across = walkTo( 81.5, 84.5, 3, 0.4 );
+	check( ! across, 'the wall at the fork stops you from the lower street' );
+	at( 79, 75 );
+	const inYard = walkTo( 85, 74.7, 3, 0.4 );
+	check( ! inYard, 'the green gate stops you at the yard' );
+
+}
+
 // along the walk, then into the parapet, then off the town side
 const S = W.curtain.samples;
 const i0 = Math.floor( S.length * 0.3 );

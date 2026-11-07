@@ -24,10 +24,10 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 // TownSurf { albedo, rough, hd (bump height, m), ao }.
 const C = {
 	// the setts of the ground (GroundShading), for townRowSetts
-	settLight: srgb( 0.72, 0.69, 0.62 ),
-	settMid: srgb( 0.58, 0.55, 0.49 ),
-	settDark: srgb( 0.44, 0.42, 0.38 ),
-	settWarm: srgb( 0.68, 0.6, 0.5 ),
+	settLight: srgb( 0.6, 0.58, 0.53 ),
+	settMid: srgb( 0.46, 0.44, 0.4 ),
+	settDark: srgb( 0.33, 0.32, 0.3 ),
+	settWarm: srgb( 0.55, 0.49, 0.42 ),
 	settJoint: srgb( 0.4, 0.36, 0.29 ),
 	stoneA: srgb( 0.66, 0.65, 0.6 ),
 	stoneB: srgb( 0.56, 0.55, 0.51 ),
