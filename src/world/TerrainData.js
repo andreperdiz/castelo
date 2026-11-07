@@ -1431,14 +1431,6 @@ export class TerrainData {
 
 		}
 
-				// the garden over the wall beside it: planted ground, not the town's dust
-		this._fill( ORNELAS_EAST.garden, ( k ) => {
-
-			path[ k ] = 0;
-			this.scarp[ k ] = 0;
-			this.gully[ k ] = 180;
-
-		} );
 		// outside Porta do Vale the streets to the gate are setts too, not asphalt (photo
 		// references/...-porta-nordeste-1)
 		for ( const st of OSM.streets.filter( ( q ) => PORTA_DO_VALE_STREETS.includes( q.id ) ) ) this._stroke( st.pts, STREET_HALF[ st.highway ], 0.6, ( k, t ) => {
@@ -1710,6 +1702,16 @@ export class TerrainData {
 			rock[ k ] = r;
 
 		}
+
+		// the garden over the wall beside Rua Dom João de Ornelas: planted, though the houses round it count as town
+		this._fill( ORNELAS_EAST.garden, ( k ) => {
+
+			path[ k ] = 0;
+			scarp[ k ] = 0;
+			sand[ k ] = 0;
+			gully[ k ] = 255;
+
+		} );
 
 	}
 

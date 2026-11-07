@@ -258,6 +258,8 @@ export class Walls {
 		// the trees in the garden against the curtain beside Rua Dom João de Ornelas (photo references/...-img-4391)
 		this.extraTrees = this.extraTrees || [];
 		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 1.15 ], [ 50.4, 120.2, 'olive', 1.1 ], [ 55.2, 116.9, 'garden', 0.8 ], [ 47.6, 120.8, 'garden', 1 ],
+			// shrubs under them, the ground planted, and one at the curtain's foot by the drainpipe
+			[ 55.3, 118.6, 'garden', 0.45 ], [ 52, 121.2, 'garden', 0.5 ], [ 49.2, 122, 'garden', 0.42 ], [ 51.4, 117.6, 'garden', 0.48 ], [ 46, 119.8, 'garden', 0.45 ], [ 58.1, 114.7, 'garden', 0.38 ],
 			// and the one showing over the green gate at the fork (photo references/...-img-4390), in the yard behind it
 			[ 87, 74.5, 'olive', 1.25 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 		// and the worn stones along the curtain's foot there, and the two small marker stones

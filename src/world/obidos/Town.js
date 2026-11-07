@@ -293,6 +293,23 @@ export class Town {
 
 		}
 
+		// the big lantern the photo shows on the blue house going up Rua Dom João de Ornelas
+		if ( this.blueLantern ) {
+
+			const { x, z, wx, wz, y, yaw } = this.blueLantern;
+			kit.vdata = [ 0, 0, 0, 0 ];
+			kit.box( ( x + wx ) / 2, y + 0.42, ( z + wz ) / 2, 0.04, 0.05, Math.hypot( x - wx, z - wz ), Math.atan2( x - wx, z - wz ) );
+			kit.box( x, y + 0.27, z, 0.34, 0.05, 0.34, yaw );
+			kit.box( x, y + 0.36, z, 0.14, 0.12, 0.14, yaw );
+			kit.box( x, y - 0.24, z, 0.18, 0.05, 0.18, yaw );
+			const cos = Math.cos( yaw ), sin = Math.sin( yaw );
+			for ( const [ u, v ] of [ [ 1, 1 ], [ 1, - 1 ], [ - 1, 1 ], [ - 1, - 1 ] ] ) kit.box( x + ( u * cos + v * sin ) * 0.115, y, z + ( v * cos - u * sin ) * 0.115, 0.03, 0.5, 0.03, yaw );
+			kit.vdata = [ 1, 0, 0, 0 ];
+			kit.box( x, y, z, 0.22, 0.46, 0.22, yaw, 'top bottom' );
+			this.lights.push( { position: new Vector3( x, y - 0.05, z ), color: warm, intensity: 7, range: 13, kind: 'lantern', flicker: 0.05 } );
+
+		}
+
 		if ( kit.empty ) return;
 		const mesh = new Mesh( kit.build(), materials.lantern );
 		mesh.name = 'lanterns';
@@ -499,8 +516,64 @@ export class Town {
 
 		}
 
-		part( BLUE_END + 0.25, BEND - 0.02, eave( 9 ) - 0.22, eave( 9 ), 0.16, WHITE ); // the cornice
-		part( BEND + 0.02, END, eave( 15 ) - 0.22, eave( 15 ), 0.16, WHITE );
+		// the white house's roof stands a little over the blue one's, its tiles older and greyer: laid over the
+		// footprint's single roof from the cornice to the ridge. The cornice and its course of tiles follow the eave.
+		const kit = this.walls, LIFT = 0.25, TILE = srgbToLinear( [ 0.5, 0.3, 0.22 ] );
+		const band = ( t0, t1, y0, y1, proud, c ) => {
+
+			const A = out( t0, proud ), C = out( t1, proud ), A0 = out( t0, 0 ), C0 = out( t1, 0 ), ya = eave( t0 ), yc = eave( t1 ), p = at( ( t0 + t1 ) / 2 ), n = out( ( t0 + t1 ) / 2, 1 ), m = out( ( t0 + t1 ) / 2, 0 );
+			const want = [ n[ 0 ] - m[ 0 ], 0, n[ 1 ] - m[ 1 ] ], uv = [ [ 0, 0 ], [ 1, 0 ], [ 1, 1 ], [ 0, 1 ] ];
+			kit.color = c;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.quadFacing( [ A[ 0 ], ya + y0, A[ 1 ] ], [ C[ 0 ], yc + y0, C[ 1 ] ], [ C[ 0 ], yc + y1, C[ 1 ] ], [ A[ 0 ], ya + y1, A[ 1 ] ], want, uv );
+			kit.quadFacing( [ A[ 0 ], ya + y1, A[ 1 ] ], [ C[ 0 ], yc + y1, C[ 1 ] ], [ C0[ 0 ], yc + y1, C0[ 1 ] ], [ A0[ 0 ], ya + y1, A0[ 1 ] ], [ 0, 1, 0 ], uv );
+			kit.quadFacing( [ A[ 0 ], ya + y0, A[ 1 ] ], [ C[ 0 ], yc + y0, C[ 1 ] ], [ C0[ 0 ], yc + y0, C0[ 1 ] ], [ A0[ 0 ], ya + y0, A0[ 1 ] ], [ 0, - 1, 0 ], uv );
+			kit.quadFacing( [ A[ 0 ], ya + y0, A[ 1 ] ], [ A0[ 0 ], ya + y0, A0[ 1 ] ], [ A0[ 0 ], ya + y1, A0[ 1 ] ], [ A[ 0 ], ya + y1, A[ 1 ] ], [ - p.ux, 0, - p.uz ], uv );
+
+		};
+		for ( const [ t0, t1 ] of [ [ BLUE_END, BEND ], [ BEND, END ] ] ) {
+
+			band( t0, t1, - 0.22, LIFT, 0.27, WHITE );
+			band( t0, t1, LIFT, LIFT + 0.1, 0.36, TILE );
+
+		}
+
+		{
+
+			const roof = this.roofs;
+			const toRidge = ( t ) => {
+
+				let d = 0;
+				while ( d < 9 && pointInPolygon( ...out( t, - d - 0.2 ), f.poly ) && f.roofH( ...out( t, - d - 0.2 ) ) > f.roofH( ...out( t, - d ) ) + 0.001 ) d += 0.2;
+				return d;
+
+			};
+			const rows = [ BLUE_END, BEND, END ].map( ( t ) => {
+
+				const z = out( t, 0 ), r = out( t, - toRidge( t ) );
+				return { front: [ z[ 0 ], f.roofH( ...z ) + LIFT + 0.08, z[ 1 ] ], ridge: [ r[ 0 ], f.roofH( ...r ) + LIFT, r[ 1 ] ], t };
+
+			} );
+			roof.color = [ 0.74, 0.72, 0.7 ];
+			roof.vdata = [ 0.71, 0.95, 0, 0 ];
+			for ( let i = 0; i + 1 < rows.length; i ++ ) {
+
+				const a = rows[ i ], b = rows[ i + 1 ], D = Math.hypot( a.ridge[ 0 ] - a.front[ 0 ], a.ridge[ 2 ] - a.front[ 2 ] );
+				roof.quadFacing( a.front, b.front, b.ridge, a.ridge, [ 0, 1, 0 ], [ [ a.t, D ], [ b.t, D ], [ b.t, 0 ], [ a.t, 0 ] ] );
+
+			}
+
+			// its end over the blue house's roof
+			const a = rows[ 0 ];
+			roof.quadFacing( a.front, a.ridge, [ a.ridge[ 0 ], a.ridge[ 1 ] - LIFT, a.ridge[ 2 ] ], [ a.front[ 0 ], a.front[ 1 ] - LIFT, a.front[ 2 ] ], [ - at( BLUE_END ).ux, 0, - at( BLUE_END ).uz ], [ [ 0, 0 ], [ 3, 0 ], [ 3, 0.25 ], [ 0, 0.25 ] ] );
+
+		}
+
+		// the lantern on the blue house, on its bracket by the corner, a pot hanging under it (lit in Town._lanterns)
+		pot( 1, 40.75, 61 );
+		part( 0.96, 1.04, 40.98, 41.02, 0.45, srgbToLinear( [ 0.1, 0.1, 0.1 ] ) );
+		const [ lx, lz ] = out( 1, 0.62 ), [ wx, wz ] = out( 1, 0 );
+		this.blueLantern = { x: lx, z: lz, wx, wz, y: 41.1, yaw: at( 1 ).yaw };
 
 	}
 
@@ -509,7 +582,15 @@ export class Town {
 	_ornelasGardenWall() {
 
 		const E = this.terrain.ornelasEast;
-		if ( E ) this._footedWall( E.wall, E.top );
+		if ( ! E ) return;
+		this._footedWall( E.wall, E.top );
+		// the drainpipe down the curtain just short of the wall, turning out at its foot
+		const kit = this.walls, x = 59.99, z = 114.2, g = this.terrain.heightAt( x, z ), nx = 0.368, nz = 0.93;
+		kit.vdata = [ 0, 0, 0.53, 4 ];
+		kit.color = srgbToLinear( [ 0.2, 0.21, 0.22 ] );
+		kit.box( x, g + 1.75, z, 0.07, 3.3, 0.07, 0, 'bottom' );
+		kit.box( x + nx * 0.1, g + 0.13, z + nz * 0.1, 0.09, 0.09, 0.28, Math.atan2( nx, nz ), 'bottom' );
+		for ( const y of [ 1.1, 2.3, 3.3 ] ) kit.box( x - nx * 0.05, g + y, z - nz * 0.05, 0.14, 0.04, 0.14, 0 );
 
 	}
 
