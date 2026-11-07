@@ -58,11 +58,14 @@ export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], 
 // with patches of setts (strip); then a whitewashed wall across the strip and on up the street's edge
 // (wall: from the curtain's foot to the corner, then up the street), holding up a garden against the curtain
 // (garden: the ground raised inside it, far enough in for the wall to hide the slope).
+// the small stones marked S R along that street: one at the white wall's corner, one further down
+export const ORNELAS_MARKERS = [ [ 67.1, 111.9 ], [ 59.05, 118.66 ] ];
 export const ORNELAS_EAST = {
 	street: [ [ 72.8, 110 ], [ 68.1, 114.4 ], [ 60.1, 120.3 ], [ 54.7, 124.2 ], [ 48.3, 127.8 ], [ 41.8, 131.3 ] ],
-	guide: [ [ 70.4, 109.9 ], [ 66.9, 113.1 ], [ 59.1, 118.9 ] ],
+	guide: [ [ 70.4, 109.9 ], [ 66.9, 113.1 ], [ 60.6, 117.8 ] ],
 	strip: [ [ 70.4, 109.9 ], [ 66.9, 113.1 ], [ 59.1, 118.9 ], [ 55.9, 114.4 ], [ 60.5, 112.3 ], [ 66.1, 110.1 ], [ 67.7, 109.3 ] ],
-	wall: [ [ 56.6, 115.5 ], [ 59.1, 118.9 ], [ 53.7, 122.8 ], [ 50.7, 124.5 ] ],
+	// (it stops short of the curtain: the steps up into the garden go through the gap, photo references/...-img-4389)
+	wall: [ [ 57.56, 116.8 ], [ 58.99, 118.75 ], [ 59.03, 118.88 ], [ 58.95, 119.01 ], [ 53.7, 122.8 ], [ 50.7, 124.5 ] ],
 	garden: [ [ 55.63, 116.2 ], [ 57.42, 118.64 ], [ 53, 121.83 ], [ 50.12, 123.45 ], [ 46, 122.5 ], [ 44.5, 119.5 ], [ 50, 114.5 ], [ 55.6, 112.5 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
 	// to the fronts (pave, foot along the curtain), one even climb (climb); at the fork the lower street goes off
@@ -1425,7 +1428,9 @@ export class TerrainData {
 
 				const x = this.origin + ( k % this.res + 0.5 ) * this.texel, z = this.origin + ( Math.floor( k / this.res ) + 0.5 ) * this.texel;
 				const n = this.noise2.fbm( x / 2.3, z / 2.3, 2 ) * 0.5 + 0.5, toRoad = near( guide, x, z );
-				path[ k ] = near( foot, x, z ) > 2.2 && n + 0.3 * ( 1 - toRoad / 3 ) > 0.55 ? 255 : 110;
+				// (setts all round the wall and its steps)
+				const atWall = segmentDistance( x, z, [ 56.6, 115.5 ], [ 59.1, 118.9 ] )[ 0 ] < 3.2;
+				path[ k ] = atWall || near( foot, x, z ) > 2.2 && n + 0.3 * ( 1 - toRoad / 3 ) > 0.55 ? 255 : 110;
 
 			} );
 

@@ -2,7 +2,7 @@ import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
 import { mulberry32 } from '../../util/Noise.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
-import { PV_ALLEY, VALE_STEPS } from '../TerrainData.js';
+import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -257,9 +257,9 @@ export class Walls {
 		this._valePassage( materials );
 		// the trees in the garden against the curtain beside Rua Dom João de Ornelas (photo references/...-img-4391)
 		this.extraTrees = this.extraTrees || [];
-		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 1.15 ], [ 50.4, 120.2, 'olive', 1.1 ], [ 55.2, 116.9, 'garden', 0.8 ], [ 47.6, 120.8, 'garden', 1 ],
+		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 0.95 ], [ 50.4, 120.2, 'olive', 0.9 ], [ 54.6, 116.6, 'garden', 0.42 ], [ 47.6, 120.8, 'garden', 1 ],
 			// shrubs under them, the ground planted, and one at the curtain's foot by the drainpipe
-			[ 55.3, 118.6, 'garden', 0.45 ], [ 52, 121.2, 'garden', 0.5 ], [ 49.2, 122, 'garden', 0.42 ], [ 51.4, 117.6, 'garden', 0.48 ], [ 46, 119.8, 'garden', 0.45 ], [ 58.1, 114.7, 'garden', 0.38 ],
+			[ 55.3, 118.6, 'garden', 0.45 ], [ 52, 121.2, 'garden', 0.5 ], [ 49.2, 122, 'garden', 0.42 ], [ 51.4, 117.6, 'garden', 0.48 ], [ 46, 119.8, 'garden', 0.45 ], [ 58.7, 114.6, 'garden', 0.32 ],
 			// and the one showing over the green gate at the fork (photo references/...-img-4390), in the yard behind it
 			[ 87, 74.5, 'olive', 1.25 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 		// and the worn stones along the curtain's foot there, and the two small marker stones
@@ -276,16 +276,9 @@ export class Walls {
 
 			}
 
+			// (their S R panels: Town._ornelasGardenWall)
 			kit.color = [ 0.95, 0.88, 0.72 ];
-			for ( const [ x, z ] of [ [ 67.1, 111.9 ], [ 59.45, 118.75 ] ] ) {
-
-				lump( x, z, 0.3, 0.5, 0.24, - 0.6 );
-				kit.color = [ 0.14, 0.12, 0.13 ];
-				const y = T.heightAt( x, z ) + 0.3;
-				kit.box( x + 0.1, y, z + 0.075, 0.1, 0.24, 0.12, - 0.6, 'bottom' );
-				kit.color = [ 0.95, 0.88, 0.72 ];
-
-			}
+			for ( const [ x, z ] of ORNELAS_MARKERS ) lump( x, z, 0.22, 0.34, 0.18, Math.atan2( 0.806, - 0.592 ) );
 
 		}
 		this._ornelasForkStone();

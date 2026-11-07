@@ -237,6 +237,10 @@ check( ok, `up the steps onto the Casa da Música's terrace (y ${ P.position.y.t
 	const y0 = T.heightAt( 76.35, 104.45 );
 	walkTo( 76.35, 104.45, 5, 0.08 );
 	check( P.position.y > y0 + 0.25, `up the steps to the door before the fork (${ ( P.position.y - y0 ).toFixed( 2 ) } m up)` );
+	// up the steps through the gap beside the white wall, into the garden
+	at( 59, 115.5 );
+	const gardenUp = walkTo( 57.15, 116.55, 6, 0.3 ) && walkTo( 55.9, 117.4, 6, 0.3 );
+	check( gardenUp && P.position.y > T.ornelasEast.top - 0.45, `up the steps into the garden by the white wall (y ${ P.position.y.toFixed( 2 ) } of ${ ( T.ornelasEast.top - 0.3 ).toFixed( 2 ) })` );
 	at( 83.5, 88.8 );
 	const across = walkTo( 81.5, 84.5, 3, 0.4 );
 	check( ! across, 'the wall at the fork stops you from the lower street' );

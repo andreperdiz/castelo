@@ -3,6 +3,7 @@ import { MeshKit } from './MeshKit.js';
 import { OSM, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
 import { orientedBox } from './Walls.js';
 import { mulberry32 } from '../../util/Noise.js';
+import { ORNELAS_MARKERS } from '../TerrainData.js';
 
 // The houses of Óbidos (and the suburbs round the walls) from the OpenStreetMap footprints:
 // whitewashed walls with a painted base band and window / door surrounds (blue, yellow or ochre),
@@ -12,6 +13,12 @@ import { mulberry32 } from '../../util/Noise.js';
 // ridge. Churches and chapels stand taller with fewer, higher openings.
 //
 // Colliders: a thin solid box along every wall edge.
+const smoothstep01 = ( a, b, x ) => {
+
+	const t = Math.min( 1, Math.max( 0, ( x - a ) / ( b - a ) ) );
+	return t * t * ( 3 - 2 * t );
+
+};
 const PITCH = 0.45; // rise per metre (~24°)
 const MAX_RISE = 3.0;
 const STOREY = 3.0;
@@ -584,6 +591,8 @@ export class Town {
 		const E = this.terrain.ornelasEast;
 		if ( ! E ) return;
 		this._footedWall( E.wall, E.top );
+		this._ornelasWallFace( E );
+		this._gardenSteps( E );
 		// the drainpipe down the curtain just short of the wall, turning out at its foot
 		const kit = this.walls, x = 59.99, z = 114.2, g = this.terrain.heightAt( x, z ), nx = 0.368, nz = 0.93;
 		kit.vdata = [ 0, 0, 0.53, 4 ];
@@ -591,6 +600,137 @@ export class Town {
 		kit.box( x, g + 1.75, z, 0.07, 3.3, 0.07, 0, 'bottom' );
 		kit.box( x + nx * 0.1, g + 0.13, z + nz * 0.1, 0.09, 0.09, 0.28, Math.atan2( nx, nz ), 'bottom' );
 		for ( const y of [ 1.1, 2.3, 3.3 ] ) kit.box( x - nx * 0.05, g + y, z - nz * 0.05, 0.14, 0.04, 0.14, 0 );
+
+	}
+
+	// what the photo (references/...-img-4389) shows on the white wall's face between its corner and the steps, t
+	// metres from the corner, h up from its foot: worn plaster over a faint ledge, little lattice vents; the S R
+	// panels on the marker stones
+	_ornelasWallFace( E ) {
+
+		const T = this.terrain, kit = this.walls, cx = 59.1, cz = 118.9, dx = - 0.592, dz = - 0.806, nx = 0.806, nz = - 0.592, yaw = Math.atan2( - dz, dx );
+		const F = ( t ) => T.heightAt( cx + dx * t + nx * 0.4, cz + dz * t + nz * 0.4 );
+		const FLAT = [ 0, 0, 0.53, 4 ], WHITE = srgbToLinear( [ 0.9, 0.89, 0.85 ] ), DARK = srgbToLinear( [ 0.07, 0.07, 0.07 ] );
+		const on = ( t, y, w, h, proud, c ) => {
+
+			kit.color = c;
+			kit.vdata = FLAT;
+			kit.box( cx + dx * t + nx * proud / 2, y + h / 2, cz + dz * t + nz * proud / 2, w, h, proud, yaw, 'bottom' );
+
+		};
+		// worn plaster, a fine grid of soft tones over the white (above the yellow foot): grey wear in drifts, heavier
+		// toward the steps and along the old ledge 1.2 m up, whose line runs across it
+		const END = 2.62, CELL = 0.07, FOOT = 0.58, ledge = 1.2;
+		const hash = ( i, j ) => {
+
+			const v = Math.sin( i * 127.1 + j * 311.7 ) * 43758.5453;
+			return v - Math.floor( v );
+
+		};
+		const smooth = ( x, y ) => {
+
+			const i = Math.floor( x ), j = Math.floor( y ), u = x - i, v = y - j, su = u * u * ( 3 - 2 * u ), sv = v * v * ( 3 - 2 * v );
+			return ( hash( i, j ) * ( 1 - su ) + hash( i + 1, j ) * su ) * ( 1 - sv ) + ( hash( i, j + 1 ) * ( 1 - su ) + hash( i + 1, j + 1 ) * su ) * sv;
+
+		};
+		const tone = ( t, h ) => {
+
+			const n = smooth( t * 4, h * 8 ) * 0.45 + smooth( t * 13, h * 15 ) * 0.55;
+			const wear = smoothstep01( 0.42, 0.72, n + ( t / END ) * 0.12 + Math.exp( - ( ( ( h - ledge ) / 0.22 ) ** 2 ) ) * 0.14 );
+			const v = 0.9 - wear * 0.11 - Math.exp( - ( ( ( h - ledge ) / 0.022 ) ** 2 ) ) * 0.14 * smooth( t * 3, 9 );
+			return srgbToLinear( [ v, v * 0.985, v * 0.94 ] );
+
+		};
+		const point = ( t, h ) => [ cx + dx * t + nx * 0.008, F( t ) + h, cz + dz * t + nz * 0.008 ];
+		kit.vdata = FLAT;
+		const up = ( t ) => E.top - F( t );
+		for ( let ti = 0; ti * CELL < END; ti ++ ) for ( let hi = 0; ; hi ++ ) {
+
+			const t0 = ti * CELL, t1 = Math.min( END, t0 + CELL ), h0 = FOOT + hi * CELL;
+			if ( h0 >= Math.max( up( t0 ), up( t1 ) ) - 0.01 ) break;
+			const h1 = h0 + CELL, a = Math.min( h1, up( t0 ) ), b = Math.min( h1, up( t1 ) );
+			const P = [ [ t0, h0 ], [ t1, h0 ], [ t1, b ], [ t0, a ] ];
+			const idx = P.map( ( [ t, h ] ) => {
+
+				kit.color = tone( t, h );
+				return kit.vertex( point( t, h ), [ nx, 0, nz ], t, h );
+
+			} );
+			kit.idx.push( idx[ 0 ], idx[ 1 ], idx[ 2 ], idx[ 0 ], idx[ 2 ], idx[ 3 ] );
+
+		}
+
+		// the vents, seen from the photo's left to right
+		for ( const [ t, h ] of [ [ 0.4, 0.71 ], [ 1.16, 1.03 ], [ 1.48, 0.66 ], [ 1.66, 0.46 ], [ 1.98, 0.8 ] ] ) {
+
+			const y = F( t ) + h, W = 0.13, H = 0.14;
+			on( t, y - H / 2, W, H, 0.012, DARK );
+			for ( const k of [ - 0.5, - 0.17, 0.17, 0.5 ] ) on( t + k * W, y - H / 2, 0.012, H, 0.018, WHITE );
+			for ( const k of [ - 0.5, - 0.17, 0.17, 0.5 ] ) on( t, y + k * H - 0.006, W, 0.012, 0.018, WHITE );
+
+		}
+
+		// S over R in white on a black panel, on each marker stone
+		const FONT = { S: [ 7, 4, 7, 1, 7 ], R: [ 6, 5, 6, 5, 5 ] };
+		for ( const [ x, z ] of ORNELAS_MARKERS ) {
+
+			const g = T.heightAt( x, z ), px = 0.016;
+			const part = ( u, y, w, h, proud, c ) => {
+
+				kit.color = c;
+				kit.vdata = FLAT;
+				const ax = - 0.592 * u + nx * ( 0.09 + proud / 2 ), az = - 0.806 * u + nz * ( 0.09 + proud / 2 );
+				kit.box( x + ax, y + h / 2, z + az, w, h, proud, yaw, 'bottom' );
+
+			};
+			part( 0, g + 0.05, 0.11, 0.2, 0.006, DARK );
+			[ [ 'S', 0.155 ], [ 'R', 0.065 ] ].forEach( ( [ L, y0 ] ) => FONT[ L ].forEach( ( bits, row ) => {
+
+				for ( let col = 0; col < 3; col ++ ) if ( bits & ( 4 >> col ) ) part( ( col - 1 ) * px, g + y0 + ( 4 - row ) * px - 0.005, px, px, 0.009, WHITE );
+
+			} ) );
+
+		}
+
+	}
+
+	// the steps through the gap between the white wall's end and the curtain, up into the garden: worn concrete,
+	// the first standing out from the wall, a low block beside them against the curtain, yellow below; at the top
+	// a whitewashed collar on a yellow base round an iron pipe (photo references/...-img-4389)
+	_gardenSteps( E ) {
+
+		const T = this.terrain, kit = this.walls, ox = E.wall[ 0 ][ 0 ], oz = E.wall[ 0 ][ 1 ], ax = - 0.592, az = - 0.806, bx = - 0.806, bz = 0.592, yaw = Math.atan2( - az, ax );
+		// c across the gap from the wall's end, s in from the wall's face
+		const P = ( c, s ) => [ ox + ax * c + bx * s, oz + az * c + bz * s ];
+		const yG = E.top - 0.3, WIDTH = 1.08, N = 5, TREAD = 0.36, START = - 0.42, foot = T.heightAt( ...P( WIDTH / 2, START - 0.3 ) ) - 0.03, rise = ( yG - foot ) / N;
+		const CONCRETE = srgbToLinear( [ 0.74, 0.72, 0.64 ] ), EDGE = srgbToLinear( [ 0.55, 0.53, 0.47 ] ), YELLOW = srgbToLinear( [ 0.78, 0.6, 0.2 ] ), WORN = srgbToLinear( [ 0.7, 0.67, 0.56 ] ), WHITE = srgbToLinear( [ 0.88, 0.87, 0.82 ] ), IRON = srgbToLinear( [ 0.4, 0.4, 0.38 ] );
+		const block = ( c0, c1, s0, s1, y0, y1, color, walk ) => {
+
+			const [ x, z ] = P( ( c0 + c1 ) / 2, ( s0 + s1 ) / 2 );
+			kit.color = color;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.box( x, ( y0 + y1 ) / 2, z, c1 - c0, y1 - y0, s1 - s0, yaw, 'bottom' );
+			if ( walk !== undefined ) this.colliders.addBox( new Vector3( x, ( y0 + y1 ) / 2, z ), new Vector3( ( c1 - c0 ) / 2, ( y1 - y0 ) / 2, ( s1 - s0 ) / 2 ), yaw, { walkable: walk, tag: walk ? 'stair' : 'wall' } );
+
+		};
+		const INNER = 2.1, SIDE = 1.75;
+		for ( let i = 0; i < N; i ++ ) {
+
+			const s0 = START + TREAD * i, top = foot + rise * ( i + 1 );
+			block( 0, WIDTH, s0, INNER, foot - 0.4, top, CONCRETE, true );
+			block( 0, WIDTH, s0 - 0.012, s0 + 0.01, top - rise, top, EDGE ); // their risers, a darker line
+
+		}
+
+		// the low block against the curtain, its yellow worn away toward the top
+		const sideTop = yG + 0.08;
+		block( WIDTH, SIDE, START + 0.1, INNER, foot - 0.4, sideTop, WORN, false );
+		block( WIDTH + 0.01, SIDE, START + 0.08, START + 0.11, foot - 0.2, foot + 0.72, YELLOW );
+		block( WIDTH - 0.01, WIDTH + 0.01, START + 0.1, INNER, foot - 0.2, foot + 0.5, YELLOW );
+		// the collar with its pipe, on its base, at the head of the steps by the curtain
+		block( 0.68, 1.42, INNER - 0.32, INNER + 0.28, yG, yG + 0.2, YELLOW, false );
+		block( 0.82, 1.28, INNER - 0.2, INNER + 0.16, yG + 0.2, yG + 0.78, WHITE );
+		block( 0.86, 0.9, INNER - 0.04, INNER, yG + 0.78, yG + 1.3, IRON );
 
 	}
 
@@ -619,6 +759,8 @@ export class Town {
 				[ [ 0, 3 ], [ L, 3 ], [ L, 5 ], [ 0, 5 ] ] );
 			kit.quadFacing( [ a[ 0 ], top, a[ 1 ] ], [ c[ 0 ], top, c[ 1 ] ], [ B[ 1 ][ 0 ], top, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], top, B[ 0 ][ 1 ] ], [ 0, 1, 0 ],
 				[ [ 0, 5 ], [ L, 5 ], [ L, 5.6 ], [ 0, 5.6 ] ] );
+			if ( i === 0 ) kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 0 ][ 0 ], top, B[ 0 ][ 1 ] ], [ a[ 0 ], top, a[ 1 ] ], [ - ux, 0, - uz ],
+				[ [ 0, 3 ], [ TH, 3 ], [ TH, 5 ], [ 0, 5 ] ] );
 			if ( i === wall.length - 2 ) kit.quadFacing( [ c[ 0 ], base, c[ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], top, B[ 1 ][ 1 ] ], [ c[ 0 ], top, c[ 1 ] ], [ ux, 0, uz ],
 				[ [ 0, 3 ], [ TH, 3 ], [ TH, 5 ], [ 0, 5 ] ] );
 			this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2 - nx * TH / 2, ( base + top ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 - nz * TH / 2 ), new Vector3( L / 2, ( top - base ) / 2, TH / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
