@@ -245,10 +245,10 @@ check( ok, `up the steps onto the Casa da Música's terrace (y ${ P.position.y.t
 	// and up the street, the stone steps at the long white wall's end, into the garden behind it
 	{
 
-		const e = [ 21, 141.13 ], u = [ 0.873, - 0.488 ], n = [ 0.488, 0.873 ], Q = ( t, o ) => [ e[ 0 ] + u[ 0 ] * t + n[ 0 ] * o, e[ 1 ] + u[ 1 ] * t + n[ 1 ] * o ];
-		at( ...Q( - 2.6, - 0.6 ) );
-		const ok2 = walkTo( ...Q( - 0.4, - 0.85 ), 6, 0.2 ) && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6 && walkTo( ...Q( 0.35, - 1.4 ), 6, 0.25 ) && walkTo( ...Q( 3, - 2.6 ), 6, 0.4 );
-		check( ok2 && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6, `up the stone steps into the garden at the long wall's end (y ${ P.position.y.toFixed( 2 ) })` );
+		const F = [ 19.37, 139 ], Q = ( sv, q ) => [ F[ 0 ] + 0.62 * sv + 0.78 * q, F[ 1 ] - 0.78 * sv + 0.63 * q ];
+		at( ...Q( - 3.4, 0.65 ) );
+		const ok2 = walkTo( ...Q( - 0.45, 0.65 ), 6, 0.2 ) && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6 && walkTo( ...Q( 0.4, 0.8 ), 6, 0.25 ) && walkTo( ...Q( 1.6, 1.4 ), 6, 0.4 );
+		check( ok2 && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6, `up the stone steps by the curtain into the garden at the long wall's end (y ${ P.position.y.toFixed( 2 ) })` );
 
 	}
 	at( 83.5, 88.8 );

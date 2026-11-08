@@ -70,7 +70,7 @@ export const ORNELAS_EAST = {
 	// and up the street from it (photo references/...-img-4386): the same wall goes on along the street (OSM's
 	// garden wall) to a few steps by the curtain, its top following the street; the garden behind it raised
 	// (upperGarden: far enough in for the wall to hide the slope)
-	upperWall: [ [ 50.7, 124.5 ], [ 46.99, 126.58 ], [ 43.28, 128.66 ], [ 39.56, 130.74 ], [ 35.85, 132.81 ], [ 32.14, 134.89 ], [ 28.43, 136.97 ], [ 24.71, 139.05 ], [ 21, 141.13 ] ],
+	upperWall: [ [ 50.7, 124.5 ], [ 46.99, 126.58 ], [ 43.28, 128.66 ], [ 39.56, 130.74 ], [ 35.85, 132.81 ], [ 32.14, 134.89 ], [ 28.43, 136.97 ], [ 24.71, 139.05 ], [ 21, 141.13 ], [ 19.96, 140.35 ] ],
 	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
 	// to the fronts (pave, foot along the curtain), one even climb (climb); at the fork the lower street goes off

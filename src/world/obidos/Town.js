@@ -825,22 +825,28 @@ export class Town {
 
 		const T = this.terrain, kit = this.walls, W = E.upperWall, tops = E.upperTops;
 		this._footedWall( W, tops );
-		// the steps: in line with the wall beyond its end, climbing toward it, to a landing behind it in the garden
-		const end = W.at( - 1 ), prev = W.at( - 2 ), L = Math.hypot( prev[ 0 ] - end[ 0 ], prev[ 1 ] - end[ 1 ] );
-		const ux = ( prev[ 0 ] - end[ 0 ] ) / L, uz = ( prev[ 1 ] - end[ 1 ] ) / L, nx = - uz, nz = ux; // n: the street's side
-		const P = ( t, o ) => [ end[ 0 ] + ux * t + nx * o, end[ 1 ] + uz * t + nz * o ], yaw = Math.atan2( - uz, ux );
-		const yG = tops.at( - 1 ) - 0.3, N = 5, TREAD = 0.36, T0 = - TREAD * N, foot = T.heightAt( ...P( T0 - 0.3, - 0.6 ) ) - 0.03, rise = ( yG - foot ) / N;
-		const step = ( t0, t1, o0, o1, top, v ) => {
+		// the wall turns in at its end toward the curtain (OSM's outline); the steps go up against the curtain beside
+		// that return, climbing along it to a landing behind the wall in the garden. s along the curtain's face
+		// (up the steps), q out from it
+		const F0 = [ 19.37, 139 ], cx = 0.62, cz = - 0.78, qx = 0.78, qz = 0.63, R = W.at( - 1 );
+		const P = ( sv, q ) => [ F0[ 0 ] + cx * sv + qx * q, F0[ 1 ] + cz * sv + qz * q ], yaw = Math.atan2( - cz, cx );
+		const S_R = ( R[ 0 ] - F0[ 0 ] ) * cx + ( R[ 1 ] - F0[ 1 ] ) * cz, Q_R = ( R[ 0 ] - F0[ 0 ] ) * qx + ( R[ 1 ] - F0[ 1 ] ) * qz;
+		const yG = tops.at( - 1 ) - 0.3, N = 5, TREAD = 0.36, S_TOP = S_R, S0 = S_TOP - TREAD * N, Q0 = 0.03, Q1 = Q_R;
+		const foot = T.heightAt( ...P( S0 - 0.3, ( Q0 + Q1 ) / 2 ) ) - 0.03, rise = ( yG - foot ) / N;
+		const step = ( s0, s1, q0, q1, top, v ) => {
 
-			const [ x, z ] = P( ( t0 + t1 ) / 2, ( o0 + o1 ) / 2 );
+			const [ x, z ] = P( ( s0 + s1 ) / 2, ( q0 + q1 ) / 2 );
 			kit.color = srgbToLinear( [ v, v * 0.98, v * 0.9 ] );
 			kit.vdata = [ 0, 0, 0.53, 4 ];
-			kit.box( x, ( foot - 0.4 + top ) / 2, z, t1 - t0, top - foot + 0.4, o1 - o0, yaw, 'bottom' );
-			this.colliders.addBox( new Vector3( x, ( foot - 0.4 + top ) / 2, z ), new Vector3( ( t1 - t0 ) / 2, ( top - foot + 0.4 ) / 2, ( o1 - o0 ) / 2 ), yaw, { walkable: true, tag: 'stair' } );
+			kit.box( x, ( foot - 0.4 + top ) / 2, z, s1 - s0, top - foot + 0.4, q1 - q0, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( foot - 0.4 + top ) / 2, z ), new Vector3( ( s1 - s0 ) / 2, ( top - foot + 0.4 ) / 2, ( q1 - q0 ) / 2 ), yaw, { walkable: true, tag: 'stair' } );
 
 		};
-		for ( let i = 0; i < N; i ++ ) step( T0 + TREAD * i, 0.02, - 1.15, - 0.02, foot + rise * ( i + 1 ), 0.42 + ( ( i * 7 ) % 5 ) * 0.02 );
-		step( - 0.3, 0.7, - 1.95, - 0.62, yG, 0.44 );
+		for ( let i = 0; i < N; i ++ ) step( S0 + TREAD * i, S_TOP + 0.02, Q0, Q1, foot + rise * ( i + 1 ), 0.42 + ( ( i * 7 ) % 5 ) * 0.02 );
+		step( S_TOP, S_TOP + 1.1, Q0, Q1 + 0.4, yG, 0.44 );
+		// (the signpost faces the street, square to the wall)
+		const wu = [ W.at( - 2 )[ 0 ] - W.at( - 3 )[ 0 ], W.at( - 2 )[ 1 ] - W.at( - 3 )[ 1 ] ], wl = Math.hypot( ...wu ), wx = wu[ 0 ] / wl, wz = wu[ 1 ] / wl;
+		const nx = wz, nz = - wx, signYaw = Math.atan2( - wz, wx );
 
 		// the signpost in front of the wall
 		{
@@ -848,9 +854,9 @@ export class Town {
 			const x = 26.2, z = 138.3, g = T.heightAt( x, z );
 			kit.vdata = [ 0, 0, 0.53, 4 ];
 			kit.color = srgbToLinear( [ 0.35, 0.36, 0.36 ] );
-			kit.box( x, g + 1.15, z, 0.06, 2.3, 0.06, yaw, 'bottom' );
+			kit.box( x, g + 1.15, z, 0.06, 2.3, 0.06, signYaw, 'bottom' );
 			kit.color = srgbToLinear( [ 0.16, 0.18, 0.2 ] );
-			kit.box( x + nx * 0.03, g + 2.05, z + nz * 0.03, 0.3, 0.32, 0.03, yaw, 'bottom' );
+			kit.box( x + nx * 0.03, g + 2.05, z + nz * 0.03, 0.3, 0.32, 0.03, signYaw, 'bottom' );
 			this.colliders.addBox( new Vector3( x, g + 1.15, z ), new Vector3( 0.05, 1.15, 0.05 ), 0, { walkable: false, tag: 'sign' } );
 
 		}
