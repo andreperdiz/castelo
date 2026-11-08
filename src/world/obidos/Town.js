@@ -824,7 +824,23 @@ export class Town {
 	_ornelasUpper( E, list ) {
 
 		const T = this.terrain, kit = this.walls, W = E.upperWall, tops = E.upperTops;
-		this._footedWall( W, tops );
+		// its top's edge rounded, and at its very end, the return, the top rounding down toward the steps' top
+		// (photo references/...-img-4388): a quarter ellipse DROP deep over the last RUN metres
+		{
+
+			const DROP = 0.42, RUN = 0.5, a = W.at( - 2 ), c = W.at( - 1 ), L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), t0 = tops.at( - 2 ), t1 = tops.at( - 1 );
+			const W2 = W.slice( 0, - 1 ), tops2 = tops.slice( 0, - 1 ), u0 = Math.max( 0.05, L - RUN );
+			for ( let k = 0; k <= 8; k ++ ) {
+
+				const u = u0 + ( L - u0 ) * k / 8, x = ( u - u0 ) / ( L - u0 ), f = u / L;
+				W2.push( [ a[ 0 ] + ( c[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( c[ 1 ] - a[ 1 ] ) * f ] );
+				tops2.push( t0 + ( t1 - t0 ) * f - DROP * ( 1 - Math.sqrt( Math.max( 0, 1 - x * x ) ) ) );
+
+			}
+
+			this._footedWall( W2, tops2, 0.07 );
+
+		}
 		// the wall turns in at its end toward the curtain (OSM's outline); the steps go up against the curtain beside
 		// that return, climbing along it to a landing behind the wall in the garden. s along the curtain's face
 		// (up the steps), q out from it
@@ -846,6 +862,45 @@ export class Town {
 		// (the landing starts a hair behind the wall's return, whose face it would otherwise show through)
 		step( S_TOP + 0.03, S_TOP + 1.1, Q0, Q1 + 0.4, yG, 0.44 );
 		this._mossySteps( P, yaw, { N, TREAD, S0, S_TOP, Q0, Q1, foot, rise, yG } );
+		// trailing stems from the garden over the wall's end (photo references/...-img-4388): down its face, and a
+		// few long ones across the steps' side
+		{
+
+			const r = mulberry32( 4388 ), a = W[ 7 ], c = W[ 8 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = uz, nz = - ux, top = tops[ 8 ];
+			for ( let k = 0; k < 9; k ++ ) {
+
+				// along the face, from just before the rounded corner back up the street
+				const d = 0.02 + r() * 1.3, x = c[ 0 ] - ux * d, z = c[ 1 ] - uz * d, hang = 0.25 + r() * r() * 1.1, drift = ( r() - 0.5 ) * 0.5;
+				const pts = [ [ x - nx * 0.35, top + 0.12, z - nz * 0.35 ], [ x - nx * 0.05, top + 0.06, z - nz * 0.05 ], [ x + nx * 0.04, top - 0.04, z + nz * 0.04 ] ];
+				for ( let j = 1; j <= 6; j ++ ) {
+
+					const f = j / 6, sway = Math.sin( f * 3 + k ) * 0.04;
+					pts.push( [ x + nx * 0.05 + ux * ( drift * f + sway ), top - 0.04 - hang * f, z + nz * 0.05 + uz * ( drift * f + sway ) ] );
+
+				}
+
+				this._vine( pts, [ nx, 0, nz ], r );
+
+			}
+
+			for ( let k = 0; k < 3; k ++ ) {
+
+				// long ones off the wall's end, sagging down across the steps' side to the street
+				const s0 = S_TOP + 0.15 + r() * 0.2, s1 = S0 + 0.2 + r() * 0.6, y0 = tops.at( - 1 ) - 0.1, y1 = foot + 0.3 + r() * 0.3, pts = [];
+				for ( let j = 0; j <= 10; j ++ ) {
+
+					const f = j / 10, q = P( s0 + ( s1 - s0 ) * f, Q1 + 0.05 + Math.sin( f * Math.PI ) * 0.06 );
+					pts.push( [ q[ 0 ], y0 + ( y1 - y0 ) * f - Math.sin( f * Math.PI ) * ( 0.15 + k * 0.08 ), q[ 1 ] ] );
+
+				}
+
+				const out = P( 0, 1 ), o = P( 0, 0 );
+				this._vine( pts, [ out[ 0 ] - o[ 0 ], 0, out[ 1 ] - o[ 1 ] ], r );
+
+			}
+
+		}
 		// (the signpost faces the street, square to the wall's last straight stretch before its rounded corner)
 		const wu = [ W[ 7 ][ 0 ] - W[ 6 ][ 0 ], W[ 7 ][ 1 ] - W[ 6 ][ 1 ] ], wl = Math.hypot( ...wu ), wx = wu[ 0 ] / wl, wz = wu[ 1 ] / wl;
 		const nx = wz, nz = - wx, signYaw = Math.atan2( - wz, wx );
@@ -877,6 +932,36 @@ export class Town {
 			const FA = out( 0, 0.05 ), FC = out( Lf, 0.05 );
 			kit.color = YELLOW;
 			kit.quadFacing( [ FA[ 0 ], f.base, FA[ 1 ] ], [ FC[ 0 ], f.base, FC[ 1 ] ], [ FC[ 0 ], g( Lf ) + 0.75, FC[ 1 ] ], [ FA[ 0 ], g( 0 ) + 0.75, FA[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
+
+		}
+
+	}
+
+	// a trailing stem through pts (x, y, z), its leaves on it, all facing roughly `face`
+	_vine( pts, face, r ) {
+
+		const kit = this.walls, STEM = srgbToLinear( [ 0.3, 0.27, 0.18 ] ), LEAVES = [ [ 0.2, 0.3, 0.11 ], [ 0.14, 0.23, 0.08 ], [ 0.27, 0.36, 0.14 ] ].map( srgbToLinear );
+		const want = [ face[ 0 ] + 0.001, 0.35, face[ 2 ] ];
+		kit.vdata = [ 0, 0, 0.53, 4 ];
+		const cross = ( a, b ) => [ a[ 1 ] * b[ 2 ] - a[ 2 ] * b[ 1 ], a[ 2 ] * b[ 0 ] - a[ 0 ] * b[ 2 ], a[ 0 ] * b[ 1 ] - a[ 1 ] * b[ 0 ] ];
+		const unit = ( v ) => { const l = Math.hypot( ...v ) || 1; return v.map( ( q ) => q / l ); };
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const p0 = pts[ i ], p1 = pts[ i + 1 ], dir = unit( p1.map( ( q, k ) => q - p0[ k ] ) ), side = unit( cross( dir, face ) ).map( ( q ) => q * 0.005 );
+			kit.color = STEM;
+			kit.quadFacing( p0.map( ( q, k ) => q - side[ k ] ), p1.map( ( q, k ) => q - side[ k ] ), p1.map( ( q, k ) => q + side[ k ] ), p0.map( ( q, k ) => q + side[ k ] ), want );
+			// leaves in pairs along it, small and pointed, a few missing
+			const seg = Math.hypot( ...p1.map( ( q, k ) => q - p0[ k ] ) );
+			for ( let t = r() * 0.06; t < seg; t += 0.05 + r() * 0.04 ) {
+
+				if ( r() < 0.2 ) continue;
+				const c = p0.map( ( q, k ) => q + dir[ k ] * t ), lean = r() < 0.5 ? - 1 : 1, len = 0.03 + r() * 0.03, wid = len * 0.45;
+				const along = unit( dir.map( ( q, k ) => q * 0.5 + side[ k ] * 200 * lean + ( k === 1 ? - 0.3 : 0 ) ) );
+				const across = unit( cross( along, face ) ), tip = c.map( ( q, k ) => q + along[ k ] * len ), mid = c.map( ( q, k ) => q + along[ k ] * len * 0.45 );
+				kit.color = LEAVES[ Math.floor( r() * 3 ) ];
+				kit.quadFacing( c, mid.map( ( q, k ) => q + across[ k ] * wid ), tip, mid.map( ( q, k ) => q - across[ k ] * wid ), want );
+
+			}
 
 		}
 
@@ -999,9 +1084,13 @@ export class Town {
 
 	// a whitewashed wall along pts, its outside on the left going along (x, z), a yellow foot following the
 	// ground, its top level
-	_footedWall( wall, tops ) {
+	// round > 0: the top's outer edge rounded to that radius (and the ends to match)
+	_footedWall( wall, tops, round = 0 ) {
 
 		const T = this.terrain, kit = this.walls, TH = 0.6, topAt = ( i ) => Array.isArray( tops ) ? tops[ i ] : tops;
+		const ARC = round > 0 ? [ 0, 1, 2, 3, 4 ].map( ( k ) => k / 4 * Math.PI / 2 ) : [];
+		// the rounded edge's profile under a top t: d in from the face, y
+		const arcAt = ( t, th ) => [ round * ( 1 - Math.cos( th ) ), t - round + round * Math.sin( th ) ];
 		kit.color = srgbToLinear( [ 0.88, 0.66, 0.2 ] );
 		for ( let i = 0; i + 1 < wall.length; i ++ ) {
 
@@ -1014,24 +1103,44 @@ export class Town {
 			const p = ( q, d ) => [ q[ 0 ] - nx * d, q[ 1 ] - nz * d ];
 			const B = [ p( a, TH ), p( c, TH ) ];
 			kit.vdata = [ L, 1, 0.073, slope * 0.4 ];
-			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], tc, c[ 1 ] ], [ a[ 0 ], ta, a[ 1 ] ], [ nx, 0, nz ],
-				[ [ 0, base - g ], [ L, base - g ], [ L, tc - g ], [ 0, ta - g ] ] );
+			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], tc - round, c[ 1 ] ], [ a[ 0 ], ta - round, a[ 1 ] ], [ nx, 0, nz ],
+				[ [ 0, base - g ], [ L, base - g ], [ L, tc - round - g ], [ 0, ta - round - g ] ] );
 			// its back and top, white (well above the foot); its ends
 			kit.vdata = [ L, 1, 0.073, 0 ];
 			kit.quadFacing( [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ - nx, 0, - nz ],
 				[ [ 0, 3 ], [ L, 3 ], [ L, 5 ], [ 0, 5 ] ] );
-			kit.quadFacing( [ a[ 0 ], ta, a[ 1 ] ], [ c[ 0 ], tc, c[ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ 0, 1, 0 ],
+			const R0 = p( a, round ), R1 = p( c, round );
+			kit.quadFacing( [ R0[ 0 ], ta, R0[ 1 ] ], [ R1[ 0 ], tc, R1[ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ 0, 1, 0 ],
 				[ [ 0, 5 ], [ L, 5 ], [ L, 5.6 ], [ 0, 5.6 ] ] );
-			if ( i === 0 ) kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ a[ 0 ], ta, a[ 1 ] ], [ - ux, 0, - uz ],
-				[ [ 0, 3 ], [ TH, 3 ], [ TH, 5 ], [ 0, 5 ] ] );
-			if ( i === wall.length - 2 ) {
+			for ( let k = 0; k + 1 < ARC.length; k ++ ) {
 
-				// the end: its foot painted too where it faces the street
-				kit.vdata = [ TH, 1, 0.073, 0 ];
-				kit.quadFacing( [ c[ 0 ], base, c[ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ c[ 0 ], tc, c[ 1 ] ], [ ux, 0, uz ],
-					[ [ 0, base - gc ], [ TH, base - gc ], [ TH, tc - gc ], [ 0, tc - gc ] ] );
+				const [ d0, ya0 ] = arcAt( ta, ARC[ k ] ), [ d1, ya1 ] = arcAt( ta, ARC[ k + 1 ] ), [ , yc0 ] = arcAt( tc, ARC[ k ] ), [ , yc1 ] = arcAt( tc, ARC[ k + 1 ] );
+				const A0 = p( a, d0 ), A1 = p( a, d1 ), C0 = p( c, d0 ), C1 = p( c, d1 ), m = ( ARC[ k ] + ARC[ k + 1 ] ) / 2;
+				kit.quadFacing( [ A0[ 0 ], ya0, A0[ 1 ] ], [ C0[ 0 ], yc0, C0[ 1 ] ], [ C1[ 0 ], yc1, C1[ 1 ] ], [ A1[ 0 ], ya1, A1[ 1 ] ], [ nx * Math.cos( m ), Math.sin( m ), nz * Math.cos( m ) ],
+					[ [ 0, ya0 - g ], [ L, yc0 - g ], [ L, yc1 - g ], [ 0, ya1 - g ] ] );
 
 			}
+
+			// an end: up to the rounded edge, then fanned from the back under it
+			const end = ( q, t, gq, want, uvOff ) => {
+
+				const Bq = p( q, TH ), v = ( d, y ) => { const r = p( q, d ); return [ r[ 0 ], y, r[ 1 ] ]; };
+				kit.quadFacing( [ q[ 0 ], base, q[ 1 ] ], [ Bq[ 0 ], base, Bq[ 1 ] ], [ Bq[ 0 ], t - round, Bq[ 1 ] ], [ q[ 0 ], t - round, q[ 1 ] ], want,
+					[ [ 0, base - gq + uvOff ], [ TH, base - gq + uvOff ], [ TH, t - round - gq + uvOff ], [ 0, t - round - gq + uvOff ] ] );
+				if ( round <= 0 ) return;
+				const pts = ARC.map( ( th ) => arcAt( t, th ) ).concat( [ [ TH, t ] ] ), hub = v( TH, t - round );
+				for ( let k = 0; k + 1 < pts.length; k ++ ) {
+
+					const P0 = v( ...pts[ k ] ), P1 = v( ...pts[ k + 1 ] );
+					kit.quadFacing( hub, P0, P1, P1, want, [ [ TH, t - round - gq + uvOff ], [ pts[ k ][ 0 ], P0[ 1 ] - gq + uvOff ], [ pts[ k + 1 ][ 0 ], P1[ 1 ] - gq + uvOff ], [ pts[ k + 1 ][ 0 ], P1[ 1 ] - gq + uvOff ] ] );
+
+				}
+
+			};
+			if ( i === 0 ) end( a, ta, ga, [ - ux, 0, - uz ], 3 );
+			// the far end: its foot painted too where it faces the street
+			kit.vdata = [ TH, 1, 0.073, 0 ];
+			if ( i === wall.length - 2 ) end( c, tc, gc, [ ux, 0, uz ], 0 );
 
 			const top = Math.max( ta, tc );
 			this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2 - nx * TH / 2, ( base + top ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 - nz * TH / 2 ), new Vector3( L / 2, ( top - base ) / 2, TH / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
