@@ -844,6 +844,7 @@ export class Town {
 		};
 		for ( let i = 0; i < N; i ++ ) step( S0 + TREAD * i, S_TOP + 0.02, Q0, Q1, foot + rise * ( i + 1 ), 0.42 + ( ( i * 7 ) % 5 ) * 0.02 );
 		step( S_TOP, S_TOP + 1.1, Q0, Q1 + 0.4, yG, 0.44 );
+		this._mossySteps( P, yaw, { N, TREAD, S0, S_TOP, Q0, Q1, foot, rise, yG } );
 		// (the signpost faces the street, square to the wall)
 		const wu = [ W.at( - 2 )[ 0 ] - W.at( - 3 )[ 0 ], W.at( - 2 )[ 1 ] - W.at( - 3 )[ 1 ] ], wl = Math.hypot( ...wu ), wx = wu[ 0 ] / wl, wz = wu[ 1 ] / wl;
 		const nx = wz, nz = - wx, signYaw = Math.atan2( - wz, wx );
@@ -877,6 +878,110 @@ export class Town {
 			kit.quadFacing( [ FA[ 0 ], f.base, FA[ 1 ] ], [ FC[ 0 ], f.base, FC[ 1 ] ], [ FC[ 0 ], g( Lf ) + 0.75, FC[ 1 ] ], [ FA[ 0 ], g( 0 ) + 0.75, FA[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
 
 		}
+
+	}
+
+	// the stone steps by the curtain worn like the photo's: pale, sandy treads rubbed lighter down the middle, risers
+	// dark with grime and specked with lichen, moss in the corners and along the curtain's foot, a few weeds. A fine
+	// grid of vertex colours laid just over each face; s up the steps, q out from the curtain (P maps them)
+	_mossySteps( P, yaw, { N, TREAD, S0, S_TOP, Q0, Q1, foot, rise, yG } ) {
+
+		const kit = this.walls, W = Q1 - Q0;
+		const mix = ( c, d, k ) => c.map( ( q, i ) => q + ( d[ i ] - q ) * k );
+		const MOSS = [ 0.3, 0.35, 0.15 ], MOSS2 = [ 0.21, 0.27, 0.11 ];
+		// back: metres to the riser behind (treads), up: height above the step below (risers and side)
+		const tone = ( s, q, h, kind, back, up ) => {
+
+			const n = valueNoise2( s * 3.3 + q * 1.3, h * 3.3 + q * 2.1 ) * 0.6 + valueNoise2( s * 12 + q * 9, h * 12 + q * 4 ) * 0.4;
+			const fine = valueNoise2( s * 31 + q * 23, h * 29 + q * 7 ) * 0.1 - 0.05;
+			let c;
+			if ( kind === 'tread' ) {
+
+				// sandy stone, rubbed paler where feet go, greyer to the sides
+				const worn = Math.exp( - ( ( q - Q0 - W * 0.55 ) ** 2 ) / ( 2 * ( W * 0.22 ) ** 2 ) ) * smoothstep01( 0.02, 0.12, back );
+				c = mix( [ 0.6, 0.56, 0.47 ], [ 0.76, 0.7, 0.58 ], worn * 0.8 + n * 0.3 );
+				// a dark line where the tread meets the riser behind it
+				c = mix( c, [ 0.3, 0.29, 0.25 ], ( 1 - smoothstep01( 0, 0.05, back ) ) * 0.7 );
+
+			} else {
+
+				// risers in shade and grime: dark grey, streaked downward, lighter where the nosing has worn
+				c = mix( [ 0.4, 0.39, 0.35 ], [ 0.29, 0.29, 0.26 ], smoothstep01( 0.3, 0.8, valueNoise2( s * 2 + q * 7, h * 0.8 ) ) );
+				c = mix( c, [ 0.62, 0.58, 0.5 ], smoothstep01( 0.7, 1, up / rise ) * 0.5 * ( kind === 'riser' ? 1 : 0 ) );
+				// lichen: small pale specks
+				const L = valueNoise2( s * 26 + q * 23, h * 26 + q * 11 );
+				c = mix( c, [ 0.58, 0.6, 0.5 ], smoothstep01( 0.8, 0.9, L ) * 0.45 );
+
+			}
+
+			// moss: thick at the curtain's foot, in the corners at the back of each tread and the bottom of each
+			// riser, in patches elsewhere
+			const curtain = 1 - smoothstep01( 0.04, 0.32, q - Q0 );
+			const corner = kind === 'tread' ? 1 - smoothstep01( 0, 0.08, back ) : 1 - smoothstep01( 0, 0.07, up );
+			const m = smoothstep01( 0.36, 0.58, n + curtain * 0.4 + corner * 0.3 ) * ( 0.35 + curtain * 0.6 + corner * 0.5 );
+			c = mix( c, valueNoise2( s * 19, q * 19 + h * 7 ) > 0.5 ? MOSS : MOSS2, Math.min( 0.95, m ) );
+			return srgbToLinear( c.map( ( q ) => Math.max( 0, q + fine ) ) );
+
+		};
+		// one face: from ( s0, y0, q0 ), A metres along its first axis, B along its second (tread: q then s; riser:
+		// q then up; side: s then up). The axis pairs turn to the faces' normals as in the garden steps
+		const face = ( s0, y0, q0, kind, A, B, back0 = 0 ) => {
+
+			const CELL = 0.035, nA = Math.max( 1, Math.ceil( A / CELL ) ), nB = Math.max( 1, Math.ceil( B / CELL ) );
+			const o = P( 0, 0 ), u = P( 1, 0 ), v = P( 0, 1 );
+			const normal = kind === 'tread' ? [ 0, 1, 0 ] : kind === 'side' ? [ v[ 0 ] - o[ 0 ], 0, v[ 1 ] - o[ 1 ] ] : [ o[ 0 ] - u[ 0 ], 0, o[ 1 ] - u[ 1 ] ];
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			const vert = ( ia, jb ) => {
+
+				const a = Math.min( A, ia * A / nA ), b = Math.min( B, jb * B / nB );
+				const s = kind === 'tread' ? s0 + b : kind === 'side' ? s0 + a : s0 - 0.004;
+				const q = kind === 'tread' ? q0 + a : kind === 'side' ? q0 + 0.004 : q0 + a;
+				const h = kind === 'tread' ? y0 + 0.004 : y0 + b;
+				kit.color = tone( s, q, h - foot, kind, kind === 'tread' ? back0 - b : 0, kind === 'tread' ? 0 : b );
+				const p = P( s, q );
+				return kit.vertex( [ p[ 0 ], h, p[ 1 ] ], normal, a, b );
+
+			};
+
+			for ( let i = 0; i < nA; i ++ ) for ( let j = 0; j < nB; j ++ ) {
+
+				const ids = [ vert( i, j ), vert( i + 1, j ), vert( i + 1, j + 1 ), vert( i, j + 1 ) ];
+				kit.idx.push( ids[ 0 ], ids[ 1 ], ids[ 2 ], ids[ 0 ], ids[ 2 ], ids[ 3 ] );
+
+			}
+
+		};
+		for ( let i = 0; i < N; i ++ ) {
+
+			const s0 = S0 + TREAD * i, s1 = s0 + TREAD, top = foot + rise * ( i + 1 );
+			face( s0, top - rise, Q0, 'riser', W, rise );
+			// (the last runs on into the landing, with no riser behind it)
+			face( s0, top, Q0, 'tread', W, i < N - 1 ? TREAD : TREAD + 0.6, i < N - 1 ? TREAD : 9 );
+			// the open side, stepped like the treads, down to the street
+			face( s0, foot - 0.05, Q1, 'side', ( i < N - 1 ? s1 : S_TOP ) - s0, top - foot + 0.05 );
+
+		}
+
+		// weeds: along the curtain's foot up the steps and a tuft at the top corner
+		const r = mulberry32( 4386 ), LEAF = srgbToLinear( [ 0.22, 0.3, 0.12 ] ), LEAF2 = srgbToLinear( [ 0.15, 0.22, 0.08 ] );
+		const blade = ( s, q, y, h ) => {
+
+			const [ x, z ] = P( s, q ), ws = 0.0025 + r() * 0.003, wq = 0.004 + r() * 0.005;
+			kit.color = r() < 0.5 ? LEAF : LEAF2;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.box( x, y + h / 2, z, ws * 2, h, wq * 2, yaw, 'bottom' );
+
+		};
+		for ( let i = 0; i < 40; i ++ ) {
+
+			const k = Math.floor( r() * N ), s = S0 + TREAD * k + 0.02 + r() * ( TREAD - 0.04 );
+			blade( s, Q0 + 0.03 + r() * r() * 0.16, foot + rise * ( k + 1 ), 0.03 + r() * r() * 0.12 );
+
+		}
+
+		for ( let i = 0; i < 18; i ++ ) blade( S_TOP + 0.03 + r() * 0.3, Q0 + 0.03 + r() * 0.25, yG, 0.05 + r() * r() * 0.2 );
+		// and in the street at the bottom step's foot, by the curtain
+		for ( let i = 0; i < 12; i ++ ) blade( S0 - 0.04 - r() * 0.2, Q0 + 0.03 + r() * 0.3, foot + 0.02, 0.04 + r() * 0.12 );
 
 	}
 
