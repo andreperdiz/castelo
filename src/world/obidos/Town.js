@@ -843,10 +843,11 @@ export class Town {
 
 		};
 		for ( let i = 0; i < N; i ++ ) step( S0 + TREAD * i, S_TOP + 0.02, Q0, Q1, foot + rise * ( i + 1 ), 0.42 + ( ( i * 7 ) % 5 ) * 0.02 );
-		step( S_TOP, S_TOP + 1.1, Q0, Q1 + 0.4, yG, 0.44 );
+		// (the landing starts a hair behind the wall's return, whose face it would otherwise show through)
+		step( S_TOP + 0.03, S_TOP + 1.1, Q0, Q1 + 0.4, yG, 0.44 );
 		this._mossySteps( P, yaw, { N, TREAD, S0, S_TOP, Q0, Q1, foot, rise, yG } );
-		// (the signpost faces the street, square to the wall)
-		const wu = [ W.at( - 2 )[ 0 ] - W.at( - 3 )[ 0 ], W.at( - 2 )[ 1 ] - W.at( - 3 )[ 1 ] ], wl = Math.hypot( ...wu ), wx = wu[ 0 ] / wl, wz = wu[ 1 ] / wl;
+		// (the signpost faces the street, square to the wall's last straight stretch before its rounded corner)
+		const wu = [ W[ 7 ][ 0 ] - W[ 6 ][ 0 ], W[ 7 ][ 1 ] - W[ 6 ][ 1 ] ], wl = Math.hypot( ...wu ), wx = wu[ 0 ] / wl, wz = wu[ 1 ] / wl;
 		const nx = wz, nz = - wx, signYaw = Math.atan2( - wz, wx );
 
 		// the signpost in front of the wall
@@ -903,11 +904,22 @@ export class Town {
 				// a dark line where the tread meets the riser behind it
 				c = mix( c, [ 0.3, 0.29, 0.25 ], ( 1 - smoothstep01( 0, 0.05, back ) ) * 0.7 );
 
+			} else if ( kind === 'side' ) {
+
+				// the open side whitewashed like the wall it turns from, over the same yellow foot, both grimy and
+				// worn (photo references/...-img-4388)
+				c = mix( [ 0.86, 0.85, 0.8 ], [ 0.6, 0.59, 0.55 ], smoothstep01( 0.45, 0.85, n ) * 0.7 );
+				const barH = 0.6 + ( valueNoise2( s * 4, 1.7 ) - 0.5 ) * 0.04;
+				const ochre = mix( [ 0.8, 0.6, 0.2 ], [ 0.62, 0.5, 0.26 ], smoothstep01( 0.4, 0.8, n ) );
+				c = mix( c, ochre, 1 - smoothstep01( barH - 0.01, barH + 0.01, h ) );
+				c = mix( c, [ 0.36, 0.34, 0.3 ], ( 1 - smoothstep01( 0.02, 0.2, h ) ) * 0.5 );
+				return srgbToLinear( c.map( ( q ) => Math.max( 0, q + fine * 0.5 ) ) );
+
 			} else {
 
 				// risers in shade and grime: dark grey, streaked downward, lighter where the nosing has worn
 				c = mix( [ 0.4, 0.39, 0.35 ], [ 0.29, 0.29, 0.26 ], smoothstep01( 0.3, 0.8, valueNoise2( s * 2 + q * 7, h * 0.8 ) ) );
-				c = mix( c, [ 0.62, 0.58, 0.5 ], smoothstep01( 0.7, 1, up / rise ) * 0.5 * ( kind === 'riser' ? 1 : 0 ) );
+				c = mix( c, [ 0.62, 0.58, 0.5 ], smoothstep01( 0.7, 1, up / rise ) * 0.5 );
 				// lichen: small pale specks
 				const L = valueNoise2( s * 26 + q * 23, h * 26 + q * 11 );
 				c = mix( c, [ 0.58, 0.6, 0.5 ], smoothstep01( 0.8, 0.9, L ) * 0.45 );
