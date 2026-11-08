@@ -67,6 +67,11 @@ export const ORNELAS_EAST = {
 	// (it stops short of the curtain: the steps up into the garden go through the gap, photo references/...-img-4389)
 	wall: [ [ 57.56, 116.8 ], [ 58.99, 118.75 ], [ 59.03, 118.88 ], [ 58.95, 119.01 ], [ 53.7, 122.8 ], [ 50.7, 124.5 ] ],
 	garden: [ [ 55.63, 116.2 ], [ 57.42, 118.64 ], [ 53, 121.83 ], [ 50.12, 123.45 ], [ 46, 122.5 ], [ 44.5, 119.5 ], [ 50, 114.5 ], [ 55.6, 112.5 ] ],
+	// and up the street from it (photo references/...-img-4386): the same wall goes on along the street (OSM's
+	// garden wall) to a few steps by the curtain, its top following the street; the garden behind it raised
+	// (upperGarden: far enough in for the wall to hide the slope)
+	upperWall: [ [ 50.7, 124.5 ], [ 46.99, 126.58 ], [ 43.28, 128.66 ], [ 39.56, 130.74 ], [ 35.85, 132.81 ], [ 32.14, 134.89 ], [ 28.43, 136.97 ], [ 24.71, 139.05 ], [ 21, 141.13 ] ],
+	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
 	// to the fronts (pave, foot along the curtain), one even climb (climb); at the fork the lower street goes off
 	// to the right (low) under a whitewashed wall with a rounded end (forkWall), holding up the upper street
@@ -1290,12 +1295,36 @@ export class TerrainData {
 		}
 
 		const y = this.heightAt( ...E.wall[ 1 ] ) + 1.4;
+		// the wall on up the street: its top 1.3 m over the street, never under the lower stretch's; the garden behind
+		// 0.3 m under it
+		const UW = E.upperWall, upperTops = UW.map( ( q, i ) => {
+
+			const a = UW[ Math.max( 0, i - 1 ) ], b = UW[ Math.min( UW.length - 1, i + 1 ) ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			const nx = ( b[ 1 ] - a[ 1 ] ) / L, nz = - ( b[ 0 ] - a[ 0 ] ) / L;
+			return Math.max( y + 0.3, this.heightAt( q[ 0 ] + nx * 1.2, q[ 1 ] + nz * 1.2 ) + 1.3 );
+
+		} );
+		this._fill( E.upperGarden, ( k ) => {
+
+			if ( this.inside[ k ] ) return;
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < UW.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, UW[ i ], UW[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, y: lerp( upperTops[ i ], upperTops[ i + 1 ], u ) };
+
+			}
+
+			heights[ k ] = Math.max( heights[ k ], best.y - 0.3 );
+
+		} );
 		this._fill( E.garden, ( k ) => {
 
 			heights[ k ] = Math.max( heights[ k ], y );
 
 		} );
-		this.ornelasEast = { ...E, top: y + 0.3, forkTop: 36.4 };
+		this.ornelasEast = { ...E, top: y + 0.3, forkTop: 36.4, upperTops };
 
 	}
 
@@ -1401,6 +1430,14 @@ export class TerrainData {
 
 			const { street, guide, strip, pave } = ORNELAS_EAST, foot = strip.slice( 3 );
 			// the setts reach the houses' fronts
+			// and on up from it, past the long garden wall (photo references/...-img-4386)
+			this._stroke( [ [ 41.8, 131.3 ], [ 33.5, 135.9 ], [ 23.8, 141.2 ], [ 14.2, 151.4 ] ], 3.6, 0.6, ( k, t ) => {
+
+				if ( t < 0.5 ) return;
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			} );
 			this._stroke( street, 3.2, 0.6, ( k, t ) => {
 
 				if ( t < 0.5 ) return;
@@ -1709,7 +1746,7 @@ export class TerrainData {
 		}
 
 		// the garden over the wall beside Rua Dom João de Ornelas: planted, though the houses round it count as town
-		this._fill( ORNELAS_EAST.garden, ( k ) => {
+		for ( const g of [ ORNELAS_EAST.garden, ORNELAS_EAST.upperGarden ] ) this._fill( g, ( k ) => {
 
 			path[ k ] = 0;
 			scarp[ k ] = 0;

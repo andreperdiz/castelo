@@ -244,7 +244,7 @@ export class Town {
 
 		if ( walls?.casaTerrace ) for ( const pts of walls.casaTerrace.lines ) this._parapet( { ...walls.casaTerrace, pts }, PAINT[ 298902328 ] );
 		this._ornelasFronts( list );
-		this._ornelasGardenWall();
+		this._ornelasGardenWall( list );
 		this._ornelasFork( list );
 		this.edges = list;
 		this._lanterns( materials, rand );
@@ -599,13 +599,14 @@ export class Town {
 
 	// ORNELAS_EAST's wall: whitewashed, a yellow foot that follows the street, its top level (the garden's edge),
 	// 1.7 m over the street at the corner and meeting it where the street has climbed.
-	_ornelasGardenWall() {
+	_ornelasGardenWall( list ) {
 
 		const E = this.terrain.ornelasEast;
 		if ( ! E ) return;
 		this._footedWall( E.wall, E.top );
 		this._ornelasWallFace( E );
 		this._gardenSteps( E );
+		this._ornelasUpper( E, list );
 		// the drainpipe down the curtain just short of the wall, turning out at its foot
 		const kit = this.walls, x = 59.99, z = 114.2, g = this.terrain.heightAt( x, z ), nx = 0.368, nz = 0.93;
 		kit.vdata = [ 0, 0, 0.53, 4 ];
@@ -817,15 +818,71 @@ export class Town {
 
 	}
 
+	// up the street from the garden steps (photo references/...-img-4386): the white wall carries on along it to a
+	// few stone steps by the curtain, up into the garden from its near end; a signpost in front of it; across the
+	// street the two houses show it a long blank cream wall over a yellow foot
+	_ornelasUpper( E, list ) {
+
+		const T = this.terrain, kit = this.walls, W = E.upperWall, tops = E.upperTops;
+		this._footedWall( W, tops );
+		// the steps: in line with the wall beyond its end, climbing toward it, to a landing behind it in the garden
+		const end = W.at( - 1 ), prev = W.at( - 2 ), L = Math.hypot( prev[ 0 ] - end[ 0 ], prev[ 1 ] - end[ 1 ] );
+		const ux = ( prev[ 0 ] - end[ 0 ] ) / L, uz = ( prev[ 1 ] - end[ 1 ] ) / L, nx = - uz, nz = ux; // n: the street's side
+		const P = ( t, o ) => [ end[ 0 ] + ux * t + nx * o, end[ 1 ] + uz * t + nz * o ], yaw = Math.atan2( - uz, ux );
+		const yG = tops.at( - 1 ) - 0.3, N = 5, TREAD = 0.36, T0 = - TREAD * N, foot = T.heightAt( ...P( T0 - 0.3, - 0.6 ) ) - 0.03, rise = ( yG - foot ) / N;
+		const step = ( t0, t1, o0, o1, top, v ) => {
+
+			const [ x, z ] = P( ( t0 + t1 ) / 2, ( o0 + o1 ) / 2 );
+			kit.color = srgbToLinear( [ v, v * 0.98, v * 0.9 ] );
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.box( x, ( foot - 0.4 + top ) / 2, z, t1 - t0, top - foot + 0.4, o1 - o0, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( foot - 0.4 + top ) / 2, z ), new Vector3( ( t1 - t0 ) / 2, ( top - foot + 0.4 ) / 2, ( o1 - o0 ) / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+		};
+		for ( let i = 0; i < N; i ++ ) step( T0 + TREAD * i, 0.02, - 1.15, - 0.02, foot + rise * ( i + 1 ), 0.42 + ( ( i * 7 ) % 5 ) * 0.02 );
+		step( - 0.3, 0.7, - 1.95, - 0.62, yG, 0.44 );
+
+		// the signpost in front of the wall
+		{
+
+			const x = 26.2, z = 138.3, g = T.heightAt( x, z );
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = srgbToLinear( [ 0.35, 0.36, 0.36 ] );
+			kit.box( x, g + 1.15, z, 0.06, 2.3, 0.06, yaw, 'bottom' );
+			kit.color = srgbToLinear( [ 0.16, 0.18, 0.2 ] );
+			kit.box( x + nx * 0.03, g + 2.05, z + nz * 0.03, 0.3, 0.32, 0.03, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, g + 1.15, z ), new Vector3( 0.05, 1.15, 0.05 ), 0, { walkable: false, tag: 'sign' } );
+
+		}
+
+		// the cream wall across the street
+		const CREAM = srgbToLinear( [ 0.9, 0.84, 0.66 ] ), YELLOW = srgbToLinear( [ 0.86, 0.64, 0.2 ] );
+		for ( const [ id, LINE ] of [ [ 299089845, [ [ 37.4, 141.4 ], [ 30.2, 142.1 ] ] ], [ 299090146, [ [ 30.2, 142.1 ], [ 23.3, 146.9 ] ] ] ] ) {
+
+			const f = list.find( ( q ) => q.b.id === id );
+			if ( ! f ) continue;
+			const Lf = Math.hypot( LINE[ 1 ][ 0 ] - LINE[ 0 ][ 0 ], LINE[ 1 ][ 1 ] - LINE[ 0 ][ 1 ] ), { out, ground: g } = this._frontTools( f, LINE );
+			const A = out( 0, 0.03 ), C = out( Lf, 0.03 ), ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] ), n1 = out( 1, 1 ), n0 = out( 1, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = CREAM;
+			kit.quadFacing( [ A[ 0 ], f.base, A[ 1 ] ], [ C[ 0 ], f.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
+			const FA = out( 0, 0.05 ), FC = out( Lf, 0.05 );
+			kit.color = YELLOW;
+			kit.quadFacing( [ FA[ 0 ], f.base, FA[ 1 ] ], [ FC[ 0 ], f.base, FC[ 1 ] ], [ FC[ 0 ], g( Lf ) + 0.75, FC[ 1 ] ], [ FA[ 0 ], g( 0 ) + 0.75, FA[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
+
+		}
+
+	}
+
 	// a whitewashed wall along pts, its outside on the left going along (x, z), a yellow foot following the
 	// ground, its top level
-	_footedWall( wall, top ) {
+	_footedWall( wall, tops ) {
 
-		const T = this.terrain, kit = this.walls, TH = 0.6;
+		const T = this.terrain, kit = this.walls, TH = 0.6, topAt = ( i ) => Array.isArray( tops ) ? tops[ i ] : tops;
 		kit.color = srgbToLinear( [ 0.88, 0.66, 0.2 ] );
 		for ( let i = 0; i + 1 < wall.length; i ++ ) {
 
-			const a = wall[ i ], c = wall[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
+			const a = wall[ i ], c = wall[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ta = topAt( i ), tc = topAt( i + 1 );
 			const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
 			// outward, the street's side
 			const nx = uz, nz = - ux;
@@ -834,18 +891,26 @@ export class Town {
 			const p = ( q, d ) => [ q[ 0 ] - nx * d, q[ 1 ] - nz * d ];
 			const B = [ p( a, TH ), p( c, TH ) ];
 			kit.vdata = [ L, 1, 0.073, slope * 0.4 ];
-			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], top, c[ 1 ] ], [ a[ 0 ], top, a[ 1 ] ], [ nx, 0, nz ],
-				[ [ 0, base - g ], [ L, base - g ], [ L, top - g ], [ 0, top - g ] ] );
-			// its back and top, white (well above the foot); the end at the street's far corner
+			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], tc, c[ 1 ] ], [ a[ 0 ], ta, a[ 1 ] ], [ nx, 0, nz ],
+				[ [ 0, base - g ], [ L, base - g ], [ L, tc - g ], [ 0, ta - g ] ] );
+			// its back and top, white (well above the foot); its ends
 			kit.vdata = [ L, 1, 0.073, 0 ];
-			kit.quadFacing( [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], top, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], top, B[ 0 ][ 1 ] ], [ - nx, 0, - nz ],
+			kit.quadFacing( [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ - nx, 0, - nz ],
 				[ [ 0, 3 ], [ L, 3 ], [ L, 5 ], [ 0, 5 ] ] );
-			kit.quadFacing( [ a[ 0 ], top, a[ 1 ] ], [ c[ 0 ], top, c[ 1 ] ], [ B[ 1 ][ 0 ], top, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], top, B[ 0 ][ 1 ] ], [ 0, 1, 0 ],
+			kit.quadFacing( [ a[ 0 ], ta, a[ 1 ] ], [ c[ 0 ], tc, c[ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ 0, 1, 0 ],
 				[ [ 0, 5 ], [ L, 5 ], [ L, 5.6 ], [ 0, 5.6 ] ] );
-			if ( i === 0 ) kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 0 ][ 0 ], top, B[ 0 ][ 1 ] ], [ a[ 0 ], top, a[ 1 ] ], [ - ux, 0, - uz ],
+			if ( i === 0 ) kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ a[ 0 ], ta, a[ 1 ] ], [ - ux, 0, - uz ],
 				[ [ 0, 3 ], [ TH, 3 ], [ TH, 5 ], [ 0, 5 ] ] );
-			if ( i === wall.length - 2 ) kit.quadFacing( [ c[ 0 ], base, c[ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], top, B[ 1 ][ 1 ] ], [ c[ 0 ], top, c[ 1 ] ], [ ux, 0, uz ],
-				[ [ 0, 3 ], [ TH, 3 ], [ TH, 5 ], [ 0, 5 ] ] );
+			if ( i === wall.length - 2 ) {
+
+				// the end: its foot painted too where it faces the street
+				kit.vdata = [ TH, 1, 0.073, 0 ];
+				kit.quadFacing( [ c[ 0 ], base, c[ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ c[ 0 ], tc, c[ 1 ] ], [ ux, 0, uz ],
+					[ [ 0, base - gc ], [ TH, base - gc ], [ TH, tc - gc ], [ 0, tc - gc ] ] );
+
+			}
+
+			const top = Math.max( ta, tc );
 			this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2 - nx * TH / 2, ( base + top ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 - nz * TH / 2 ), new Vector3( L / 2, ( top - base ) / 2, TH / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
 
 		}

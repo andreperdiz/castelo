@@ -261,7 +261,9 @@ export class Walls {
 			// shrubs under them, the ground planted, and one at the curtain's foot by the drainpipe
 			[ 55.3, 118.6, 'garden', 0.45 ], [ 52, 121.2, 'garden', 0.5 ], [ 49.2, 122, 'garden', 0.42 ], [ 51.4, 117.6, 'garden', 0.48 ], [ 46, 119.8, 'garden', 0.45 ], [ 58.7, 114.6, 'garden', 0.32 ],
 			// and the one showing over the green gate at the fork (photo references/...-img-4390), in the yard behind it
-			[ 87, 74.5, 'olive', 1.25 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+			[ 87, 74.5, 'olive', 1.25 ],
+			// and up the street, in the garden behind the long white wall (photo references/...-img-4386)
+			[ 24.6, 136.4, 'garden', 0.55 ], [ 28.6, 133.6, 'garden', 0.8 ], [ 33, 130.7, 'olive', 0.85 ], [ 37.6, 128, 'olive', 1.15 ], [ 42.4, 125.2, 'garden', 0.75 ], [ 22.9, 138.3, 'garden', 0.5 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 		// and the worn stones along the curtain's foot there, and the two small marker stones
 		{
 

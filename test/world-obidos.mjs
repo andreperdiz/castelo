@@ -242,6 +242,15 @@ check( ok, `up the steps onto the Casa da Música's terrace (y ${ P.position.y.t
 	at( ...wallAt( 1.2, 0.55 ) );
 	const gardenUp = walkTo( ...wallAt( 3.45, 0.55 ), 6, 0.2 ) && walkTo( ...wallAt( 3.8, 0 ), 6, 0.2 ) && walkTo( ...wallAt( 3.4, - 1.6 ), 6, 0.3 ) && walkTo( ...wallAt( 2.2, - 3 ), 6, 0.5 );
 	check( gardenUp && P.position.y > T.ornelasEast.top - 0.45, `up the steps into the garden by the white wall (y ${ P.position.y.toFixed( 2 ) } of ${ ( T.ornelasEast.top - 0.3 ).toFixed( 2 ) })` );
+	// and up the street, the stone steps at the long white wall's end, into the garden behind it
+	{
+
+		const e = [ 21, 141.13 ], u = [ 0.873, - 0.488 ], n = [ 0.488, 0.873 ], Q = ( t, o ) => [ e[ 0 ] + u[ 0 ] * t + n[ 0 ] * o, e[ 1 ] + u[ 1 ] * t + n[ 1 ] * o ];
+		at( ...Q( - 2.6, - 0.6 ) );
+		const ok2 = walkTo( ...Q( - 0.4, - 0.85 ), 6, 0.2 ) && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6 && walkTo( ...Q( 0.35, - 1.4 ), 6, 0.25 ) && walkTo( ...Q( 3, - 2.6 ), 6, 0.4 );
+		check( ok2 && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6, `up the stone steps into the garden at the long wall's end (y ${ P.position.y.toFixed( 2 ) })` );
+
+	}
 	at( 83.5, 88.8 );
 	const across = walkTo( 81.5, 84.5, 3, 0.4 );
 	check( ! across, 'the wall at the fork stops you from the lower street' );
