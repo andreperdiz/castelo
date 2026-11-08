@@ -19,6 +19,19 @@ const smoothstep01 = ( a, b, x ) => {
 	return t * t * ( 3 - 2 * t );
 
 };
+// smooth value noise 0..1 (for tones baked into the vertices of a few worn surfaces)
+const hash2 = ( i, j ) => {
+
+	const v = Math.sin( i * 127.1 + j * 311.7 ) * 43758.5453;
+	return v - Math.floor( v );
+
+};
+const valueNoise2 = ( x, y ) => {
+
+	const i = Math.floor( x ), j = Math.floor( y ), u = x - i, v = y - j, su = u * u * ( 3 - 2 * u ), sv = v * v * ( 3 - 2 * v );
+	return ( hash2( i, j ) * ( 1 - su ) + hash2( i + 1, j ) * su ) * ( 1 - sv ) + ( hash2( i, j + 1 ) * ( 1 - su ) + hash2( i + 1, j + 1 ) * su ) * sv;
+
+};
 const PITCH = 0.45; // rise per metre (~24°)
 const MAX_RISE = 3.0;
 const STOREY = 3.0;
@@ -621,18 +634,7 @@ export class Town {
 		// worn plaster, a fine grid of soft tones over the white (above the yellow foot): grey wear in drifts, heavier
 		// toward the steps and along the old ledge 1.2 m up, whose line runs across it
 		const END = 2.62, CELL = 0.07, FOOT = 0.58, ledge = 1.2;
-		const hash = ( i, j ) => {
-
-			const v = Math.sin( i * 127.1 + j * 311.7 ) * 43758.5453;
-			return v - Math.floor( v );
-
-		};
-		const smooth = ( x, y ) => {
-
-			const i = Math.floor( x ), j = Math.floor( y ), u = x - i, v = y - j, su = u * u * ( 3 - 2 * u ), sv = v * v * ( 3 - 2 * v );
-			return ( hash( i, j ) * ( 1 - su ) + hash( i + 1, j ) * su ) * ( 1 - sv ) + ( hash( i, j + 1 ) * ( 1 - su ) + hash( i + 1, j + 1 ) * su ) * sv;
-
-		};
+		const smooth = valueNoise2;
 		const tone = ( t, h ) => {
 
 			const n = smooth( t * 4, h * 8 ) * 0.45 + smooth( t * 13, h * 15 ) * 0.55;
@@ -716,15 +718,80 @@ export class Town {
 			if ( walk !== undefined ) this.colliders.addBox( new Vector3( x, ( y0 + y1 ) / 2, z ), new Vector3( ( t1 - t0 ) / 2, ( y1 - y0 ) / 2, ( o1 - o0 ) / 2 ), yaw, { walkable: walk, tag: walk ? 'stair' : 'wall' } );
 
 		};
+		// the photo's worn concrete, baked into a fine grid laid just over a face: grey and grimy, patches of old
+		// yellow paint (yellow > 0: mostly yellow, worn through to grey), and on the risers and the side, where the
+		// render has come away, the brick under it
+		const tone = ( t, o, h, a, b, kind, yellow ) => {
+
+			const n = valueNoise2( t * 3.1 + o * 1.7, h * 3.1 + o * 2.3 ) * 0.6 + valueNoise2( t * 11 + o * 7, h * 11 + o * 5 ) * 0.4;
+			const v = 0.56 + valueNoise2( t * 23 + o * 17, h * 23 ) * 0.08;
+			let c = [ v, v * 0.97, v * 0.88 ];
+			const paint = yellow ? smoothstep01( 0.3, 0.55, n ) * 0.8 : smoothstep01( 0.56, 0.74, n ) * 0.55;
+			c = c.map( ( q, k ) => q + ( [ 0.64, 0.52, 0.26 ][ k ] - q ) * paint );
+			const dirt = smoothstep01( 0.5, 0.8, valueNoise2( t * 6 + 3, h * 6 + o * 4 ) ) * 0.45;
+			c = c.map( ( q, k ) => q + ( [ 0.32, 0.29, 0.24 ][ k ] - q ) * dirt );
+			if ( kind !== 'tread' ) {
+
+				// (mostly at the risers' open ends and low on the side)
+				const where = kind === 'riser' ? smoothstep01( 0.7, 0.95, o / WIDTH ) : 1 - smoothstep01( 0.3, 0.6, h );
+				const brick = smoothstep01( 0.5, 0.62, valueNoise2( t * 2.3 + o * 2.5 + 7, h * 2.6 + 1 ) ) * where * 0.85;
+				if ( brick > 0 ) {
+
+					const row = Math.floor( b / 0.066 ), mortar = b / 0.066 - row < 0.28 || ( ( a + row * 0.11 ) / 0.22 ) % 1 < 0.12;
+					const bc = mortar ? [ 0.52, 0.49, 0.43 ] : [ 0.5, 0.33, 0.25 ].map( ( q ) => q * ( 0.85 + hash2( row, Math.floor( ( a + row * 0.11 ) / 0.22 ) ) * 0.25 ) );
+					c = c.map( ( q, k ) => q + ( bc[ k ] - q ) * brick );
+
+				}
+
+			}
+
+			return srgbToLinear( c );
+
+		};
+		// kind: 'riser' (across the steps, facing down them), 'tread' (on top), 'side' (along the open side, facing the
+		// street); from ( t0, y0, o0 ), A metres along its first axis, B along its second
+		const face = ( t0, y0, o0, kind, A, B, yellow = 0 ) => {
+
+			const CELL = kind === 'tread' ? 0.045 : 0.032, nA = Math.max( 1, Math.ceil( A / CELL ) ), nB = Math.max( 1, Math.ceil( B / CELL ) );
+			const pt = ( a, b ) => {
+
+				const t = kind === 'tread' ? t0 + b : kind === 'side' ? t0 + a : t0 - 0.004;
+				const o = kind === 'tread' ? o0 + a : kind === 'side' ? o0 + 0.004 : o0 + a;
+				const h = kind === 'tread' ? y0 + 0.004 : y0 + b;
+				return { t, o, h, p: P( t, o ) };
+
+			};
+			const normal = kind === 'tread' ? [ 0, 1, 0 ] : kind === 'side' ? [ nx, 0, nz ] : [ - dx, 0, - dz ];
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < nA; i ++ ) for ( let j = 0; j < nB; j ++ ) {
+
+				const ids = [ [ i, j ], [ i + 1, j ], [ i + 1, j + 1 ], [ i, j + 1 ] ].map( ( [ ia, jb ] ) => {
+
+					const a = Math.min( A, ia * A / nA ), b = Math.min( B, jb * B / nB ), q = pt( a, b );
+					kit.color = tone( q.t, q.o, q.h - foot, a, b, kind, yellow );
+					return kit.vertex( [ q.p[ 0 ], q.h, q.p[ 1 ] ], normal, a, b );
+
+				} );
+				kit.idx.push( ids[ 0 ], ids[ 1 ], ids[ 2 ], ids[ 0 ], ids[ 2 ], ids[ 3 ] ); // (each axis pair turns to its normal)
+
+			}
+
+		};
 		// the steps, the last the landing; each runs back only to the next, so that the open side shows their shape
 		for ( let i = 0; i < N; i ++ ) {
 
 			const t0 = START + TREAD * i, t1 = i < N - 1 ? t0 + TREAD + 0.01 : EDGE_T, top = foot + rise * ( i + 1 );
 			block( t0, t1, 0.01, WIDTH, foot - 0.4, top, CONCRETE, true );
-			block( t0 - 0.012, t0 + 0.01, 0.01, WIDTH, top - rise, top, EDGE ); // their risers, a darker line
+			// worn: the riser, the tread, the open side down to the street
+			face( t0, top - rise, 0.01, 'riser', WIDTH - 0.01, rise );
+			face( t0, top, 0.01, 'tread', t1 - t0, WIDTH - 0.01 );
+			face( t0, foot - 0.05, WIDTH, 'side', t1 - t0, top - foot + 0.05 );
 
 		}
 
+		face( EDGE_T, yG - SILL, 0.01, 'riser', WIDTH - 0.01, SILL, 0.75 );
+		face( EDGE_T, foot - 0.05, WIDTH + 0.01, 'side', BACK - EDGE_T, yG - foot + 0.05 );
+		face( WALL_END, foot, 0.01, 'side', EDGE_T - WALL_END, yG - foot, 0.85 );
 		// beside them past the wall's end the same mass holds up the garden, yellow
 		block( WALL_END, EDGE_T, - 1.35, 0.01, foot - 0.4, yG, YELLOW, false );
 		block( WALL_END, EDGE_T, - 1.35, 0.01, yG - 0.001, yG + 0.002, EARTH );
