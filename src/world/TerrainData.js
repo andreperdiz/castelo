@@ -1297,36 +1297,45 @@ export class TerrainData {
 		}
 
 		const y = this.heightAt( ...E.wall[ 1 ] ) + 1.4;
-		// the wall on up the street: its top 1.3 m over the street, never under the lower stretch's; the garden behind
-		// 0.3 m under it
-		const UW = E.upperWall, upperTops = UW.map( ( q, i ) => {
+		// the wall's top about 1.8 m over the street all the way up it, following its slope, never under the corner's
+		// by the garden steps; the gardens behind 0.3 m under it
+		const WALL_H = 1.8;
+		const topsAlong = ( W ) => W.map( ( q, i ) => {
 
-			const a = UW[ Math.max( 0, i - 1 ) ], b = UW[ Math.min( UW.length - 1, i + 1 ) ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			const a = W[ Math.max( 0, i - 1 ) ], b = W[ Math.min( W.length - 1, i + 1 ) ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
 			const nx = ( b[ 1 ] - a[ 1 ] ) / L, nz = - ( b[ 0 ] - a[ 0 ] ) / L;
-			return Math.max( y + 0.3, this.heightAt( q[ 0 ] + nx * 1.2, q[ 1 ] + nz * 1.2 ) + 1.3 );
+			return Math.max( y + 0.3, this.heightAt( q[ 0 ] + nx * 1.2, q[ 1 ] + nz * 1.2 ) + WALL_H );
 
 		} );
-		this._fill( E.upperGarden, ( k ) => {
+		const wallTops = topsAlong( E.wall ), UW = E.upperWall, upperTops = topsAlong( UW );
+		// (the two stretches meet at one point: one top there)
+		upperTops[ 0 ] = wallTops[ wallTops.length - 1 ] = Math.max( upperTops[ 0 ], wallTops.at( - 1 ) );
+		const underTop = ( W, tops, x, z ) => {
 
-			if ( this.inside[ k ] ) return;
-			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
 			let best = null;
-			for ( let i = 0; i + 1 < UW.length; i ++ ) {
+			for ( let i = 0; i + 1 < W.length; i ++ ) {
 
-				const [ d, u ] = segmentDistance( x, z, UW[ i ], UW[ i + 1 ] );
-				if ( ! best || d < best.d ) best = { d, y: lerp( upperTops[ i ], upperTops[ i + 1 ], u ) };
+				const [ d, u ] = segmentDistance( x, z, W[ i ], W[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, y: lerp( tops[ i ], tops[ i + 1 ], u ) };
 
 			}
 
-			heights[ k ] = Math.max( heights[ k ], best.y - 0.3 );
+			return best.y - 0.3;
+
+		};
+		const at = ( k ) => [ origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel ];
+		this._fill( E.upperGarden, ( k ) => {
+
+			if ( this.inside[ k ] ) return;
+			heights[ k ] = Math.max( heights[ k ], underTop( UW, upperTops, ...at( k ) ) );
 
 		} );
 		this._fill( E.garden, ( k ) => {
 
-			heights[ k ] = Math.max( heights[ k ], y );
+			heights[ k ] = Math.max( heights[ k ], y, underTop( E.wall, wallTops, ...at( k ) ) );
 
 		} );
-		this.ornelasEast = { ...E, top: y + 0.3, forkTop: 36.4, upperTops };
+		this.ornelasEast = { ...E, top: y + 0.3, forkTop: 36.4, wallTops, upperTops };
 
 	}
 

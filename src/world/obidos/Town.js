@@ -603,7 +603,7 @@ export class Town {
 
 		const E = this.terrain.ornelasEast;
 		if ( ! E ) return;
-		this._footedWall( E.wall, E.top );
+		this._footedWall( E.wall, E.wallTops, 0.07 );
 		this._ornelasWallFace( E );
 		this._gardenSteps( E );
 		this._ornelasUpper( E, list );
@@ -646,7 +646,7 @@ export class Town {
 		};
 		const point = ( t, h ) => [ cx + dx * t + nx * 0.008, F( t ) + h, cz + dz * t + nz * 0.008 ];
 		kit.vdata = FLAT;
-		const up = ( t ) => E.top - F( t );
+		const up = ( t ) => E.top - 0.07 - F( t ); // (up to where its top edge starts rounding)
 		for ( let ti = 0; ti * CELL < END; ti ++ ) for ( let hi = 0; ; hi ++ ) {
 
 			const t0 = ti * CELL, t1 = Math.min( END, t0 + CELL ), h0 = FOOT + hi * CELL;
