@@ -203,12 +203,21 @@ const TERRAIN_SURFACE = /* wgsl */`
 	}
 	var albedo = mix( ground, rockAlbedo, rockW );
 	hd = mix( hd, rockHd, rockW );
+	// the rough strip at a wall's foot sits in a shallow gutter: its sides lean in, its bed a little shaded
+	// (the heightmap, a metre a texel, only takes the gutter down a few centimetres: TerrainData._landcover)
+	// (its slope from the mask's gradient, sampled a little apart: a bump from the 8-bit mask itself would band)
+	let gutter = smoothstep( 0.3, 0.9, sp.x ) * townish;
+	let ge = 0.35;
+	let gx = smoothstep( 0.3, 0.9, terrainSplat( xz + vec2f( ge, 0.0 ) ).x ) - smoothstep( 0.3, 0.9, terrainSplat( xz - vec2f( ge, 0.0 ) ).x );
+	let gz = smoothstep( 0.3, 0.9, terrainSplat( xz + vec2f( 0.0, ge ) ).x ) - smoothstep( 0.3, 0.9, terrainSplat( xz - vec2f( 0.0, ge ) ).x );
+	let Ng = normalize( N0 + vec3f( gx, 0.0, gz ) * ( 0.26 / ( 2.0 * ge ) ) * townish );
+	albedo = albedo * ( 1.0 - gutter * 0.18 );
 	var rough = mix( 0.9, 0.8, pavedW * townish );
 	rough = mix( rough, rockRough, rockW );
 
 	let aoDetail = mix( 1.0, dN.y * 0.4 + 0.75, scrubW );
 	s.albedo = albedo;
 	s.roughness = rough;
-	s.normal = terrainPerturbNormal( p, N0, hd, 1.0 );
+	s.normal = terrainPerturbNormal( p, Ng, hd, 1.0 );
 	s.ao = sat( nr.w * aoDetail );
 `;

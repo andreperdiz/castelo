@@ -1822,6 +1822,7 @@ export class TerrainData {
 				for ( let i = 0; i + 1 < F.length; i ++ ) d = Math.min( d, segmentDistance( x, z, F[ i ], F[ i + 1 ] )[ 0 ] );
 				const w = 1 - smoothstep( 0.85, 1.35, d + nz2.noise( x / 2.3, z / 2.3 ) * 0.25 );
 				if ( w <= 0 ) return;
+				heights[ k ] -= 0.12 * w; // (a shallow gutter: Terrain's shader shapes the rest)
 				path[ k ] = Math.max( path[ k ], Math.round( 255 * Math.min( 1, w * 1.5 ) ) );
 				sand[ k ] = Math.max( sand[ k ], Math.round( 230 * w ) );
 				gully[ k ] = Math.max( gully[ k ], Math.round( w * ( 150 + 100 * smoothstep( 0.1, 0.6, nz2.noise( x / 1.7 + 9, z / 1.7 ) ) ) ) );
