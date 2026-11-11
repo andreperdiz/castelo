@@ -611,6 +611,7 @@ export class Town {
 		this._gardenSteps( E );
 		this._ornelasUpper( E, list );
 		this._hotelFront( list );
+		this._ornelasTop( list );
 		// the drainpipe down the curtain just short of the wall, turning out at its foot
 		const kit = this.walls, x = 59.99, z = 114.2, g = this.terrain.heightAt( x, z ), nx = 0.368, nz = 0.93;
 		kit.vdata = [ 0, 0, 0.53, 4 ];
@@ -1031,6 +1032,239 @@ export class Town {
 			}
 
 			tg += L;
+
+		}
+
+	}
+
+	// near the top of Rua Dom João de Ornelas (photo references/...-img-4383): the whitewashed wall over a yellow
+	// foot that leaves the curtain tall, curves down and runs on along the street to the house's corner, old
+	// whitewash flaking off its tall end; a no-entry sign before it and the pousadas' board on the curtain; up
+	// the street a line of white slabs, a line of bigger round stones, a drain cover; stone bollards on its left
+	_ornelasTop( list ) {
+
+		const E = this.terrain.ornelasEast, T = this.terrain, kit = this.walls;
+		if ( ! E?.topWall ) return;
+		const FLAT = [ 0, 0, 0.53, 4 ], r = mulberry32( 4383 );
+		// the wall: subdivided, its top coming down in a long concave curve from the curtain
+		const W0 = E.topWall, W = [], tops = [];
+		let total = 0;
+		const segL = [];
+		for ( let i = 0; i + 1 < W0.length; i ++ ) segL.push( Math.hypot( W0[ i + 1 ][ 0 ] - W0[ i ][ 0 ], W0[ i + 1 ][ 1 ] - W0[ i ][ 1 ] ) );
+		total = segL.reduce( ( a, b ) => a + b, 0 );
+		let acc = 0;
+		for ( let i = 0; i + 1 < W0.length; i ++ ) {
+
+			const n = Math.max( 2, Math.ceil( segL[ i ] / 0.4 ) ), a = W0[ i ], c = W0[ i + 1 ];
+			const ux = ( c[ 0 ] - a[ 0 ] ) / segL[ i ], uz = ( c[ 1 ] - a[ 1 ] ) / segL[ i ];
+			for ( let k = i === 0 ? 0 : 1; k <= n; k ++ ) {
+
+				const t = segL[ i ] * k / n, q = [ a[ 0 ] + ux * t, a[ 1 ] + uz * t ], sAll = ( acc + t ) / total;
+				W.push( q );
+				const g = T.heightAt( q[ 0 ] + uz * 0.6, q[ 1 ] - ux * 0.6 );
+				tops.push( g + 1.95 + 1.4 * Math.pow( 1 - smoothstep01( 0, 0.4, sAll ), 1.4 ) );
+
+			}
+
+			acc += segL[ i ];
+
+		}
+
+		this._footedWall( W, tops, 0.07 );
+		// the old whitewash come away from its tall end in dark patches, the stone showing
+		{
+
+			const a = W0[ 0 ], c = W0[ 1 ], L = segL[ 0 ], ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L, nx = uz, nz = - ux;
+			const STONE = [ [ 0.55, 0.52, 0.45 ], [ 0.62, 0.58, 0.5 ], [ 0.48, 0.46, 0.4 ] ].map( srgbToLinear );
+			kit.vdata = FLAT;
+			for ( const [ t0, h0, rad ] of [ [ 0.6, 1.35, 0.26 ], [ 1.05, 1.0, 0.16 ], [ 0.3, 0.85, 0.12 ], [ 0.85, 1.8, 0.12 ], [ 0.35, 1.95, 0.1 ] ] ) {
+
+				const g = T.heightAt( a[ 0 ] + ux * t0 + nx * 0.6, a[ 1 ] + uz * t0 + nz * 0.6 ), N = 14;
+				const R = Array.from( { length: N }, () => rad * ( 0.55 + r() * 0.6 ) );
+				const P = ( k ) => {
+
+					const ang = k / N * Math.PI * 2, rr = R[ k % N ];
+					const t = t0 + Math.cos( ang ) * rr * 1.3, h = h0 + Math.sin( ang ) * rr * 0.75;
+					return [ a[ 0 ] + ux * t + nx * 0.006, g + h, a[ 1 ] + uz * t + nz * 0.006 ];
+
+				};
+				const cP = [ a[ 0 ] + ux * t0 + nx * 0.006, g + h0, a[ 1 ] + uz * t0 + nz * 0.006 ];
+				kit.color = STONE[ Math.floor( r() * 3 ) ];
+				for ( let k = 0; k < N; k ++ ) kit.quadFacing( cP, P( k ), P( k + 1 ), P( k + 1 ), [ nx, 0, nz ] );
+
+			}
+
+		}
+
+		// the tall house behind it: its narrow gable end over the wall, two small windows one above the other; its
+		// front up the street plain over the yellow foot, small windows in stone frames, pots under the upper
+		// ones, lanterns between
+		{
+
+			const f = list.find( ( q ) => q.b.id === 299072134 );
+			if ( f ) {
+
+				const eave = this.buildings.find( ( q ) => q.id === 299072134 )?.eave ?? f.roofH( - 37, 229 );
+				const WHITE = srgbToLinear( [ 0.92, 0.91, 0.87 ] ), YELLOW = srgbToLinear( [ 0.86, 0.66, 0.2 ] ), IRON = srgbToLinear( [ 0.06, 0.06, 0.06 ] );
+				// (the footprint as built: its front starts behind the curtain's end)
+				for ( const [ LINE, gable ] of [ [ [ [ - 43.51, 223.54 ], [ - 41.28, 222.52 ], [ - 40.76, 221.75 ] ], true ], [ [ [ - 40.76, 221.75 ], [ - 38.2, 234.7 ] ], false ] ] ) {
+
+					let L = 0;
+					for ( let i = 0; i + 1 < LINE.length; i ++ ) L += Math.hypot( LINE[ i + 1 ][ 0 ] - LINE[ i ][ 0 ], LINE[ i + 1 ][ 1 ] - LINE[ i ][ 1 ] );
+					const { at, out, ground: g, part, opening, pot } = this._frontTools( f, LINE );
+					kit.vdata = FLAT;
+					kit.color = WHITE;
+					// (the plaster in pieces, one per side of the line)
+					for ( let i = 0, t0 = 0; i + 1 < LINE.length; i ++ ) {
+
+						const t1 = t0 + Math.hypot( LINE[ i + 1 ][ 0 ] - LINE[ i ][ 0 ], LINE[ i + 1 ][ 1 ] - LINE[ i ][ 1 ] );
+						const A = out( t0 + 0.001, 0.03 ), C = out( t1 - 0.001, 0.03 ), ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] ), m = ( t0 + t1 ) / 2, n1 = out( m, 1 ), n0 = out( m, 0 );
+						kit.quadFacing( [ A[ 0 ], f.base, A[ 1 ] ], [ C[ 0 ], f.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ] );
+						t0 = t1;
+
+					}
+
+					const n1 = out( L - 0.5, 1 ), n0 = out( L - 0.5, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
+					if ( gable ) {
+
+						opening( L - 1.3, eave - 1.75, 0.5, 0.62, false );
+						opening( L - 1.3, eave - 4.6, 0.5, 0.62, false );
+						continue;
+
+					}
+
+					const NF = Math.ceil( L / 0.8 );
+					kit.color = YELLOW;
+					for ( let i = 0; i < NF; i ++ ) {
+
+						const t0 = L * i / NF, t1 = L * ( i + 1 ) / NF, P0 = out( t0, 0.05 ), P1 = out( t1, 0.05 );
+						kit.quadFacing( [ P0[ 0 ], f.base, P0[ 1 ] ], [ P1[ 0 ], f.base, P1[ 1 ] ], [ P1[ 0 ], g( t1 ) + 0.75, P1[ 1 ] ], [ P0[ 0 ], g( t0 ) + 0.75, P0[ 1 ] ], want );
+
+					}
+
+					for ( let t = 1.6, k = 0; t < L - 0.6; t += 2.3, k ++ ) {
+
+						opening( t, eave - 1.6, 0.55, 0.65, false );
+						opening( t, eave - 4.3, 0.55, 0.65, false );
+						pot( t, eave - 4.4, 7 + k );
+						if ( k % 2 === 0 ) pot( t, eave - 1.7, 11 + k );
+						if ( k % 2 === 1 ) {
+
+							// a lantern on its bracket
+							const y = g( t ) + 2.9, [ lx, lz ] = out( t, 0.32 ), yaw = at( t ).yaw;
+							part( t - 0.015, t + 0.015, y + 0.36, y + 0.39, 0.38, IRON );
+							kit.color = IRON;
+							kit.box( lx, y + 0.3, lz, 0.18, 0.05, 0.18, yaw, '' );
+							kit.color = srgbToLinear( [ 0.86, 0.8, 0.6 ] );
+							kit.box( lx, y + 0.15, lz, 0.13, 0.24, 0.13, yaw, '' );
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+		// the no-entry sign before the wall's bend, turned down the street
+		{
+
+			const B = W0[ 2 ], x = B[ 0 ] + 0.8, z = B[ 1 ] - 0.3, g = T.heightAt( x, z ), fx = 0.54, fz = - 0.84, yaw = Math.atan2( fx, fz );
+			kit.vdata = FLAT;
+			kit.color = srgbToLinear( [ 0.55, 0.56, 0.57 ] );
+			kit.box( x, g + 1.25, z, 0.05, 2.5, 0.05, 0, 'bottom' );
+			this.colliders.addBox( new Vector3( x, g + 1.25, z ), new Vector3( 0.04, 1.25, 0.04 ), 0, { walkable: false, tag: 'sign' } );
+			// (a disc of thin boxes, red, the white bar across it; the small plate under it)
+			const sx = Math.cos( yaw ), sz = - Math.sin( yaw ), yD = g + 2.1, o = 0.04;
+			for ( let k = - 6; k <= 6; k ++ ) {
+
+				const h = 0.3 * Math.sqrt( Math.max( 0, 1 - ( k / 6.5 ) ** 2 ) ) * 2;
+				kit.color = srgbToLinear( [ 0.72, 0.08, 0.08 ] );
+				kit.box( x + fx * o + sx * k * 0.046, yD, z + fz * o + sz * k * 0.046, 0.047, h, 0.012, yaw, '' );
+
+			}
+
+			kit.color = srgbToLinear( [ 0.93, 0.93, 0.92 ] );
+			kit.box( x + fx * ( o + 0.01 ), yD, z + fz * ( o + 0.01 ), 0.42, 0.09, 0.006, yaw, '' );
+			kit.box( x + fx * o, g + 1.6, z + fz * o, 0.26, 0.33, 0.012, yaw, '' );
+			kit.color = srgbToLinear( [ 0.1, 0.1, 0.1 ] );
+			for ( let k = 0; k < 5; k ++ ) kit.box( x + fx * ( o + 0.008 ), g + 1.7 - k * 0.055, z + fz * ( o + 0.008 ), 0.18 - ( k % 2 ) * 0.04, 0.018, 0.004, yaw, '' );
+
+		}
+
+		// the pousadas' board on the curtain, just before the wall leaves it: white, lines of black lettering,
+		// an arrow under them
+		{
+
+			const F = E.curtainFoot, a = F.at( - 2 ), c = F.at( - 1 ), L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = uz, nz = - ux, t = L - 1.6, x = a[ 0 ] + ux * t + nx * 0.03, z = a[ 1 ] + uz * t + nz * 0.03, g = T.heightAt( x + nx, z + nz ), yaw = Math.atan2( - uz, ux );
+			kit.vdata = FLAT;
+			kit.color = srgbToLinear( [ 0.92, 0.92, 0.9 ] );
+			kit.box( x, g + 2.55, z, 1.3, 0.9, 0.04, yaw, '' );
+			kit.color = srgbToLinear( [ 0.08, 0.08, 0.08 ] );
+			for ( let k = 0; k < 4; k ++ ) kit.box( x + nx * 0.025 + ux * 0.08, g + 2.88 - k * 0.13, z + nz * 0.025 + uz * 0.08, [ 0.55, 0.85, 0.55, 0.75 ][ k ], 0.06, 0.01, yaw, '' );
+			kit.box( x + nx * 0.025 + ux * 0.1, g + 2.28, z + nz * 0.025 + uz * 0.1, 0.5, 0.07, 0.01, yaw, '' );
+
+		}
+
+		// up the street: the line of white slabs, the line of round stones beside it, a drain cover; bollards
+		const S = E.topStreet, cum = [ 0 ];
+		for ( let i = 0; i + 1 < S.length; i ++ ) cum.push( cum[ i ] + Math.hypot( S[ i + 1 ][ 0 ] - S[ i ][ 0 ], S[ i + 1 ][ 1 ] - S[ i ][ 1 ] ) );
+		const along = ( d, side ) => {
+
+			let i = 0;
+			while ( i + 2 < S.length && d > cum[ i + 1 ] ) i ++;
+			const L = cum[ i + 1 ] - cum[ i ], ux = ( S[ i + 1 ][ 0 ] - S[ i ][ 0 ] ) / L, uz = ( S[ i + 1 ][ 1 ] - S[ i ][ 1 ] ) / L, t = d - cum[ i ];
+			// side: + toward the square (east), - toward the curtain
+			return { x: S[ i ][ 0 ] + ux * t + uz * side, z: S[ i ][ 1 ] + uz * t - ux * side, ux, uz };
+
+		};
+		const flat = ( p, hu, hs, lift, color ) => {
+
+			// a thin flat piece lying on the ground: hu half along, hs half across
+			const C = [ [ - hu, - hs ], [ hu, - hs ], [ hu, hs ], [ - hu, hs ] ].map( ( [ a, b ] ) => {
+
+				const x = p.x + p.ux * a + p.uz * b, z = p.z + p.uz * a - p.ux * b;
+				return [ x, T.heightAt( x, z ) + lift, z ];
+
+			} );
+			kit.color = color;
+			kit.quadFacing( C[ 0 ], C[ 1 ], C[ 2 ], C[ 3 ], [ 0, 1, 0 ] );
+			for ( let k = 0; k < 4; k ++ ) {
+
+				const A = C[ k ], B = C[ ( k + 1 ) % 4 ], mx = ( A[ 0 ] + B[ 0 ] ) / 2 - p.x, mz = ( A[ 2 ] + B[ 2 ] ) / 2 - p.z;
+				kit.quadFacing( [ A[ 0 ], A[ 1 ] - lift - 0.03, A[ 2 ] ], [ B[ 0 ], B[ 1 ] - lift - 0.03, B[ 2 ] ], B, A, [ mx, 0, mz ] );
+
+			}
+
+		};
+		kit.vdata = FLAT;
+		for ( let d = 3.5; d < cum.at( - 1 ) - 1; ) {
+
+			const len = 0.85 + r() * 0.3, v = 0.74 + r() * 0.08;
+			flat( along( d + len / 2, - 0.65 ), len / 2 - 0.012, 0.28, 0.02, srgbToLinear( [ v, v * 0.99, v * 0.95 ] ) );
+			d += len;
+
+		}
+
+		for ( let d = 4; d < cum.at( - 1 ) - 6; d += 0.19 + r() * 0.05 ) {
+
+			const v = 0.5 + r() * 0.16;
+			flat( along( d, - 2.55 + ( r() - 0.5 ) * 0.06 ), 0.08 + r() * 0.02, 0.07 + r() * 0.02, 0.025, srgbToLinear( [ v, v * 0.98, v * 0.93 ] ) );
+
+		}
+
+		flat( along( 17, - 1.7 ), 0.4, 0.4, 0.012, srgbToLinear( [ 0.3, 0.29, 0.27 ] ) );
+		// the stone bollards along the square's edge, on up the street
+		for ( let d = 17; d < cum.at( - 1 ) - 0.5; d += 1.6 ) {
+
+			const p = along( d, 3.6 ), g = T.heightAt( p.x, p.z );
+			kit.color = srgbToLinear( [ 0.78, 0.76, 0.7 ] );
+			kit.box( p.x, g + 0.32, p.z, 0.24, 0.7, 0.24, Math.atan2( - p.uz, p.ux ), 'bottom' );
+			kit.box( p.x, g + 0.69, p.z, 0.18, 0.06, 0.18, Math.atan2( - p.uz, p.ux ), 'bottom' );
+			this.colliders.addBox( new Vector3( p.x, g + 0.35, p.z ), new Vector3( 0.12, 0.35, 0.12 ), 0, { walkable: false, tag: 'bollard' } );
 
 		}
 

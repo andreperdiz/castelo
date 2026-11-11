@@ -75,7 +75,12 @@ export const ORNELAS_EAST = {
 		[ 21.34, 140.94 ], [ 21.24, 140.99 ], [ 21.12, 141.01 ], [ 21.01, 141.01 ], [ 20.89, 141.00 ], [ 20.79, 140.96 ], [ 20.69, 140.90 ], [ 19.96, 140.35 ] ],
 	// along the curtain's face up the street from the stone steps (photo references/...-img-4384): its foot's
 	// greyer lowest courses (Walls._footTone) and before them a strip of rough stones in sand
-	curtainFoot: [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ] ],
+	curtainFoot: [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ], [ - 30.31, 211.41 ], [ - 35.5, 219.15 ] ],
+	// near the top (photo references/...-img-4383): a whitewashed wall over a yellow foot leaves the curtain a
+	// few metres before its end, tall there, comes out toward the street and round, its top curving down, to the
+	// tall house's front (topWall); the street paved wall to wall (topStreet, its centre line)
+	topWall: [ [ - 35.65, 219.39 ], [ - 35.15, 220.9 ], [ - 35.45, 222.7 ], [ - 36.6, 224.3 ], [ - 38.2, 225.6 ], [ - 39.82, 226.5 ] ],
+	topStreet: [ [ - 20.5, 204.3 ], [ - 24.6, 210.9 ], [ - 31.4, 221.8 ], [ - 35.7, 234.9 ] ],
 	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
 	// to the fronts (pave, foot along the curtain), one even climb (climb); at the fork the lower street goes off
@@ -1290,6 +1295,31 @@ export class TerrainData {
 
 		}
 
+		// and its last stretch up to the square, near the top (photo references/...-img-4383): one even grade too
+		{
+
+			const U = E.topStreet, cum = [ 0 ];
+			for ( let i = 0; i + 1 < U.length; i ++ ) cum.push( cum[ i ] + Math.hypot( U[ i + 1 ][ 0 ] - U[ i ][ 0 ], U[ i + 1 ][ 1 ] - U[ i ][ 1 ] ) );
+			const Ltot = cum.at( - 1 ), y0 = this.heightAt( ...U[ 0 ] ), y1 = this.heightAt( ...U.at( - 1 ) );
+			this._stroke( U, 6.5, 3, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				let best = null;
+				for ( let i = 0; i + 1 < U.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, U[ i ], U[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, at: cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] ) };
+
+				}
+
+				const w = ( 1 - smoothstep( 4.4, 6.5, best.d ) ) * smoothstep( 0, 3, best.at ) * ( 1 - smoothstep( Ltot - 3, Ltot, best.at ) );
+				heights[ k ] = lerp( heights[ k ], lerp( y0, y1, best.at / Ltot ), w );
+
+			} );
+
+		}
+
 		// down to the fork: one even climb, the ground rising a little toward the curtain, no step in it
 		{
 
@@ -1809,6 +1839,15 @@ export class TerrainData {
 
 		}
 
+		// near the top of Rua Dom João de Ornelas the setts run from the curtain and the wall to the square's edge
+		this._stroke( ORNELAS_EAST.topStreet, 4.4, 0.8, ( k, t ) => {
+
+			if ( t < 0.5 || this.inside[ k ] ) return;
+			path[ k ] = 255;
+			scarp[ k ] = 255;
+			sand[ k ] = 0;
+
+		} );
 		// the strip of rough stones at the curtain's foot up Rua Dom João de Ornelas: paved (path) with the rough
 		// flag (sand under paving: Terrain's shader lays bigger, irregular stones there), weeds in patches (gully)
 		{

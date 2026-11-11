@@ -265,7 +265,9 @@ export class Walls {
 			// and up the street, in the garden behind the long white wall (photo references/...-img-4386)
 			[ 24.6, 136.4, 'garden', 0.55 ], [ 28.6, 133.6, 'garden', 0.8 ], [ 33, 130.7, 'olive', 0.85 ], [ 37.6, 128, 'olive', 1.15 ], [ 42.4, 125.2, 'garden', 0.75 ], [ 22.9, 138.3, 'garden', 0.5 ], [ 21.5, 139.9, 'garden', 0.4 ], [ 23.9, 138.6, 'garden', 0.42 ],
 			// the big plane tree past the long cream front's far end (photo references/...-img-4384)
-			[ 1.2, 187, 'plane', 1.0 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+			[ 1.2, 187, 'plane', 1.0 ],
+			// and near the top, on the square's edge (photo references/...-img-4383)
+			[ - 23.4, 219.2, 'garden', 1.15 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 		// and the worn stones along the curtain's foot there, and the two small marker stones
 		{
 
