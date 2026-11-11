@@ -73,6 +73,9 @@ export const ORNELAS_EAST = {
 	upperWall: [ [ 50.7, 124.5 ], [ 46.99, 126.58 ], [ 43.28, 128.66 ], [ 39.56, 130.74 ], [ 35.85, 132.81 ], [ 32.14, 134.89 ], [ 28.43, 136.97 ], [ 24.71, 139.05 ],
 		// (its corner rounded, as in references/...-img-4388)
 		[ 21.34, 140.94 ], [ 21.24, 140.99 ], [ 21.12, 141.01 ], [ 21.01, 141.01 ], [ 20.89, 141.00 ], [ 20.79, 140.96 ], [ 20.69, 140.90 ], [ 19.96, 140.35 ] ],
+	// along the curtain's face up the street from the stone steps (photo references/...-img-4384): its foot's
+	// bigger blocks (Walls._ornelasCurtainFoot) and before them a strip of rough stones in sand
+	curtainFoot: [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ] ],
 	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
 	// to the fronts (pave, foot along the curtain), one even climb (climb); at the fork the lower street goes off
@@ -1803,6 +1806,27 @@ export class TerrainData {
 			// bare limestone on the steepest slopes outside the walls (not under streets)
 			const r = smoothstep( 0.55, 0.95, slope + nz2.noise( x / 18, z / 18 ) * 0.25 ) * ( 1 - path[ k ] / 255 ) * ( this.inside[ k ] ? 0 : 1 );
 			rock[ k ] = r;
+
+		}
+
+		// the strip of rough stones at the curtain's foot up Rua Dom João de Ornelas: paved (path) with the rough
+		// flag (sand under paving: Terrain's shader lays bigger, irregular stones there), weeds in patches (gully)
+		{
+
+			const F = ORNELAS_EAST.curtainFoot;
+			this._stroke( F, 1.6, 1.6, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				let d = Infinity;
+				for ( let i = 0; i + 1 < F.length; i ++ ) d = Math.min( d, segmentDistance( x, z, F[ i ], F[ i + 1 ] )[ 0 ] );
+				const w = 1 - smoothstep( 0.85, 1.35, d + nz2.noise( x / 2.3, z / 2.3 ) * 0.25 );
+				if ( w <= 0 ) return;
+				path[ k ] = Math.max( path[ k ], Math.round( 255 * Math.min( 1, w * 1.5 ) ) );
+				sand[ k ] = Math.max( sand[ k ], Math.round( 230 * w ) );
+				gully[ k ] = Math.max( gully[ k ], Math.round( w * ( 150 + 100 * smoothstep( 0.1, 0.6, nz2.noise( x / 1.7 + 9, z / 1.7 ) ) ) ) );
+
+			} );
 
 		}
 

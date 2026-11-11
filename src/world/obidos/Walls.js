@@ -1924,7 +1924,7 @@ export class Walls {
 		const kit = this.kit, T = this.terrain, r = mulberry32( 4384 );
 		if ( ! T.ornelasEast ) return;
 		// the face, from just past the steps' foot up the street
-		const FACE = [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ] ], PROUD = 0.07, STEP = 0.45;
+		const FACE = T.ornelasEast.curtainFoot, PROUD = 0.07, STEP = 0.45;
 		kit.color = [ 1.2, 1.08, 0.88 ]; // (warmed toward the curtain's own tone: only a little greyer than it)
 		let u0 = 0, hPrev = null;
 		for ( let i = 0; i + 1 < FACE.length; i ++ ) {

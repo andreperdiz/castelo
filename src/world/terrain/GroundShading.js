@@ -16,6 +16,7 @@ import { srgb, terrainShadingModule } from './TerrainShading.js';
 //   fn groundScrub( xz: vec2f, px: f32, macroT: f32, detail: f32 ) -> vec4f   Mediterranean scrub / woodland
 //   fn groundDryGrass( macroT: f32, detail: f32, slope: f32 ) -> vec3f
 //   fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f                          limestone setts (albedo, a = bump)
+//   fn groundRoughStones( xz: vec2f, px: f32 ) -> vec4f                      a wall foot's rough stones in sand
 //   fn groundHash( p: vec2f ) -> f32
 const C = {
 	stubble: srgb( 0.68, 0.58, 0.4 ),
@@ -205,6 +206,29 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
 	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;
+	return vec4f( col, mix( dome - joint * 0.006, 0.0, fade ) );
+}
+
+// the rough strip at a wall's foot: bigger, irregular limestone pieces (~0.26 m), greyer and more varied than
+// the setts, loosely set in sand, a piece missing here and there
+fn groundRoughStones( xz: vec2f, px: f32 ) -> vec4f {
+	let s = 0.26;
+	// (gently warped and turned, so the pieces don't line up like the setts)
+	let wq = xz + vec2f( sin( xz.y * 2.3 ), sin( xz.x * 2.1 ) ) * 0.05;
+	let q = vec2f( wq.x * 0.8 - wq.y * 0.6, wq.x * 0.6 + wq.y * 0.8 ) / s;
+	let v = groundVoronoi( q );
+	let h1 = groundHash( v.zw + 2.1 );
+	let h2 = groundHash( v.zw + 7.9 );
+	var col = mix( GC_settDark, GC_settLight, h1 ) * 0.86;
+	col = mix( col, GC_settMid * 0.7, smoothstep( 0.65, 0.9, h2 ) );
+	col = col * ( 0.8 + groundHash( v.zw + 1.3 ) * 0.3 );
+	let gone = step( 0.93, groundHash( v.zw + 5.5 ) );
+	let pxS = px / s;
+	let joint = max( 1.0 - smoothstep( 0.035, 0.09 + pxS, v.y ), gone );
+	let fade = smoothstep( 0.3, 1.0, pxS );
+	let jointCol = mix( GC_track, GC_joint, 0.3 );
+	col = mix( mix( col, jointCol, joint * 0.9 ), mix( GC_settMid * 0.78, jointCol, 0.25 ), fade ); // (greyer far off, as the photo's strip)
+	let dome = sqrt( smoothstep( 0.0, 0.3, v.y ) ) * 0.02 * ( 1.0 - gone );
 	return vec4f( col, mix( dome - joint * 0.006, 0.0, fade ) );
 }
 `;
