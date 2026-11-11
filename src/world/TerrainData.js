@@ -1249,6 +1249,44 @@ export class TerrainData {
 			heights[ k ] = lerp( heights[ k ], best.y, 1 - smoothstep( 3.4, 6.4, best.d ) );
 
 		} );
+		// on up the street from the white wall, past the stone steps and the long cream front, one even grade to the
+		// top of its straight run and a gentler one beyond (photo references/...-img-4384): no waves, level across
+		{
+
+			const U = [ [ 41.8, 131.3 ], [ 33.5, 135.9 ], [ 23.8, 141.2 ], [ 14.2, 151.4 ], [ 1, 170 ], [ - 24.6, 210.9 ] ];
+			const cum = [ 0 ];
+			for ( let i = 0; i + 1 < U.length; i ++ ) cum.push( cum[ i ] + Math.hypot( U[ i + 1 ][ 0 ] - U[ i ][ 0 ], U[ i + 1 ][ 1 ] - U[ i ][ 1 ] ) );
+			const along = ( d ) => {
+
+				let i = 0;
+				while ( i + 2 < U.length && d > cum[ i + 1 ] ) i ++;
+				const u = ( d - cum[ i ] ) / ( cum[ i + 1 ] - cum[ i ] );
+				return [ lerp( U[ i ][ 0 ], U[ i + 1 ][ 0 ], u ), lerp( U[ i ][ 1 ], U[ i + 1 ][ 1 ], u ) ];
+
+			};
+			const KNOTS = [ 0, 75, 108 ].map( ( d ) => [ d, this.heightAt( ...along( d ) ) ] );
+			const grade = ( d ) => d <= KNOTS[ 1 ][ 0 ] ? lerp( KNOTS[ 0 ][ 1 ], KNOTS[ 1 ][ 1 ], d / KNOTS[ 1 ][ 0 ] ) : lerp( KNOTS[ 1 ][ 1 ], KNOTS[ 2 ][ 1 ], clamp01( ( d - KNOTS[ 1 ][ 0 ] ) / ( KNOTS[ 2 ][ 0 ] - KNOTS[ 1 ][ 0 ] ) ) );
+			this._stroke( U, 7, 3, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				// (not behind the white wall: the garden there keeps its ground)
+				if ( pointInPolygon( x, z, E.upperGarden ) ) return;
+				let best = null;
+				for ( let i = 0; i + 1 < U.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, U[ i ], U[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, at: cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] ) };
+
+				}
+
+				const w = ( 1 - smoothstep( 4.2, 7, best.d ) ) * smoothstep( 0, 3, best.at ) * ( 1 - smoothstep( 100, 108, best.at ) );
+				heights[ k ] = lerp( heights[ k ], grade( best.at ), w );
+
+			} );
+
+		}
+
 		// down to the fork: one even climb, the ground rising a little toward the curtain, no step in it
 		{
 
@@ -1335,6 +1373,18 @@ export class TerrainData {
 			heights[ k ] = Math.max( heights[ k ], y, underTop( E.wall, wallTops, ...at( k ) ) );
 
 		} );
+		// and at the top of the stone steps by the curtain, the garden level with their landing right up to the
+		// curtain's foot (Town._ornelasUpper: s along the curtain, q out from it)
+		{
+
+			const P = ( sv, q ) => [ 19.37 + 0.62 * sv + 0.78 * q, 139 - 0.78 * sv + 0.63 * q ];
+			this._fill( [ P( 0, - 0.3 ), P( 3.2, - 0.3 ), P( 3.2, 2.1 ), P( 0, 2.1 ) ], ( k ) => {
+
+				heights[ k ] = Math.max( heights[ k ], upperTops.at( - 1 ) - 0.3 );
+
+			} );
+
+		}
 		this.ornelasEast = { ...E, top: y + 0.3, forkTop: 36.4, wallTops, upperTops };
 
 	}

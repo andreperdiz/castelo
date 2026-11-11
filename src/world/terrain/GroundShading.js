@@ -36,11 +36,11 @@ const C = {
 	scrubDry: srgb( 0.42, 0.4, 0.26 ),
 	hedge: srgb( 0.17, 0.21, 0.11 ),
 	track: srgb( 0.66, 0.57, 0.43 ),
-	settLight: srgb( 0.6, 0.58, 0.53 ),
-	settMid: srgb( 0.46, 0.44, 0.4 ),
-	settDark: srgb( 0.33, 0.32, 0.3 ),
-	settWarm: srgb( 0.55, 0.49, 0.42 ),
-	joint: srgb( 0.27, 0.25, 0.21 ),
+	settLight: srgb( 0.62, 0.6, 0.56 ),
+	settMid: srgb( 0.47, 0.46, 0.43 ),
+	settDark: srgb( 0.34, 0.34, 0.33 ),
+	settWarm: srgb( 0.56, 0.51, 0.44 ),
+	joint: srgb( 0.3, 0.29, 0.26 ),
 };
 
 const consts = Object.entries( C ).map( ( [ k, v ] ) => `const GC_${ k }: vec3f = ${ v };` ).join( '\n' );
@@ -178,19 +178,22 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 	for ( var j = -1; j <= 1; j++ ) {
 		for ( var i = -1; i <= 1; i++ ) {
 			let c = cell + vec2f( f32( i ), f32( j ) );
-			let o = vec2f( groundHash( c ), groundHash( c + 17.3 ) ) * 0.8 + 0.1;
-			let d = length( vec2f( f32( i ), f32( j ) ) + o - f );
+			// (centres jittered only a little and a distance between round and square: squarish setts in
+			// loose rows, as the streets' small cubes are laid)
+			let o = vec2f( groundHash( c ), groundHash( c + 17.3 ) ) * 0.45 + 0.275;
+			let e = vec2f( f32( i ), f32( j ) ) + o - f;
+			let d = max( abs( e.x ), abs( e.y ) ) * 0.75 + length( e ) * 0.25;
 			if ( d < d1 ) { d2 = d1; d1 = d; id = c; } else if ( d < d2 ) { d2 = d; }
 		}
 	}
 	return vec4f( d1, ( d2 - d1 ) * 0.5, id );
 }
 
-// Óbidos street paving: rounded limestone and darker basalt cobbles (~0.17 m) set in packed earth;
+// Óbidos street paving: small squarish limestone setts (~0.11 m) and darker ones, set in packed earth;
 // fades to the average tone when a stone is smaller than a few pixels
 fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
-	let s = 0.17;
-	let v = groundVoronoi( xz / s + vec2f( 0.0, xz.x * 0.0 ) );
+	let s = 0.11;
+	let v = groundVoronoi( xz / s );
 	let h1 = groundHash( v.zw );
 	let h2 = groundHash( v.zw + 11.7 );
 	var col = mix( GC_settMid, GC_settLight, h1 );
@@ -198,7 +201,7 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	col = mix( col, GC_settWarm, smoothstep( 0.6, 0.85, groundHash( v.zw + 4.4 ) ) * 0.5 );
 	let pxS = px / s;
 	let joint = 1.0 - smoothstep( 0.03, 0.09 + pxS, v.y );
-	let fade = smoothstep( 0.4, 1.6, pxS ); // (the stones stay legible well down a street)
+	let fade = smoothstep( 0.3, 1.0, pxS ); // (the small stones fade before they shimmer into rings)
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
 	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;

@@ -286,6 +286,7 @@ export class Walls {
 
 		}
 		this._ornelasForkStone();
+		this._ornelasCurtainFoot();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 		this._pvAlley( materials );
 		this._casaWing( materials );
@@ -1910,6 +1911,55 @@ export class Walls {
 				this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( len / n / 2 + 0.01, ( top - bottom ) / 2, 0.4 ), yaw, { walkable: false, tag: 'wall' } );
 
 			}
+
+		}
+
+	}
+
+	// up Rua Dom João de Ornelas from the stone steps (photo references/...-img-4384): the curtain's lowest courses,
+	// about the street's first 1.5-2 m, are bigger, greyer blocks, standing a little proud of the face above, their
+	// top ragged. Laid over the curtain's face (the stone material's foot variant, vdata.w 3)
+	_ornelasCurtainFoot() {
+
+		const kit = this.kit, T = this.terrain, r = mulberry32( 4384 );
+		if ( ! T.ornelasEast ) return;
+		// the face, from just past the steps' foot up the street
+		const FACE = [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ] ], PROUD = 0.07, STEP = 0.45;
+		kit.color = [ 1.2, 1.08, 0.88 ]; // (warmed toward the curtain's own tone: only a little greyer than it)
+		let u0 = 0, hPrev = null;
+		for ( let i = 0; i + 1 < FACE.length; i ++ ) {
+
+			const a = FACE[ i ], c = FACE[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = uz, nz = - ux, n = Math.ceil( L / STEP );
+			const pt = ( t ) => [ a[ 0 ] + ux * t + nx * PROUD, a[ 1 ] + uz * t + nz * PROUD ];
+			for ( let k = 0; k < n; k ++ ) {
+
+				const t0 = L * k / n, t1 = L * ( k + 1 ) / n, A = pt( t0 ), C = pt( t1 );
+				const g0 = T.heightAt( A[ 0 ] + nx * 0.4, A[ 1 ] + nz * 0.4 ), g1 = T.heightAt( C[ 0 ] + nx * 0.4, C[ 1 ] + nz * 0.4 );
+				const h0 = hPrev ?? 1.7, h1 = 1.6 + Math.sin( ( u0 + t1 ) * 0.9 ) * 0.12 + Math.sin( ( u0 + t1 ) * 2.3 + 1 ) * 0.06 + ( r() - 0.5 ) * 0.08;
+				hPrev = h1;
+				const y0 = g0 + h0, y1 = g1 + h1, b0 = g0 - 0.4, b1 = g1 - 0.4;
+				kit.vdata = [ 0.43, 0.7, 0, 3 ];
+				kit.quadFacing( [ A[ 0 ], b0, A[ 1 ] ], [ C[ 0 ], b1, C[ 1 ] ], [ C[ 0 ], y1, C[ 1 ] ], [ A[ 0 ], y0, A[ 1 ] ], [ nx, 0, nz ],
+					[ [ u0 + t0, b0 ], [ u0 + t1, b1 ], [ u0 + t1, y1 ], [ u0 + t0, y0 ] ] );
+				// its top, a narrow ledge back to the face
+				const Ab = [ A[ 0 ] - nx * PROUD, A[ 1 ] - nz * PROUD ], Cb = [ C[ 0 ] - nx * PROUD, C[ 1 ] - nz * PROUD ];
+				kit.quadFacing( [ A[ 0 ], y0, A[ 1 ] ], [ C[ 0 ], y1, C[ 1 ] ], [ Cb[ 0 ], y1, Cb[ 1 ] ], [ Ab[ 0 ], y0, Ab[ 1 ] ], [ 0, 1, 0 ],
+					[ [ u0 + t0, y0 ], [ u0 + t1, y1 ], [ u0 + t1, y1 + PROUD ], [ u0 + t0, y0 + PROUD ] ] );
+
+			}
+
+			u0 += L;
+
+		}
+
+		// its ends, square to the face
+		for ( const [ q, d ] of [ [ FACE[ 0 ], FACE[ 1 ] ], [ FACE.at( - 1 ), FACE.at( - 2 ) ] ] ) {
+
+			const L = Math.hypot( d[ 0 ] - q[ 0 ], d[ 1 ] - q[ 1 ] ), ux = ( d[ 0 ] - q[ 0 ] ) / L, uz = ( d[ 1 ] - q[ 1 ] ) / L;
+			const s = q === FACE[ 0 ] ? 1 : - 1, nx = uz * s, nz = - ux * s, g = T.heightAt( q[ 0 ] + nx * 0.4, q[ 1 ] + nz * 0.4 );
+			kit.quadFacing( [ q[ 0 ], g - 0.4, q[ 1 ] ], [ q[ 0 ] + nx * PROUD, g - 0.4, q[ 1 ] + nz * PROUD ], [ q[ 0 ] + nx * PROUD, g + 1.7, q[ 1 ] + nz * PROUD ], [ q[ 0 ], g + 1.7, q[ 1 ] ], [ - ux, 0, - uz ],
+				[ [ 0, g - 0.4 ], [ PROUD, g - 0.4 ], [ PROUD, g + 1.7 ], [ 0, g + 1.7 ] ] );
 
 		}
 
