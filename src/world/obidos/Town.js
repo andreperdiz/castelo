@@ -73,7 +73,10 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	// and the other way, down to the fork: the two-storey house, and the long low one past it behind the green
 	// gate (photo references/...-img-4390)
-	299088474: 40.6, 299088405: 39.2 };
+	299088474: 40.6, 299088405: 39.2,
+	// further up, the long cream front with the iron balconies (the Josefa d'Óbidos hotel and the two footprints
+	// below it, one front in the photo references/...-img-4384): two tall storeys, stepping up with the street
+	299090456: 50.0, 299090857: 50.6, 298848393: 51.8 };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -607,6 +610,7 @@ export class Town {
 		this._ornelasWallFace( E );
 		this._gardenSteps( E );
 		this._ornelasUpper( E, list );
+		this._hotelFront( list );
 		// the drainpipe down the curtain just short of the wall, turning out at its foot
 		const kit = this.walls, x = 59.99, z = 114.2, g = this.terrain.heightAt( x, z ), nx = 0.368, nz = 0.93;
 		kit.vdata = [ 0, 0, 0.53, 4 ];
@@ -934,6 +938,131 @@ export class Town {
 			kit.quadFacing( [ FA[ 0 ], f.base, FA[ 1 ] ], [ FC[ 0 ], f.base, FC[ 1 ] ], [ FC[ 0 ], g( Lf ) + 0.75, FC[ 1 ] ], [ FA[ 0 ], g( 0 ) + 0.75, FA[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
 
 		}
+
+	}
+
+	// up the street past the stone steps (photo references/...-img-4384): on the left one long cream front over
+	// the three footprints, a slate-blue foot, two storeys of windows in stone frames, dark wooden sashes, the
+	// upper tall ones opening onto curved iron balconies, small square windows between, lanterns, and under the
+	// eave a red brick cornice. Laid over the walls' own procedural windows, which it covers.
+	_hotelFront( list ) {
+
+		const kit = this.walls;
+		const CREAM = srgbToLinear( [ 0.93, 0.87, 0.72 ] ), FOOT = srgbToLinear( [ 0.22, 0.26, 0.33 ] ), WOOD = srgbToLinear( [ 0.22, 0.14, 0.09 ] );
+		const IRON = srgbToLinear( [ 0.05, 0.05, 0.05 ] ), BRICK = srgbToLinear( [ 0.62, 0.3, 0.2 ] ), BRICK2 = srgbToLinear( [ 0.52, 0.24, 0.16 ] ), MORTAR = srgbToLinear( [ 0.86, 0.82, 0.74 ] );
+		let tg = 0, bay = 0;
+		for ( const [ id, LINE ] of [ [ 299090456, [ [ 20.4, 149.1 ], [ 17.2, 154.8 ] ] ], [ 299090857, [ [ 17.2, 154.8 ], [ 12, 161 ] ] ], [ 298848393, [ [ 12, 161 ], [ - 0.8, 180.4 ] ] ] ] ) {
+
+			const f = list.find( ( q ) => q.b.id === id );
+			const L = Math.hypot( LINE[ 1 ][ 0 ] - LINE[ 0 ][ 0 ], LINE[ 1 ][ 1 ] - LINE[ 0 ][ 1 ] );
+			if ( ! f ) {
+
+				tg += L;
+				continue;
+
+			}
+
+			const { at, out, ground: g, part, opening, STONE } = this._frontTools( f, LINE );
+			const eave = EAVE[ id ], n1 = out( 1, 1 ), n0 = out( 1, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
+			const A = out( 0, 0.03 ), C = out( L, 0.03 ), ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] );
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = CREAM;
+			kit.quadFacing( [ A[ 0 ], f.base, A[ 1 ] ], [ C[ 0 ], f.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], want, [ [ 0, 0 ], [ L, 0 ], [ L, 1 ], [ 0, 1 ] ] );
+			// the foot, following the street in short steps
+			kit.color = FOOT;
+			const NF = Math.ceil( L / 0.8 );
+			for ( let i = 0; i < NF; i ++ ) {
+
+				const t0 = L * i / NF, t1 = L * ( i + 1 ) / NF, P0 = out( t0, 0.05 ), P1 = out( t1, 0.05 );
+				kit.quadFacing( [ P0[ 0 ], f.base, P0[ 1 ] ], [ P1[ 0 ], f.base, P1[ 1 ] ], [ P1[ 0 ], g( t1 ) + 0.9, P1[ 1 ] ], [ P0[ 0 ], g( t0 ) + 0.9, P0[ 1 ] ], want, [ [ 0, 0 ], [ 1, 0 ], [ 1, 1 ], [ 0, 1 ] ] );
+
+			}
+			// the cornice: three courses of brick stepping out under the eave, the middle one in dentils
+			part( 0, L, eave - 0.14, eave - 0.02, 0.26, BRICK );
+			part( 0, L, eave - 0.17, eave - 0.14, 0.2, MORTAR );
+			for ( let t = 0.05; t + 0.1 < L; t += 0.2 ) part( t, t + 0.1, eave - 0.3, eave - 0.17, 0.18, ( Math.floor( t * 5 ) % 3 ) ? BRICK : BRICK2 );
+			part( 0, L, eave - 0.33, eave - 0.3, 0.12, MORTAR );
+			part( 0, L, eave - 0.45, eave - 0.33, 0.08, BRICK2 );
+			// the bays, one rhythm along the whole front: a tall window under a balcony, then a pair of small square ones
+			const SPACE = 2.4;
+			for ( let k = Math.ceil( ( tg - 1.2 ) / SPACE ); ; k ++ ) {
+
+				const t = 1.2 + k * SPACE - tg;
+				if ( t > L - 0.9 ) break;
+				if ( t < 0.9 ) continue;
+				const gr = g( t ), upperSill = eave - 0.75 - 2.1;
+				if ( k % 2 === 1 ) {
+
+					// a tall window below, a French window above onto its balcony
+					if ( gr + 2.6 < upperSill - 0.6 ) opening( t, gr + 1.0, 0.95, 1.5, false, undefined, WOOD );
+					opening( t, upperSill, 1.0, 2.1, false, undefined, WOOD );
+					part( t - 0.78, t + 0.78, upperSill - 0.12, upperSill, 0.42, STONE );
+					this._ironBalcony( at, out, t, upperSill, 1.3, 0.9, IRON );
+
+				} else {
+
+					if ( gr + 2.2 < upperSill - 0.6 ) opening( t, gr + 1.65, 0.5, 0.5, false, undefined, WOOD );
+					opening( t, eave - 2.05, 0.55, 0.55, false, undefined, WOOD );
+					// now and then a lantern on its bracket between the ground floor windows
+					if ( bay ++ % 3 === 1 ) {
+
+						const y = Math.max( gr + 2.6, gr + 1.65 + 0.8 );
+						// the bracket out from a small plate, the lantern hanging from it: a cap, glass, a frame
+						part( t - 0.05, t + 0.05, y + 0.3, y + 0.5, 0.03, IRON );
+						part( t - 0.015, t + 0.015, y + 0.42, y + 0.45, 0.42, IRON );
+						const [ lx, lz ] = out( t, 0.34 ), yaw = at( t ).yaw;
+						kit.color = IRON;
+						kit.box( lx, y + 0.34, lz, 0.2, 0.05, 0.2, yaw, '' );
+						kit.box( lx, y + 0.02, lz, 0.16, 0.04, 0.16, yaw, '' );
+						kit.color = srgbToLinear( [ 0.86, 0.8, 0.6 ] );
+						kit.box( lx, y + 0.18, lz, 0.14, 0.28, 0.14, yaw, '' );
+						kit.color = IRON;
+						for ( const [ dx, dz ] of [ [ - 1, - 1 ], [ 1, - 1 ], [ 1, 1 ], [ - 1, 1 ] ] ) {
+
+							const p = at( t ), cx = lx + ( p.ux * dx + p.nx * dz ) * 0.075, cz = lz + ( p.uz * dx + p.nz * dz ) * 0.075;
+							kit.box( cx, y + 0.18, cz, 0.018, 0.3, 0.018, yaw, '' );
+
+						}
+
+					}
+
+				}
+
+			}
+
+			tg += L;
+
+		}
+
+	}
+
+	// a curved iron balcony guard in front of a French window: balusters bellying out, rails top and bottom
+	_ironBalcony( at, out, t, y0, W, H, IRON ) {
+
+		const kit = this.walls, yaw = at( t ).yaw, belly = ( h ) => 0.1 + 0.2 * Math.sin( Math.PI * Math.min( 1, h / H ) * 0.85 );
+		const piece = ( tt, y, d, w, h, dep ) => {
+
+			const [ x, z ] = out( tt, d );
+			kit.box( x, y + h / 2, z, w, h, dep, yaw, '' );
+
+		};
+		kit.color = IRON;
+		kit.vdata = [ 0, 0, 0.53, 4 ];
+		const N = 9, SEG = 7;
+		for ( let i = 0; i < N; i ++ ) {
+
+			const tt = t - W / 2 + W * i / ( N - 1 ), end = i === 0 || i === N - 1;
+			for ( let j = 0; j < SEG; j ++ ) {
+
+				const h0 = H * j / SEG, h1 = H * ( j + 1 ) / SEG, d = end ? 0.06 : ( belly( h0 ) + belly( h1 ) ) / 2;
+				piece( tt, y0 + h0, d, 0.018, h1 - h0 + 0.01, end ? 0.12 : 0.02 );
+
+			}
+
+		}
+
+		// the rails, and a scroll of bars across the belly
+		for ( const h of [ 0.02, 0.45, H - 0.02 ] ) piece( t, y0 + h - 0.015, belly( h ), W, 0.03, 0.025 );
 
 	}
 
