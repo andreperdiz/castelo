@@ -6,7 +6,7 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 // Procedural materials for the walls and the houses of Óbidos (no textures: patterns from the mesh
 // uvs, which are in metres, plus the shared detail noise texture for breakup). The geometry carries
 //   tint  vec3  stone tone / trim paint colour (the barra and the window surrounds)
-//   vdata vec4  stone:   x seed, y weathering 0..1, w 1 = setts in rows (townRowSetts), w 3 = a curtain's foot
+//   vdata vec4  stone:   x seed, y weathering 0..1, w 1 = setts in rows (townRowSetts)
 //               plaster: x facade length (m), y storeys, z seed, w 1 = facade with windows and doors
 //                        (0 = a blank wall), plus 0.4 x the ground's slope along it (-0.95..0.95);
 //                        w 2-4: the finishes of townTiles (azulejos, a painted vault, flat paint)
@@ -410,12 +410,7 @@ export function createTownMaterials() {
 		stone: make( 'TownStone', /* wgsl */`
 	${ PX }
 	var t = townMasonry( in.uv, in.vs.vData.x, in.vs.vData.y, px );
-	if ( in.vs.vData.w > 2.5 && in.vs.vData.w < 3.5 ) {
-		// the curtain's foot (Walls._ornelasCurtainFoot): bigger, slightly greyer blocks
-		t = townMasonry( in.uv * vec2f( 0.72, 0.72 ), in.vs.vData.x, in.vs.vData.y, px * 0.72 );
-		let lum = dot( t.albedo, vec3f( 0.3, 0.55, 0.15 ) );
-		t.albedo = mix( t.albedo, vec3f( lum ) * vec3f( 1.02, 1.0, 0.95 ), 0.18 ) * 0.94;
-	} else if ( in.vs.vData.w > 0.5 ) { t = townRowSetts( in.uv, px ); }
+	if ( in.vs.vData.w > 0.5 ) { t = townRowSetts( in.uv, px ); }
 	s.albedo = t.albedo * in.vs.vTint;
 	s.roughness = t.rough;
 	s.normal = terrainPerturbNormal( in.P, in.N, t.hd, 1.0 );

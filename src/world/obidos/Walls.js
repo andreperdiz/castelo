@@ -286,7 +286,6 @@ export class Walls {
 
 		}
 		this._ornelasForkStone();
-		this._ornelasCurtainFoot();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 		this._pvAlley( materials );
 		this._casaWing( materials );
@@ -1916,36 +1915,17 @@ export class Walls {
 
 	}
 
-	// up Rua Dom João de Ornelas from the stone steps (photo references/...-img-4384): the curtain's lowest courses,
-	// about the street's first 1.6 m, are bigger, slightly greyer blocks. Laid flush over the curtain's face (the
-	// stone material's foot variant, vdata.w 3), its top level, following the street, so it reads as the wall's
-	// own lower courses, not a skin coming away
-	_ornelasCurtainFoot() {
+	// up Rua Dom João de Ornelas from the stone steps (photo references/...-img-4384): the curtain's lowest courses
+	// are greyer than the golden stone above, the same stone going over to it between 1.2 and 1.9 m over the
+	// street. For the curtain's outer face (_wallLine) between OA and OB: null, or the band and how grey (k)
+	_footTone( OA, OB ) {
 
-		const kit = this.kit, T = this.terrain;
-		if ( ! T.ornelasEast ) return;
-		const FACE = T.ornelasEast.curtainFoot, OUT = 0.012, STEP = 0.5, H = 1.6;
-		let u0 = 0;
-		for ( let i = 0; i + 1 < FACE.length; i ++ ) {
-
-			const a = FACE[ i ], c = FACE[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
-			const nx = uz, nz = - ux, n = Math.ceil( L / STEP );
-			const pt = ( t, d ) => [ a[ 0 ] + ux * t + nx * d, a[ 1 ] + uz * t + nz * d ];
-			const gAt = ( t ) => T.heightAt( ...pt( t, 0.4 ) );
-			for ( let k = 0; k < n; k ++ ) {
-
-				const t0 = L * k / n, t1 = L * ( k + 1 ) / n, A = pt( t0, OUT ), C = pt( t1, OUT ), g0 = gAt( t0 ), g1 = gAt( t1 );
-				const y0 = g0 + H, y1 = g1 + H, b0 = g0 - 0.4, b1 = g1 - 0.4;
-				kit.color = [ 1.2, 1.08, 0.88 ]; // (warmed toward the curtain's own tone)
-				kit.vdata = [ 0.43, 0.7, 0, 3 ];
-				kit.quadFacing( [ A[ 0 ], b0, A[ 1 ] ], [ C[ 0 ], b1, C[ 1 ] ], [ C[ 0 ], y1, C[ 1 ] ], [ A[ 0 ], y0, A[ 1 ] ], [ nx, 0, nz ],
-					[ [ u0 + t0, b0 ], [ u0 + t1, b1 ], [ u0 + t1, y1 ], [ u0 + t0, y0 ] ] );
-
-			}
-
-			u0 += L;
-
-		}
+		const F = this.terrain.ornelasEast?.curtainFoot;
+		if ( ! F ) return null;
+		const x = ( OA[ 0 ] + OB[ 0 ] ) / 2, z = ( OA[ 1 ] + OB[ 1 ] ) / 2;
+		let d = Infinity;
+		for ( let i = 0; i + 1 < F.length; i ++ ) d = Math.min( d, segmentDistance( x, z, F[ i ], F[ i + 1 ] )[ 0 ] );
+		return d < 1.6 ? { y0: 1.2, y1: 1.9, k: 0.85 } : null;
 
 	}
 
@@ -3869,8 +3849,35 @@ export class Walls {
 
 			}
 			const gOut = Math.min( ground( OA ), ground( OB ) ) - FOOT;
+			const foot = ! gate && this._footTone ? this._footTone( OA, OB ) : null;
 			if ( gate ) archFace( outer, yp, outN, u );
-			else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], ypB, OB[ 1 ] ], [ OA[ 0 ], ypA, OA[ 1 ] ], outN,
+			else if ( foot ) {
+
+				// a stretch whose lowest courses are greyer (_footTone): the same stone, its tint going over to the
+				// golden one between foot.y0 and foot.y1 over the ground there
+				const gA = ground( OA ) + foot.y0, gB = ground( OB ) + foot.y0, hA = ground( OA ) + foot.y1, hB = ground( OB ) + foot.y1, gold = kit.color;
+				const lum = ( gold[ 0 ] + gold[ 1 ] + gold[ 2 ] ) / 3, grey = gold.map( ( c, k ) => c + ( lum * [ 0.98, 0.96, 0.88 ][ k ] * 0.82 - c ) * foot.k );
+				const band = ( y0A, y0B, y1A, y1B, c0, c1 ) => {
+
+					const P = [ [ OA[ 0 ], y0A, OA[ 1 ], u, c0 ], [ OB[ 0 ], y0B, OB[ 1 ], u + len, c0 ], [ OB[ 0 ], y1B, OB[ 1 ], u + len, c1 ], [ OA[ 0 ], y1A, OA[ 1 ], u, c1 ] ];
+					const ids = P.map( ( [ x, y, z, uu, c ] ) => {
+
+						kit.color = c;
+						return kit.vertex( [ x, y, z ], outN, uu, y );
+
+					} );
+					// (wound to face out, as quadFacing would)
+					const e1 = [ P[ 1 ][ 0 ] - P[ 0 ][ 0 ], P[ 1 ][ 2 ] - P[ 0 ][ 2 ] ], fwd = - e1[ 1 ] * outN[ 0 ] + e1[ 0 ] * outN[ 2 ];
+					if ( fwd >= 0 ) kit.idx.push( ids[ 0 ], ids[ 1 ], ids[ 2 ], ids[ 0 ], ids[ 2 ], ids[ 3 ] );
+					else kit.idx.push( ids[ 0 ], ids[ 2 ], ids[ 1 ], ids[ 0 ], ids[ 3 ], ids[ 2 ] );
+
+				};
+				band( gOut, gOut, gA, gB, grey, grey );
+				band( gA, gB, hA, hB, grey, gold );
+				band( hA, hB, ypA, ypB, gold, gold );
+				kit.color = gold;
+
+			} else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], ypB, OB[ 1 ] ], [ OA[ 0 ], ypA, OA[ 1 ] ], outN,
 				[ [ u, gOut ], [ u + len, gOut ], [ u + len, ypB ], [ u, ypA ] ] );
 			if ( ts ) {
 

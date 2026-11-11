@@ -74,7 +74,7 @@ export const ORNELAS_EAST = {
 		// (its corner rounded, as in references/...-img-4388)
 		[ 21.34, 140.94 ], [ 21.24, 140.99 ], [ 21.12, 141.01 ], [ 21.01, 141.01 ], [ 20.89, 141.00 ], [ 20.79, 140.96 ], [ 20.69, 140.90 ], [ 19.96, 140.35 ] ],
 	// along the curtain's face up the street from the stone steps (photo references/...-img-4384): its foot's
-	// bigger blocks (Walls._ornelasCurtainFoot) and before them a strip of rough stones in sand
+	// greyer lowest courses (Walls._footTone) and before them a strip of rough stones in sand
 	curtainFoot: [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ] ],
 	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
