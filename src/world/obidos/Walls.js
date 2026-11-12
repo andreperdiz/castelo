@@ -2114,16 +2114,8 @@ export class Walls {
 
 		}
 
-		// limestone slabs along the street's far side, a kerb's height over it
-		kit.vdata = [ 0.43, 0.5, 0, 0 ];
-		kit.color = [ 1.04, 1.02, 0.98 ];
-		for ( let sv = o.S_W; sv < o.WALL_END + 6; sv += 1 ) {
-
-			const sm = sv + 0.5, [ x, z ] = pt( sm, - o.HALF + 0.5 ), y = o.roadY( sm ) + 0.12, yaw = yawAt( sm );
-			kit.box( x, y - 0.4, z, 1.02, 0.8, 1.3, yaw );
-			this.colliders.addBox( new Vector3( x, y - 0.4, z ), new Vector3( 0.51, 0.4, 0.65 ), yaw, { walkable: true, tag: 'stair' } );
-
-		}
+		// (no raised slabs along the street's far side: on the slope they stepped up it like a flight of stairs;
+		// the street's line of white slabs lies flush, Town._ornelasTop)
 
 		// the street lamp on the wall's step: a cast-iron post, two curled arms, two lanterns
 		const warm = new Color( 1.0, 0.66, 0.36 );
