@@ -1967,8 +1967,8 @@ export class Walls {
 	}
 
 	// Rua Dom João de Ornelas, going down from the square outside the gate (TerrainData shapes it), as in the
-	// photo: a short flight of cobbled steps beside the slope, from the square to the start of the wall that
-	// holds the square up; the wall whitewashed, with a blue band along its foot that follows the street, a
+	// photo: the wall that holds the square up beside the slope, from level with the bollards' end across
+	// the street; whitewashed, with a blue band along its foot that follows the street, a
 	// step up in its top where a two-armed street lamp stands, bougainvillea spilling over it by the house; a
 	// no-entry sign at its start and a pavement of limestone slabs along the street's far side.
 	_ornelas( materials ) {
@@ -1999,7 +1999,7 @@ export class Walls {
 
 		};
 
-		// the square's edge over the slope, as far as the steps: a kerb of setts, its face standing over the street
+		// the square's edge over the slope, as far as the wall: a kerb of setts, its face standing over the street
 		const box = ( s0, s1, d0, d1, top, bottom, walkable, tag ) => {
 
 			const sm = ( s0 + s1 ) / 2, [ x, z ] = pt( sm, ( d0 + d1 ) / 2 ), yaw = yawAt( sm );
@@ -2007,36 +2007,15 @@ export class Walls {
 			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( ( s1 - s0 ) / 2 + 0.01, ( top - bottom ) / 2, ( d1 - d0 ) / 2 ), yaw, { walkable, tag } );
 
 		};
-		const FL = o.S_W - o.FLIGHT, a0 = o.WALL_OFF, a1 = o.HALF + 1.8;
+		const a0 = o.WALL_OFF;
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 0.8, 0.78, 0.74 ]; // grey setts
-		for ( let sv = o.S0; sv < FL - 0.01; sv += 1 ) {
+		for ( let sv = o.S0; sv < o.W_START - 0.01; sv += 1 ) {
 
-			const s1 = Math.min( FL, sv + 1 );
+			const s1 = Math.min( o.W_START, sv + 1 );
 			box( sv, s1, a0, o.HALF + 2.2, o.F + 0.01, o.roadY( s1 ) - 0.5, true, 'praceta' );
 
 		}
-
-		// the steps: five, in line with the wall, down from the square to its foot, each with a nosing of
-		// pale stone; their sides stand over the street
-		const N = 5, tread = o.FLIGHT / N;
-		for ( let i = 0; i < N; i ++ ) {
-
-			const s0 = FL + tread * i, top = o.F - o.DROP * ( i + 1 ) / N, yaw = yawAt( s0 + tread / 2 );
-			kit.vdata = [ 0.29, 0.6, 0, 0 ];
-			kit.color = [ 0.8, 0.78, 0.74 ];
-			box( s0, s0 + tread, a0, a1, top, o.roadY( s0 + tread ) - 0.5, true, 'stair' );
-			const [ nx, nz ] = pt( s0 + tread - 0.11, ( a0 + a1 ) / 2 );
-			kit.vdata = [ 0.43, 0.5, 0, 0 ];
-			kit.color = [ 0.95, 0.9, 0.8 ]; // worn limestone
-			kit.box( nx, top - 0.1 + 0.005, nz, 0.22, 0.2, a1 - a0 + 0.02, yaw );
-
-		}
-
-		// the square beside the steps: paved over the ground's dip down to them
-		kit.vdata = [ 0.29, 0.6, 0, 0 ];
-		kit.color = [ 0.8, 0.78, 0.74 ];
-		box( FL, o.S_W, a1 + 0.45, o.HALF + 4.2, o.F + 0.01, o.roadY( o.S_W ) - 0.5, true, 'praceta' );
 
 		// the wall, whitewashed: its faces built here so the blue band (the plaster's barra) runs along the
 		// street's slope, 1.25 m up, rather than level
@@ -2045,8 +2024,8 @@ export class Walls {
 		const BAR = 0.75; // v scale on the street side: the barra's 0.95 m becomes 1.25 m
 		plaster.color = BLUE;
 		plaster.vdata = [ 20, 0, 0.0722, 0 ];
-		const cuts = [ o.S_W ];
-		for ( let sv = o.S_W + 1; sv < o.WALL_END - 0.3; sv += 1 ) cuts.push( sv );
+		const cuts = [ o.W_START ];
+		for ( let sv = Math.floor( o.W_START ) + 1; sv < o.WALL_END - 0.3; sv += 1 ) cuts.push( sv );
 		if ( ! cuts.includes( STEP_AT ) ) cuts.push( STEP_AT );
 		cuts.push( o.WALL_END );
 		cuts.sort( ( p, q ) => p - q );
@@ -2074,31 +2053,6 @@ export class Walls {
 				[ [ 0, 5 ], [ TH, 5 ], [ TH, 5.4 ], [ 0, 5.4 ] ] );
 			const sm = ( sa + sb ) / 2, [ cx, cz ] = pt( sm, o.WALL_OFF + TH / 2 ), bottom = Math.min( ya, yb );
 			this.colliders.addBox( new Vector3( cx, ( top + bottom ) / 2, cz ), new Vector3( ( sb - sa ) / 2 + 0.02, ( top - bottom ) / 2, TH / 2 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
-
-		}
-
-		// the steps' side wall on the square's side, low, whitewashed, running into the wall's end
-		{
-
-			const top = o.F + 0.45, d0 = a1, d1 = a1 + 0.45;
-			for ( let k = 0; k < 2; k ++ ) {
-
-				const sa = FL + o.FLIGHT * k / 2, sb = FL + o.FLIGHT * ( k + 1 ) / 2;
-				const A = pt( sa, d0 ), B = pt( sb, d0 ), A2 = pt( sa, d1 ), B2 = pt( sb, d1 );
-				const ya = o.F - o.DROP * k / 2 - 0.3, yb = o.F - o.DROP * ( k + 1 ) / 2 - 0.3;
-				const [ lx, lz ] = left( ( sa + sb ) / 2 ), p = o.at( sa );
-				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - lx, 0, - lz ],
-					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
-				plaster.quadFacing( [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ B2[ 0 ], o.F - 0.3, B2[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ lx, 0, lz ],
-					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
-				plaster.quadFacing( [ A[ 0 ], top, A[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ 0, 1, 0 ],
-					[ [ sa, 5 ], [ sb, 5 ], [ sb, 5.5 ], [ sa, 5.5 ] ] );
-				if ( k === 0 ) plaster.quadFacing( [ A[ 0 ], o.F - 0.3, A[ 1 ] ], [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - p.dx, 0, - p.dz ],
-					[ [ 0, 2 ], [ 0.45, 2 ], [ 0.45, 3 ], [ 0, 3 ] ] );
-				const sm = ( sa + sb ) / 2, [ cx, cz ] = pt( sm, ( d0 + d1 ) / 2 );
-				this.colliders.addBox( new Vector3( cx, ( top + yb ) / 2, cz ), new Vector3( ( sb - sa ) / 2, ( top - yb ) / 2, 0.225 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
-
-			}
 
 		}
 

@@ -667,16 +667,16 @@ export class TerrainData {
 
 	}
 
-	// Rua Dom João de Ornelas (ORNELAS): a cars' slope from the square, 1.2 m down by the wall's start, then on
-	// down to where it meets the ground again; beside it on its left the square runs on level to a short
-	// flight of steps down to the wall's start. this.ornelas tells Walls where the steps and the wall go.
+	// Rua Dom João de Ornelas (ORNELAS): a cars' slope from the square, 1.2 m down by S_W, then on down to
+	// where it meets the ground again; beside it on its left the square, level, held up by a wall from W_START
+	// (level with the end of the bollards across the street). this.ornelas tells Walls where the wall goes.
 	_ornelas() {
 
 		const F = this.pvFloor, { res, texel, origin, heights } = this;
 		const R = ORNELAS, cum = [ 0 ];
 		for ( let i = 1; i < R.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( R[ i ][ 0 ] - R[ i - 1 ][ 0 ], R[ i ][ 1 ] - R[ i - 1 ][ 1 ] ) );
 		const L = cum[ cum.length - 1 ], end = R[ R.length - 1 ], yEnd = this.heightAt( end[ 0 ], end[ 1 ] );
-		const HALF = 2.4, S0 = 0.5, S_W = 8, DROP = 1.2, yW = F - DROP, FLIGHT = 2.25;
+		const HALF = 2.4, S0 = 0.5, S_W = 8, DROP = 1.2, yW = F - DROP, W_START = 3;
 		const roadY = ( s ) => s <= S0 ? F : s < S_W ? lerp( F, yW, ( s - S0 ) / ( S_W - S0 ) ) : lerp( yW, yEnd, smoothstep( 0, 1, ( s - S_W ) / ( L - S_W ) ) * 0.4 + 0.6 * ( s - S_W ) / ( L - S_W ) );
 		// position, direction (going down) and the left (the square's side) at s along the line
 		const at = ( s ) => {
@@ -688,7 +688,7 @@ export class TerrainData {
 			return { x: a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, z: a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t, dx, dz, lx: dz, lz: - dx };
 
 		};
-		// the wall's road face, a little off the road's left edge, from the steps' top to the house
+		// the wall's road face, a little off the road's left edge, from W_START to the house
 		const WALL_OFF = HALF + 0.2, WALL_END = 24.8;
 		const SOFT = 4;
 		this._stroke( R, HALF, SOFT, ( k, t ) => {
@@ -705,11 +705,11 @@ export class TerrainData {
 
 			const p = at( best.s ), side = ( x - p.x ) * p.lx + ( z - p.z ) * p.lz;
 			// on the square's side: the street's level reaches a little under what stands at its edge (the
-			// square's kerb, the steps and their side wall, the wall), so the ground doesn't slope out of their
+			// square's kerb, the wall), so the ground doesn't slope out of their
 			// faces; the square, level, beyond (Walls paves over the dip behind them)
 			if ( side > 0 && best.s < WALL_END ) {
 
-				const low = best.s < S_W - FLIGHT ? HALF + 1 : best.s < S_W ? HALF + 3 : WALL_OFF + 1;
+				const low = best.s < W_START ? HALF + 1 : WALL_OFF + 1;
 				heights[ k ] = side <= low ? roadY( best.s ) : F;
 				return;
 
@@ -719,7 +719,7 @@ export class TerrainData {
 			heights[ k ] = lerp( heights[ k ], roadY( best.s ), side > 0 ? 1 : t );
 
 		} );
-		this.ornelas = { at, roadY, F, S0, S_W, DROP, FLIGHT, HALF, WALL_OFF, WALL_END, length: L };
+		this.ornelas = { at, roadY, F, S0, S_W, DROP, W_START, HALF, WALL_OFF, WALL_END, length: L };
 
 	}
 
