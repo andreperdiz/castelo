@@ -16,6 +16,7 @@ import { srgb, terrainShadingModule } from './TerrainShading.js';
 //   fn groundScrub( xz: vec2f, px: f32, macroT: f32, detail: f32 ) -> vec4f   Mediterranean scrub / woodland
 //   fn groundDryGrass( macroT: f32, detail: f32, slope: f32 ) -> vec3f
 //   fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f                          limestone setts (albedo, a = bump)
+//   fn groundRoughStones( xz: vec2f, px: f32 ) -> vec4f                      a wall foot's rough stones in sand
 //   fn groundHash( p: vec2f ) -> f32
 const C = {
 	stubble: srgb( 0.68, 0.58, 0.4 ),
@@ -36,11 +37,11 @@ const C = {
 	scrubDry: srgb( 0.42, 0.4, 0.26 ),
 	hedge: srgb( 0.17, 0.21, 0.11 ),
 	track: srgb( 0.66, 0.57, 0.43 ),
-	settLight: srgb( 0.72, 0.69, 0.62 ),
-	settMid: srgb( 0.58, 0.55, 0.49 ),
-	settDark: srgb( 0.44, 0.42, 0.38 ),
-	settWarm: srgb( 0.68, 0.6, 0.5 ),
-	joint: srgb( 0.27, 0.25, 0.21 ),
+	settLight: srgb( 0.62, 0.6, 0.56 ),
+	settMid: srgb( 0.47, 0.46, 0.43 ),
+	settDark: srgb( 0.34, 0.34, 0.33 ),
+	settWarm: srgb( 0.56, 0.51, 0.44 ),
+	joint: srgb( 0.3, 0.29, 0.26 ),
 };
 
 const consts = Object.entries( C ).map( ( [ k, v ] ) => `const GC_${ k }: vec3f = ${ v };` ).join( '\n' );
@@ -178,19 +179,22 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 	for ( var j = -1; j <= 1; j++ ) {
 		for ( var i = -1; i <= 1; i++ ) {
 			let c = cell + vec2f( f32( i ), f32( j ) );
-			let o = vec2f( groundHash( c ), groundHash( c + 17.3 ) ) * 0.8 + 0.1;
-			let d = length( vec2f( f32( i ), f32( j ) ) + o - f );
+			// (centres jittered only a little and a distance between round and square: squarish setts in
+			// loose rows, as the streets' small cubes are laid)
+			let o = vec2f( groundHash( c ), groundHash( c + 17.3 ) ) * 0.45 + 0.275;
+			let e = vec2f( f32( i ), f32( j ) ) + o - f;
+			let d = max( abs( e.x ), abs( e.y ) ) * 0.75 + length( e ) * 0.25;
 			if ( d < d1 ) { d2 = d1; d1 = d; id = c; } else if ( d < d2 ) { d2 = d; }
 		}
 	}
 	return vec4f( d1, ( d2 - d1 ) * 0.5, id );
 }
 
-// Óbidos street paving: rounded limestone and darker basalt cobbles (~0.17 m) set in packed earth;
+// Óbidos street paving: small squarish limestone setts (~0.11 m) and darker ones, set in packed earth;
 // fades to the average tone when a stone is smaller than a few pixels
 fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
-	let s = 0.17;
-	let v = groundVoronoi( xz / s + vec2f( 0.0, xz.x * 0.0 ) );
+	let s = 0.11;
+	let v = groundVoronoi( xz / s );
 	let h1 = groundHash( v.zw );
 	let h2 = groundHash( v.zw + 11.7 );
 	var col = mix( GC_settMid, GC_settLight, h1 );
@@ -198,10 +202,33 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	col = mix( col, GC_settWarm, smoothstep( 0.6, 0.85, groundHash( v.zw + 4.4 ) ) * 0.5 );
 	let pxS = px / s;
 	let joint = 1.0 - smoothstep( 0.03, 0.09 + pxS, v.y );
-	let fade = smoothstep( 0.08, 0.3, pxS );
+	let fade = smoothstep( 0.3, 1.0, pxS ); // (the small stones fade before they shimmer into rings)
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
 	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;
+	return vec4f( col, mix( dome - joint * 0.006, 0.0, fade ) );
+}
+
+// the rough strip at a wall's foot: bigger, irregular limestone pieces (~0.26 m), greyer and more varied than
+// the setts, loosely set in sand, a piece missing here and there
+fn groundRoughStones( xz: vec2f, px: f32 ) -> vec4f {
+	let s = 0.26;
+	// (gently warped and turned, so the pieces don't line up like the setts)
+	let wq = xz + vec2f( sin( xz.y * 2.3 ), sin( xz.x * 2.1 ) ) * 0.05;
+	let q = vec2f( wq.x * 0.8 - wq.y * 0.6, wq.x * 0.6 + wq.y * 0.8 ) / s;
+	let v = groundVoronoi( q );
+	let h1 = groundHash( v.zw + 2.1 );
+	let h2 = groundHash( v.zw + 7.9 );
+	var col = mix( GC_settDark, GC_settLight, h1 ) * 0.86;
+	col = mix( col, GC_settMid * 0.7, smoothstep( 0.65, 0.9, h2 ) );
+	col = col * ( 0.8 + groundHash( v.zw + 1.3 ) * 0.3 );
+	let gone = step( 0.93, groundHash( v.zw + 5.5 ) );
+	let pxS = px / s;
+	let joint = max( 1.0 - smoothstep( 0.035, 0.09 + pxS, v.y ), gone );
+	let fade = smoothstep( 0.3, 1.0, pxS );
+	let jointCol = mix( GC_track, GC_joint, 0.3 );
+	col = mix( mix( col, jointCol, joint * 0.9 ), mix( GC_settMid * 0.78, jointCol, 0.25 ), fade ); // (greyer far off, as the photo's strip)
+	let dome = sqrt( smoothstep( 0.0, 0.3, v.y ) ) * 0.02 * ( 1.0 - gone );
 	return vec4f( col, mix( dome - joint * 0.006, 0.0, fade ) );
 }
 `;

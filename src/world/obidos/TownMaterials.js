@@ -24,10 +24,10 @@ import { srgb, terrainShadingModule } from '../terrain/TerrainShading.js';
 // TownSurf { albedo, rough, hd (bump height, m), ao }.
 const C = {
 	// the setts of the ground (GroundShading), for townRowSetts
-	settLight: srgb( 0.72, 0.69, 0.62 ),
-	settMid: srgb( 0.58, 0.55, 0.49 ),
-	settDark: srgb( 0.44, 0.42, 0.38 ),
-	settWarm: srgb( 0.68, 0.6, 0.5 ),
+	settLight: srgb( 0.62, 0.6, 0.56 ),
+	settMid: srgb( 0.47, 0.46, 0.43 ),
+	settDark: srgb( 0.34, 0.34, 0.33 ),
+	settWarm: srgb( 0.56, 0.51, 0.44 ),
 	settJoint: srgb( 0.4, 0.36, 0.29 ),
 	stoneA: srgb( 0.66, 0.65, 0.6 ),
 	stoneB: srgb( 0.56, 0.55, 0.51 ),
@@ -137,7 +137,7 @@ fn townMasonry( uvIn: vec2f, seed: f32, wear: f32, px: f32 ) -> TownSurf {
 // setts laid in rows, in the same colours as the ground's random cobbles (only their order differs): uv in
 // metres, the rows along u
 fn townRowSetts( uv: vec2f, px: f32 ) -> TownSurf {
-	let rh = 0.15; let sl = 0.17;
+	let rh = 0.11; let sl = 0.12;
 	let row = floor( uv.y / rh );
 	let x = uv.x / sl + row * 0.5 + townHash( vec2f( row, 3.1 ) ) * 0.6;
 	let id = vec2f( floor( x ), row );
@@ -146,7 +146,7 @@ fn townRowSetts( uv: vec2f, px: f32 ) -> TownSurf {
 	var col = mix( TC_settMid, TC_settLight, townHash( id ) );
 	col = mix( col, TC_settDark, smoothstep( 0.78, 0.92, townHash( id + 11.7 ) ) );
 	col = mix( col, TC_settWarm, smoothstep( 0.6, 0.85, townHash( id + 4.4 ) ) * 0.5 );
-	let pxS = px / 0.17;
+	let pxS = px / 0.12;
 	let joint = 1.0 - smoothstep( 0.005, 0.015 + px, e );
 	let fade = smoothstep( 0.08, 0.3, pxS );
 	col = mix( mix( col, TC_settJoint, joint * 0.7 ), mix( TC_settMid, TC_settJoint, 0.18 ), fade );

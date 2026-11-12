@@ -1,7 +1,8 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
+import { mulberry32 } from '../../util/Noise.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
-import { PV_ALLEY, VALE_STEPS } from '../TerrainData.js';
+import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -254,6 +255,39 @@ export class Walls {
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
+		// the trees in the garden against the curtain beside Rua Dom João de Ornelas (photo references/...-img-4391)
+		this.extraTrees = this.extraTrees || [];
+		for ( const [ x, z, kind, scale ] of [ [ 53.6, 118.6, 'garden', 0.95 ], [ 50.4, 120.2, 'olive', 0.9 ], [ 54.6, 116.6, 'garden', 0.42 ], [ 47.6, 120.8, 'garden', 1 ],
+			// shrubs under them, the ground planted, and one at the curtain's foot by the drainpipe
+			[ 55.3, 118.6, 'garden', 0.45 ], [ 52, 121.2, 'garden', 0.5 ], [ 49.2, 122, 'garden', 0.42 ], [ 51.4, 117.6, 'garden', 0.48 ], [ 46, 119.8, 'garden', 0.45 ], [ 58.7, 114.6, 'garden', 0.32 ],
+			// and the one showing over the green gate at the fork (photo references/...-img-4390), in the yard behind it
+			[ 87, 74.5, 'olive', 1.25 ],
+			// and up the street, in the garden behind the long white wall (photo references/...-img-4386)
+			[ 24.6, 136.4, 'garden', 0.55 ], [ 28.6, 133.6, 'garden', 0.8 ], [ 33, 130.7, 'olive', 0.85 ], [ 37.6, 128, 'olive', 1.15 ], [ 42.4, 125.2, 'garden', 0.75 ], [ 22.9, 138.3, 'garden', 0.5 ], [ 21.5, 139.9, 'garden', 0.4 ], [ 23.9, 138.6, 'garden', 0.42 ],
+			// the big plane tree past the long cream front's far end (photo references/...-img-4384)
+			[ 1.2, 187, 'plane', 1.0 ],
+			// and near the top, on the square's edge (photo references/...-img-4383)
+			[ - 29.3, 227.6, 'garden', 1.15 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+		// and the worn stones along the curtain's foot there, and the two small marker stones
+		{
+
+			const kit = this.kit, r = mulberry32( 4391 ), T = terrain;
+			kit.vdata = [ 0.29, 0.7, 0, 0 ];
+			const lump = ( x, z, sx, sy, sz, yaw ) => kit.box( x, T.heightAt( x, z ) + sy / 2 - 0.05, z, sx, sy, sz, yaw, 'bottom' );
+			for ( let i = 0; i < 10; i ++ ) {
+
+				const x = 59 + r() * 8, z = 110 + ( 66.1 - x ) * 0.4 + 1.7 + r() * 0.5, sz = 0.1 + r() * 0.16, v = 0.85 + r() * 0.2;
+				kit.color = [ v * 1.05, v * 0.92, v * 0.72 ];
+				lump( x, z, sz * 1.5, sz * 0.8, sz * 1.1, r() * 3 );
+
+			}
+
+			// (their S R panels: Town._ornelasGardenWall)
+			kit.color = [ 0.95, 0.88, 0.72 ];
+			for ( const [ x, z ] of ORNELAS_MARKERS ) lump( x, z, 0.22, 0.34, 0.18, Math.atan2( 0.806, - 0.592 ) );
+
+		}
+		this._ornelasForkStone();
 		if ( this.portaDaVila ) this._oratorio( this.portaDaVila.gates[ 1 ], materials );
 		this._pvAlley( materials );
 		this._casaWing( materials );
@@ -1883,9 +1917,58 @@ export class Walls {
 
 	}
 
+	// up Rua Dom João de Ornelas from the stone steps (photo references/...-img-4384): the curtain's lowest courses
+	// are greyer than the golden stone above, the same stone going over to it between 1.2 and 1.9 m over the
+	// street. For the curtain's outer face (_wallLine) between OA and OB: null, or the band and how grey (k)
+	_footTone( OA, OB ) {
+
+		const F = this.terrain.ornelasEast?.curtainFoot;
+		if ( ! F ) return null;
+		const x = ( OA[ 0 ] + OB[ 0 ] ) / 2, z = ( OA[ 1 ] + OB[ 1 ] ) / 2;
+		let d = Infinity;
+		for ( let i = 0; i + 1 < F.length; i ++ ) d = Math.min( d, segmentDistance( x, z, F[ i ], F[ i + 1 ] )[ 0 ] );
+		return d < 1.6 ? { y0: 1.2, y1: 1.9, k: 0.85 } : null;
+
+	}
+
+	// by the fork where Rua Dom João de Ornelas leaves the curtain (photo references/...-img-4390): the stone either
+	// side of the green gate (Town._ornelasFork paints the gate), and worn stones along the curtain's foot
+	_ornelasForkStone() {
+
+		const kit = this.kit, T = this.terrain, r = mulberry32( 4390 );
+		if ( ! T.ornelasEast ) return;
+		kit.vdata = [ 0.41, 0.75, 0, 0 ];
+		kit.color = [ 1.25, 1.1, 0.88 ]; // (it stands in shade most of the day)
+		// on the gate's line, its pillars standing out from the white
+		const ux = - 0.126, uz = - 0.992, nx = - 0.992, nz = 0.126, ox = 83.4, oz = 81.4, yaw = Math.atan2( - uz, ux );
+		for ( const [ t0, t1 ] of [ [ - 0.05, 0.9 ], [ 5.4, 6.2 ] ] ) {
+
+			const t = ( t0 + t1 ) / 2, x = ox + ux * t + nx * 0.17, z = oz + uz * t + nz * 0.17, g = T.heightAt( x, z );
+			kit.box( x, g + 1.1, z, t1 - t0, 3.6, 0.34, yaw, 'bottom' );
+
+		}
+
+		// and the wall on from it to the white wall's end, up to the eave
+		{
+
+			const x = 84.7 - 0.55 * 0.12, z = 82.25 + 0.84 * 0.12, L = 3.15;
+			kit.box( x, T.heightAt( x, z ) + 0.8, z, L, 5.2, 0.24, Math.atan2( - 0.55, 0.84 ), 'bottom' );
+
+		}
+
+		for ( let i = 0; i < 16; i ++ ) {
+
+			const zr = 96 + r() * 13, x = 67.8 + ( 109 - zr ) * 0.112 + 0.9 + r() * 0.9, s = 0.08 + r() * 0.14, v = 0.8 + r() * 0.2;
+			kit.color = [ v * 1.02, v * 0.93, v * 0.76 ];
+			kit.box( x, T.heightAt( x, zr ) + s * 0.3 - 0.03, zr, s * 1.5, s * 0.75, s * 1.1, r() * 3, 'bottom' );
+
+		}
+
+	}
+
 	// Rua Dom João de Ornelas, going down from the square outside the gate (TerrainData shapes it), as in the
-	// photo: a short flight of cobbled steps beside the slope, from the square to the start of the wall that
-	// holds the square up; the wall whitewashed, with a blue band along its foot that follows the street, a
+	// photo: the wall that holds the square up beside the slope, from level with the bollards' end across
+	// the street; whitewashed, with a blue band along its foot that follows the street, a
 	// step up in its top where a two-armed street lamp stands, bougainvillea spilling over it by the house; a
 	// no-entry sign at its start and a pavement of limestone slabs along the street's far side.
 	_ornelas( materials ) {
@@ -1916,7 +1999,7 @@ export class Walls {
 
 		};
 
-		// the square's edge over the slope, as far as the steps: a kerb of setts, its face standing over the street
+		// the square's edge over the slope, as far as the wall: a kerb of setts, its face standing over the street
 		const box = ( s0, s1, d0, d1, top, bottom, walkable, tag ) => {
 
 			const sm = ( s0 + s1 ) / 2, [ x, z ] = pt( sm, ( d0 + d1 ) / 2 ), yaw = yawAt( sm );
@@ -1924,36 +2007,18 @@ export class Walls {
 			this.colliders.addBox( new Vector3( x, ( top + bottom ) / 2, z ), new Vector3( ( s1 - s0 ) / 2 + 0.01, ( top - bottom ) / 2, ( d1 - d0 ) / 2 ), yaw, { walkable, tag } );
 
 		};
-		const FL = o.S_W - o.FLIGHT, a0 = o.WALL_OFF, a1 = o.HALF + 1.8;
+		const a0 = o.WALL_OFF;
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 0.8, 0.78, 0.74 ]; // grey setts
-		for ( let sv = o.S0; sv < FL - 0.01; sv += 1 ) {
+		for ( let sv = o.S0; sv < o.W_START - 0.01; sv += 1 ) {
 
-			const s1 = Math.min( FL, sv + 1 );
+			const s1 = Math.min( o.W_START, sv + 1 );
 			box( sv, s1, a0, o.HALF + 2.2, o.F + 0.01, o.roadY( s1 ) - 0.5, true, 'praceta' );
 
 		}
 
-		// the steps: five, in line with the wall, down from the square to its foot, each with a nosing of
-		// pale stone; their sides stand over the street
-		const N = 5, tread = o.FLIGHT / N;
-		for ( let i = 0; i < N; i ++ ) {
-
-			const s0 = FL + tread * i, top = o.F - o.DROP * ( i + 1 ) / N, yaw = yawAt( s0 + tread / 2 );
-			kit.vdata = [ 0.29, 0.6, 0, 0 ];
-			kit.color = [ 0.8, 0.78, 0.74 ];
-			box( s0, s0 + tread, a0, a1, top, o.roadY( s0 + tread ) - 0.5, true, 'stair' );
-			const [ nx, nz ] = pt( s0 + tread - 0.11, ( a0 + a1 ) / 2 );
-			kit.vdata = [ 0.43, 0.5, 0, 0 ];
-			kit.color = [ 0.95, 0.9, 0.8 ]; // worn limestone
-			kit.box( nx, top - 0.1 + 0.005, nz, 0.22, 0.2, a1 - a0 + 0.02, yaw );
-
-		}
-
-		// the square beside the steps: paved over the ground's dip down to them
-		kit.vdata = [ 0.29, 0.6, 0, 0 ];
-		kit.color = [ 0.8, 0.78, 0.74 ];
-		box( FL, o.S_W, a1 + 0.45, o.HALF + 4.2, o.F + 0.01, o.roadY( o.S_W ) - 0.5, true, 'praceta' );
+		// a step halfway up its face from the street, against the wall's end: a way up onto the square
+		box( o.W_START - 0.9, o.W_START, a0 - 0.36, a0 + 0.01, ( o.F + o.roadY( o.W_START ) ) / 2, o.roadY( o.W_START ) - 0.5, true, 'stair' );
 
 		// the wall, whitewashed: its faces built here so the blue band (the plaster's barra) runs along the
 		// street's slope, 1.25 m up, rather than level
@@ -1962,8 +2027,8 @@ export class Walls {
 		const BAR = 0.75; // v scale on the street side: the barra's 0.95 m becomes 1.25 m
 		plaster.color = BLUE;
 		plaster.vdata = [ 20, 0, 0.0722, 0 ];
-		const cuts = [ o.S_W ];
-		for ( let sv = o.S_W + 1; sv < o.WALL_END - 0.3; sv += 1 ) cuts.push( sv );
+		const cuts = [ o.W_START ];
+		for ( let sv = Math.floor( o.W_START ) + 1; sv < o.WALL_END - 0.3; sv += 1 ) cuts.push( sv );
 		if ( ! cuts.includes( STEP_AT ) ) cuts.push( STEP_AT );
 		cuts.push( o.WALL_END );
 		cuts.sort( ( p, q ) => p - q );
@@ -1994,31 +2059,6 @@ export class Walls {
 
 		}
 
-		// the steps' side wall on the square's side, low, whitewashed, running into the wall's end
-		{
-
-			const top = o.F + 0.45, d0 = a1, d1 = a1 + 0.45;
-			for ( let k = 0; k < 2; k ++ ) {
-
-				const sa = FL + o.FLIGHT * k / 2, sb = FL + o.FLIGHT * ( k + 1 ) / 2;
-				const A = pt( sa, d0 ), B = pt( sb, d0 ), A2 = pt( sa, d1 ), B2 = pt( sb, d1 );
-				const ya = o.F - o.DROP * k / 2 - 0.3, yb = o.F - o.DROP * ( k + 1 ) / 2 - 0.3;
-				const [ lx, lz ] = left( ( sa + sb ) / 2 ), p = o.at( sa );
-				plaster.quadFacing( [ A[ 0 ], ya, A[ 1 ] ], [ B[ 0 ], yb, B[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - lx, 0, - lz ],
-					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
-				plaster.quadFacing( [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ B2[ 0 ], o.F - 0.3, B2[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ lx, 0, lz ],
-					[ [ sa, 2 ], [ sb, 2 ], [ sb, 3 ], [ sa, 3 ] ] );
-				plaster.quadFacing( [ A[ 0 ], top, A[ 1 ] ], [ B[ 0 ], top, B[ 1 ] ], [ B2[ 0 ], top, B2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ 0, 1, 0 ],
-					[ [ sa, 5 ], [ sb, 5 ], [ sb, 5.5 ], [ sa, 5.5 ] ] );
-				if ( k === 0 ) plaster.quadFacing( [ A[ 0 ], o.F - 0.3, A[ 1 ] ], [ A2[ 0 ], o.F - 0.3, A2[ 1 ] ], [ A2[ 0 ], top, A2[ 1 ] ], [ A[ 0 ], top, A[ 1 ] ], [ - p.dx, 0, - p.dz ],
-					[ [ 0, 2 ], [ 0.45, 2 ], [ 0.45, 3 ], [ 0, 3 ] ] );
-				const sm = ( sa + sb ) / 2, [ cx, cz ] = pt( sm, ( d0 + d1 ) / 2 );
-				this.colliders.addBox( new Vector3( cx, ( top + yb ) / 2, cz ), new Vector3( ( sb - sa ) / 2, ( top - yb ) / 2, 0.225 ), yawAt( sm ), { walkable: false, tag: 'wall' } );
-
-			}
-
-		}
-
 		// a strip of paving behind it, level with the square, over the ground's dip down to the street
 		kit.vdata = [ 0.29, 0.6, 0, 0 ];
 		kit.color = [ 0.8, 0.78, 0.74 ];
@@ -2031,16 +2071,8 @@ export class Walls {
 
 		}
 
-		// limestone slabs along the street's far side, a kerb's height over it
-		kit.vdata = [ 0.43, 0.5, 0, 0 ];
-		kit.color = [ 1.04, 1.02, 0.98 ];
-		for ( let sv = o.S_W; sv < o.WALL_END + 6; sv += 1 ) {
-
-			const sm = sv + 0.5, [ x, z ] = pt( sm, - o.HALF + 0.5 ), y = o.roadY( sm ) + 0.12, yaw = yawAt( sm );
-			kit.box( x, y - 0.4, z, 1.02, 0.8, 1.3, yaw );
-			this.colliders.addBox( new Vector3( x, y - 0.4, z ), new Vector3( 0.51, 0.4, 0.65 ), yaw, { walkable: true, tag: 'stair' } );
-
-		}
+		// (no raised slabs along the street's far side: on the slope they stepped up it like a flight of stairs;
+		// the street's line of white slabs lies flush, Town._ornelasTop)
 
 		// the street lamp on the wall's step: a cast-iron post, two curled arms, two lanterns
 		const warm = new Color( 1.0, 0.66, 0.36 );
@@ -3768,8 +3800,35 @@ export class Walls {
 
 			}
 			const gOut = Math.min( ground( OA ), ground( OB ) ) - FOOT;
+			const foot = ! gate && this._footTone ? this._footTone( OA, OB ) : null;
 			if ( gate ) archFace( outer, yp, outN, u );
-			else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], ypB, OB[ 1 ] ], [ OA[ 0 ], ypA, OA[ 1 ] ], outN,
+			else if ( foot ) {
+
+				// a stretch whose lowest courses are greyer (_footTone): the same stone, its tint going over to the
+				// golden one between foot.y0 and foot.y1 over the ground there
+				const gA = ground( OA ) + foot.y0, gB = ground( OB ) + foot.y0, hA = ground( OA ) + foot.y1, hB = ground( OB ) + foot.y1, gold = kit.color;
+				const lum = ( gold[ 0 ] + gold[ 1 ] + gold[ 2 ] ) / 3, grey = gold.map( ( c, k ) => c + ( lum * [ 0.98, 0.96, 0.88 ][ k ] * 0.82 - c ) * foot.k );
+				const band = ( y0A, y0B, y1A, y1B, c0, c1 ) => {
+
+					const P = [ [ OA[ 0 ], y0A, OA[ 1 ], u, c0 ], [ OB[ 0 ], y0B, OB[ 1 ], u + len, c0 ], [ OB[ 0 ], y1B, OB[ 1 ], u + len, c1 ], [ OA[ 0 ], y1A, OA[ 1 ], u, c1 ] ];
+					const ids = P.map( ( [ x, y, z, uu, c ] ) => {
+
+						kit.color = c;
+						return kit.vertex( [ x, y, z ], outN, uu, y );
+
+					} );
+					// (wound to face out, as quadFacing would)
+					const e1 = [ P[ 1 ][ 0 ] - P[ 0 ][ 0 ], P[ 1 ][ 2 ] - P[ 0 ][ 2 ] ], fwd = - e1[ 1 ] * outN[ 0 ] + e1[ 0 ] * outN[ 2 ];
+					if ( fwd >= 0 ) kit.idx.push( ids[ 0 ], ids[ 1 ], ids[ 2 ], ids[ 0 ], ids[ 2 ], ids[ 3 ] );
+					else kit.idx.push( ids[ 0 ], ids[ 2 ], ids[ 1 ], ids[ 0 ], ids[ 3 ], ids[ 2 ] );
+
+				};
+				band( gOut, gOut, gA, gB, grey, grey );
+				band( gA, gB, hA, hB, grey, gold );
+				band( hA, hB, ypA, ypB, gold, gold );
+				kit.color = gold;
+
+			} else kit.quadFacing( [ OA[ 0 ], gOut, OA[ 1 ] ], [ OB[ 0 ], gOut, OB[ 1 ] ], [ OB[ 0 ], ypB, OB[ 1 ] ], [ OA[ 0 ], ypA, OA[ 1 ] ], outN,
 				[ [ u, gOut ], [ u + len, gOut ], [ u + len, ypB ], [ u, ypA ] ] );
 			if ( ts ) {
 

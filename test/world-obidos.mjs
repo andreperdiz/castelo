@@ -226,6 +226,40 @@ for ( const st of W.lane ) if ( ok && st.x >= ct.gate.x - 0.01 ) ok = walkTo( st
 ok = ok && walkTo( ct.gate.x, ct.gate.z - 2.5, 5, 0.4 ) && walkTo( - 60.6, 205, 8, 0.4 ) && Math.abs( P.position.y - ct.floor ) < 0.1;
 check( ok, `up the steps onto the Casa da Música's terrace (y ${ P.position.y.toFixed( 1 ) } of ${ ct.floor.toFixed( 1 ) })` );
 
+// down Rua Dom João de Ornelas along the curtain to the fork: the way is clear, the door's steps can be climbed,
+// the wall between the streets and the wall across the yard's mouth stop you
+{
+
+	const at = ( x, z ) => P.placeAt( x, T.heightAt( x, z ) + 0.2, z );
+	at( 72, 108 );
+	check( walkTo( 75, 96, 15 ) && walkTo( 76, 80, 15 ) && walkTo( 77, 66, 15 ), 'down the street along the curtain to the fork and on' );
+	at( 74.6, 104.1 );
+	const y0 = T.heightAt( 76.35, 104.45 );
+	walkTo( 76.35, 104.45, 5, 0.08 );
+	check( P.position.y > y0 + 0.25, `up the steps to the door before the fork (${ ( P.position.y - y0 ).toFixed( 2 ) } m up)` );
+	// up the steps along the white wall's face, over the low rise beside the collar and left into the garden
+	const wallAt = ( t, o ) => [ 59.1 - 0.592 * t + 0.806 * o, 118.9 - 0.806 * t - 0.592 * o ];
+	at( ...wallAt( 1.2, 0.55 ) );
+	const gardenUp = walkTo( ...wallAt( 3.45, 0.55 ), 6, 0.2 ) && walkTo( ...wallAt( 3.8, 0 ), 6, 0.2 ) && walkTo( ...wallAt( 3.4, - 1.6 ), 6, 0.3 ) && walkTo( ...wallAt( 2.2, - 3 ), 6, 0.5 );
+	check( gardenUp && P.position.y > T.ornelasEast.top - 0.45, `up the steps into the garden by the white wall (y ${ P.position.y.toFixed( 2 ) } of ${ ( T.ornelasEast.top - 0.3 ).toFixed( 2 ) })` );
+	// and up the street, the stone steps at the long white wall's end, into the garden behind it
+	{
+
+		const F = [ 19.37, 139 ], Q = ( sv, q ) => [ F[ 0 ] + 0.62 * sv + 0.78 * q, F[ 1 ] - 0.78 * sv + 0.63 * q ];
+		at( ...Q( - 3.4, 0.65 ) );
+		const ok2 = walkTo( ...Q( - 0.45, 0.65 ), 6, 0.2 ) && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6 && walkTo( ...Q( 0.4, 0.8 ), 6, 0.25 ) && walkTo( ...Q( 1.6, 1.4 ), 6, 0.4 );
+		check( ok2 && P.position.y > T.ornelasEast.upperTops.at( - 1 ) - 0.6, `up the stone steps by the curtain into the garden at the long wall's end (y ${ P.position.y.toFixed( 2 ) })` );
+
+	}
+	at( 83.5, 88.8 );
+	const across = walkTo( 81.5, 84.5, 3, 0.4 );
+	check( ! across, 'the wall at the fork stops you from the lower street' );
+	at( 79, 75 );
+	const inYard = walkTo( 85, 74.7, 3, 0.4 );
+	check( ! inYard, 'the green gate stops you at the yard' );
+
+}
+
 // along the walk, then into the parapet, then off the town side
 const S = W.curtain.samples;
 const i0 = Math.floor( S.length * 0.3 );

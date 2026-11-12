@@ -144,7 +144,8 @@ const TERRAIN_SURFACE = /* wgsl */`
 
 	// ---- farmland patchwork
 	groundNdV = sat( dot( N0, normalize( frame.cameraPos - p ) ) );
-	let farmW = smoothstep( 0.25, 0.7, sp.x + ( dM.w - 0.5 ) * 0.3 );
+	// (none in the town, where the sand mask means something else: the rough strip, below)
+	let farmW = smoothstep( 0.25, 0.7, sp.x + ( dM.w - 0.5 ) * 0.3 ) * ( 1.0 - smoothstep( 0.2, 0.5, sp.w ) );
 	if ( farmW > 0.0 ) {
 		let fm = groundFarm( xz, px, mcr );
 		ground = mix( ground, fm.rgb, farmW );
@@ -169,8 +170,10 @@ const TERRAIN_SURFACE = /* wgsl */`
 	// ---- streets: limestone setts in the town, asphalt roads outside, earth farm tracks
 	let pavedW = smoothstep( 0.62, 0.85, sp.y );
 	let trackW = smoothstep( 0.2, 0.42, sp.y ) * ( 1.0 - pavedW );
-	let cob = groundCobbles( xz, px );
 	let townish = smoothstep( 0.2, 0.5, sp.w );
+	// (sand under the town's paving flags the rough strip at a wall's foot: TerrainData._landcover)
+	let roughW = smoothstep( 0.45, 0.8, sp.x ) * townish;
+	let cob = mix( groundCobbles( xz, px ), groundRoughStones( xz, px ), roughW );
 	var asphalt = mix( ${ S( 0.2, 0.2, 0.2 ) }, ${ S( 0.27, 0.26, 0.25 ) }, dM.w ) * ( ( dF.z - 0.5 ) * 0.2 + 1.0 );
 	let paved = mix( asphalt, cob.rgb, townish );
 	let pavedHd = mix( dF.z * 0.004, cob.a, townish );
@@ -200,12 +203,21 @@ const TERRAIN_SURFACE = /* wgsl */`
 	}
 	var albedo = mix( ground, rockAlbedo, rockW );
 	hd = mix( hd, rockHd, rockW );
+	// the rough strip at a wall's foot sits in a shallow gutter: its sides lean in, its bed a little shaded
+	// (the heightmap, a metre a texel, only takes the gutter down a few centimetres: TerrainData._landcover)
+	// (its slope from the mask's gradient, sampled a little apart: a bump from the 8-bit mask itself would band)
+	let gutter = smoothstep( 0.3, 0.9, sp.x ) * townish;
+	let ge = 0.35;
+	let gx = smoothstep( 0.3, 0.9, terrainSplat( xz + vec2f( ge, 0.0 ) ).x ) - smoothstep( 0.3, 0.9, terrainSplat( xz - vec2f( ge, 0.0 ) ).x );
+	let gz = smoothstep( 0.3, 0.9, terrainSplat( xz + vec2f( 0.0, ge ) ).x ) - smoothstep( 0.3, 0.9, terrainSplat( xz - vec2f( 0.0, ge ) ).x );
+	let Ng = normalize( N0 + vec3f( gx, 0.0, gz ) * ( 0.26 / ( 2.0 * ge ) ) * townish );
+	albedo = albedo * ( 1.0 - gutter * 0.18 );
 	var rough = mix( 0.9, 0.8, pavedW * townish );
 	rough = mix( rough, rockRough, rockW );
 
 	let aoDetail = mix( 1.0, dN.y * 0.4 + 0.75, scrubW );
 	s.albedo = albedo;
 	s.roughness = rough;
-	s.normal = terrainPerturbNormal( p, N0, hd, 1.0 );
+	s.normal = terrainPerturbNormal( p, Ng, hd, 1.0 );
 	s.ao = sat( nr.w * aoDetail );
 `;

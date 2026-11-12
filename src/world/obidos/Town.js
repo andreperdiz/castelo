@@ -3,6 +3,7 @@ import { MeshKit } from './MeshKit.js';
 import { OSM, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
 import { orientedBox } from './Walls.js';
 import { mulberry32 } from '../../util/Noise.js';
+import { ORNELAS_MARKERS } from '../TerrainData.js';
 
 // The houses of Óbidos (and the suburbs round the walls) from the OpenStreetMap footprints:
 // whitewashed walls with a painted base band and window / door surrounds (blue, yellow or ochre),
@@ -12,6 +13,25 @@ import { mulberry32 } from '../../util/Noise.js';
 // ridge. Churches and chapels stand taller with fewer, higher openings.
 //
 // Colliders: a thin solid box along every wall edge.
+const smoothstep01 = ( a, b, x ) => {
+
+	const t = Math.min( 1, Math.max( 0, ( x - a ) / ( b - a ) ) );
+	return t * t * ( 3 - 2 * t );
+
+};
+// smooth value noise 0..1 (for tones baked into the vertices of a few worn surfaces)
+const hash2 = ( i, j ) => {
+
+	const v = Math.sin( i * 127.1 + j * 311.7 ) * 43758.5453;
+	return v - Math.floor( v );
+
+};
+const valueNoise2 = ( x, y ) => {
+
+	const i = Math.floor( x ), j = Math.floor( y ), u = x - i, v = y - j, su = u * u * ( 3 - 2 * u ), sv = v * v * ( 3 - 2 * v );
+	return ( hash2( i, j ) * ( 1 - su ) + hash2( i + 1, j ) * su ) * ( 1 - sv ) + ( hash2( i, j + 1 ) * ( 1 - su ) + hash2( i + 1, j + 1 ) * su ) * sv;
+
+};
 const PITCH = 0.45; // rise per metre (~24°)
 const MAX_RISE = 3.0;
 const STOREY = 3.0;
@@ -29,7 +49,12 @@ const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566, 1276297062 ] );
 const PASSAGES = { 299064346: { street: 1177937020, half: 1.3 } };
 // the Auditório (Casa da Música) without its south wing, where the steps by Porta da Vila are built (its
 // terrace along Rua Direita: Walls._casaDaMusicaTerrace)
-const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };
+const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ],
+	// the tall house in the curtain's corner near the top of Rua Dom João de Ornelas (photo references/...-img-4383):
+	// outside the walls, its front on the street where OSM has it, its back against the curtain's outer faces
+	299072134: [ [ - 35.3, 225.4 ], [ - 38.7, 223.96 ], [ - 39.83, 225.62 ], [ - 45.6, 226.35 ], [ - 45.6, 236.6 ], [ - 39.5, 239 ], [ - 38.2, 234.7 ], [ - 35.3, 225.4 ] ] };
+// (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
+const KEEP_OUTLINE = new Set( [ 299072134 ] );
 // as in the photos: the Casa da Música is white with strong blue trim, two storeys
 const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the left going up Travessa do Beneficiado: yellow (photo references/...-ruaperpendiculara)
@@ -41,7 +66,25 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// it and Rua da Porta da Senhora da Graça, red; on the left a yellow foot, then blue
 	299086795: [ 0.62, 0.13, 0.1 ],
 	299135575: [ 0.86, 0.64, 0.17 ],
-	299135581: [ 0.13, 0.27, 0.58 ] };
+	299135581: [ 0.13, 0.27, 0.58 ],
+	// the first house going up Rua Dom João de Ornelas: an orange foot and surrounds (photo references/...-img-4391)
+	299088484: [ 0.86, 0.55, 0.17 ],
+	// down to the fork (photo references/...-img-4390): a low house with a blue foot; the long one, a yellow foot
+	299088432: [ 0.13, 0.24, 0.6 ],
+	299088405: [ 0.88, 0.66, 0.2 ] };
+// the eave itself, for houses the footprint's size and slope would make too tall: going up Rua Dom João de
+// Ornelas, the long footprint holding the blue house and the white one beyond it, two low storeys, then a
+// lower one (photo references/...-img-4391; the street fronts: Town._ornelasFronts)
+const EAVE = { 299088554: 43.2, 299088587: 43.5,
+	// and the other way, down to the fork: the two-storey house, and the long low one past it behind the green
+	// gate (photo references/...-img-4390)
+	299088474: 40.6, 299088405: 39.2,
+	// further up, the long cream front with the iron balconies (the Josefa d'Óbidos hotel and the two footprints
+	// below it, one front in the photo references/...-img-4384): two tall storeys, stepping up with the street
+	299090456: 50.0, 299090857: 50.6, 298848393: 51.8,
+	// near the top, the tall house in the curtain's corner (photo references/...-img-4383): its ground behind the
+	// curtain is far higher than its street's
+	299072134: 57.6 };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -107,7 +150,7 @@ export class Town {
 
 			} ).map( ( q ) => {
 
-				const near = clearIndex.nearest( q[ 0 ], q[ 1 ], 6 );
+				const near = KEEP_OUTLINE.has( b.id ) ? null : clearIndex.nearest( q[ 0 ], q[ 1 ], 6 );
 				if ( ! near ) return q;
 				const { a, b: e } = near.seg, clear = near.seg.line.clear;
 				const L = Math.hypot( e[ 0 ] - a[ 0 ], e[ 1 ] - a[ 1 ] ) || 1;
@@ -195,6 +238,8 @@ export class Town {
 		this._slabPath( [ [ - 58.5, 236.4 ], [ - 58.7, 241.1 ], [ - 56.6, 246.5 ], [ - 54.6, 261 ] ] );
 		// a narrower one through Porta do Vale's hall and out of it (photo references/...-img-4407)
 		if ( walls?.valePath ) this._slabPath( walls.valePath, 0.62, 0.03 );
+		// the line of pale stones between Rua Dom João de Ornelas' setts and the worn strip by the curtain
+		if ( terrain.ornelasEast ) this._stoneLine( terrain.ornelasEast.guide );
 		// the Passo da Porta da Vila's dressed stone (Walls._passoPortal): smooth, pale cream
 		if ( walls?.passo ) {
 
@@ -209,6 +254,9 @@ export class Town {
 		}
 
 		if ( walls?.casaTerrace ) for ( const pts of walls.casaTerrace.lines ) this._parapet( { ...walls.casaTerrace, pts }, PAINT[ 298902328 ] );
+		this._ornelasFronts( list );
+		this._ornelasGardenWall( list );
+		this._ornelasFork( list );
 		this.edges = list;
 		this._lanterns( materials, rand );
 
@@ -273,6 +321,23 @@ export class Town {
 				carry = t - L;
 
 			}
+
+		}
+
+		// the big lantern the photo shows on the blue house going up Rua Dom João de Ornelas
+		if ( this.blueLantern ) {
+
+			const { x, z, wx, wz, y, yaw } = this.blueLantern;
+			kit.vdata = [ 0, 0, 0, 0 ];
+			kit.box( ( x + wx ) / 2, y + 0.42, ( z + wz ) / 2, 0.04, 0.05, Math.hypot( x - wx, z - wz ), Math.atan2( x - wx, z - wz ) );
+			kit.box( x, y + 0.27, z, 0.34, 0.05, 0.34, yaw );
+			kit.box( x, y + 0.36, z, 0.14, 0.12, 0.14, yaw );
+			kit.box( x, y - 0.24, z, 0.18, 0.05, 0.18, yaw );
+			const cos = Math.cos( yaw ), sin = Math.sin( yaw );
+			for ( const [ u, v ] of [ [ 1, 1 ], [ 1, - 1 ], [ - 1, 1 ], [ - 1, - 1 ] ] ) kit.box( x + ( u * cos + v * sin ) * 0.115, y, z + ( v * cos - u * sin ) * 0.115, 0.03, 0.5, 0.03, yaw );
+			kit.vdata = [ 1, 0, 0, 0 ];
+			kit.box( x, y, z, 0.22, 0.46, 0.22, yaw, 'top bottom' );
+			this.lights.push( { position: new Vector3( x, y - 0.05, z ), color: warm, intensity: 7, range: 13, kind: 'lantern', flicker: 0.05 } );
 
 		}
 
@@ -348,6 +413,1296 @@ export class Town {
 
 	}
 
+	// for a street front laid over footprint f's wall along the line FRONT: its points (t metres along), the
+	// ground, its plaster, and flat-painted parts, openings and pots standing out from it. The street is on the
+	// side away from the footprint, unless streetSign says (a line closing off a yard, with the yard behind it)
+	_frontTools( f, FRONT, streetSign = 0 ) {
+
+		const T = this.terrain, kit = this.walls;
+		const at = ( t ) => {
+
+			let t0 = 0, i = 0;
+			for ( ; i + 2 < FRONT.length; i ++ ) {
+
+				const L = Math.hypot( FRONT[ i + 1 ][ 0 ] - FRONT[ i ][ 0 ], FRONT[ i + 1 ][ 1 ] - FRONT[ i ][ 1 ] );
+				if ( t <= t0 + L ) break;
+				t0 += L;
+
+			}
+
+			const a = FRONT[ i ], b = FRONT[ i + 1 ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), ux = ( b[ 0 ] - a[ 0 ] ) / L, uz = ( b[ 1 ] - a[ 1 ] ) / L;
+			return { x: a[ 0 ] + ux * ( t - t0 ), z: a[ 1 ] + uz * ( t - t0 ), ux, uz, nx: - uz, nz: ux, yaw: Math.atan2( - uz, ux ) };
+
+		};
+		const sign = streetSign || ( pointInPolygon( at( 1 ).x + at( 1 ).nx * 0.5, at( 1 ).z + at( 1 ).nz * 0.5, f.poly ) ? - 1 : 1 );
+		const out = ( t, d ) => {
+
+			const p = at( t );
+			return [ p.x + p.nx * sign * d, p.z + p.nz * sign * d ];
+
+		};
+		const ground = ( t ) => T.heightAt( ...out( t, 0.6 ) );
+		// the plaster, a little proud of the wall, its foot painted and following the street
+		const plaster = ( t0, t1, paint, seed ) => {
+
+			const A = out( t0, 0.03 ), C = out( t1, 0.03 ), L = t1 - t0, ga = ground( t0 ), gc = ground( t1 ), g = Math.min( ga, gc ), base = f.base;
+			const ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] );
+			kit.color = srgbToLinear( paint );
+			kit.vdata = [ L, 1, seed, Math.max( - 0.95, Math.min( 0.95, ( gc - ga ) / L ) ) * 0.4 ];
+			const p = at( ( t0 + t1 ) / 2 );
+			kit.quadFacing( [ A[ 0 ], base, A[ 1 ] ], [ C[ 0 ], base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], [ p.nx * sign, 0, p.nz * sign ],
+				[ [ 0, base - g ], [ L, base - g ], [ L, hc - g ], [ 0, ha - g ] ] );
+
+		};
+		// flat-painted boxes standing out from the front, from t0 to t1, y0 to y1
+		const PAINTED = [ 0, 0, 0.53, 4 ];
+		const part = ( t0, t1, y0, y1, proud, c ) => {
+
+			const [ x, z ] = out( ( t0 + t1 ) / 2, proud / 2 );
+			kit.color = c;
+			kit.vdata = PAINTED;
+			kit.box( x, ( y0 + y1 ) / 2, z, t1 - t0, y1 - y0, proud, at( ( t0 + t1 ) / 2 ).yaw, 'bottom' );
+
+		};
+		const STONE = srgbToLinear( [ 0.72, 0.67, 0.56 ] );
+		const GLASS = srgbToLinear( [ 0.07, 0.09, 0.11 ] ), DOOR = srgbToLinear( [ 0.08, 0.12, 0.28 ] ), BARS = srgbToLinear( [ 0.9, 0.9, 0.87 ] );
+		const opening = ( t, y0, w, h, isDoor, door = DOOR, bars = BARS ) => {
+
+			const F = 0.14;
+			part( t - w / 2, t + w / 2, y0, y0 + h, 0.06, isDoor ? door : GLASS );
+			if ( ! isDoor ) {
+
+				part( t - 0.025, t + 0.025, y0, y0 + h, 0.075, bars );
+				for ( const k of [ 0.33, 0.66 ] ) part( t - w / 2, t + w / 2, y0 + h * k - 0.02, y0 + h * k + 0.02, 0.075, bars );
+
+			}
+
+			part( t - w / 2 - F, t - w / 2, y0 - ( isDoor ? 0.2 : 0 ), y0 + h + F, 0.1, STONE );
+			part( t + w / 2, t + w / 2 + F, y0 - ( isDoor ? 0.2 : 0 ), y0 + h + F, 0.1, STONE );
+			part( t - w / 2, t + w / 2, y0 + h, y0 + h + F, 0.1, STONE );
+			if ( ! isDoor ) part( t - w / 2 - F - 0.05, t + w / 2 + F + 0.05, y0 - 0.09, y0, 0.22, STONE );
+
+		};
+		// a pot on a sill: terracotta, leaves, a few flowers
+		const pot = ( t, y, seed ) => {
+
+			const r = mulberry32( seed );
+			part( t - 0.1, t + 0.1, y, y + 0.17, 0.3, srgbToLinear( [ 0.66, 0.34, 0.2 ] ) );
+			for ( let i = 0; i < 7; i ++ ) {
+
+				const dt = ( r() - 0.5 ) * 0.34, dy = r() * 0.24, s = 0.05 + r() * 0.05, flower = i > 3;
+				const c = flower ? srgbToLinear( [ 0.85, 0.12, 0.14 ] ) : srgbToLinear( [ 0.2, 0.38, 0.14 ] );
+				part( t + dt - s, t + dt + s, y + 0.17 + dy, y + 0.17 + dy + s * 2, 0.26 + r() * 0.08, c );
+
+			}
+
+		};
+		return { at, out, ground, plaster, part, opening, pot, STONE };
+
+	}
+
+	// Rua Dom João de Ornelas going up from the curtain's corner (photo references/...-img-4391), over the long
+	// footprint's street walls: the blue house, a blue foot, corner pilasters and frieze, stone window frames, pots
+	// on the sills; then the white one, a yellow pilaster where it starts, a stone ledge along the first floor,
+	// pots on it. Each opening is placed as in the photo, so these fronts cover the wall's regular rhythm.
+	_ornelasFronts( list ) {
+
+		const f = list.find( ( q ) => q.b.id === 299088554 );
+		if ( ! f ) return;
+		const FRONT = [ [ 66.4, 118.9 ], [ 57.7, 125.3 ], [ 50, 129.3 ] ], BLUE_END = 6.8, BEND = Math.hypot( 8.7, 6.4 ), END = BEND + Math.hypot( 7.7, 4 );
+		const { at, out, ground, plaster, part, opening, pot, STONE } = this._frontTools( f, FRONT );
+		const BLUE = srgbToLinear( [ 0.08, 0.2, 0.72 ] ), YELLOW = srgbToLinear( [ 0.88, 0.66, 0.2 ] ), WHITE = srgbToLinear( [ 0.92, 0.91, 0.87 ] );
+		for ( const [ t0, t1, paint, seed ] of [ [ 0, BLUE_END, [ 0.08, 0.2, 0.72 ], 0.0722 ], [ BLUE_END, BEND, [ 0.93, 0.92, 0.89 ], 0.31 ], [ BEND, END, [ 0.93, 0.92, 0.89 ], 0.37 ] ] ) plaster( t0, t1, paint, seed );
+
+		const eave = ( t ) => f.roofH( ...out( t, 0.1 ) );
+		// the blue house: its door and two windows, three windows over them
+		part( 0, 0.7, f.base, eave( 0 ), 0.14, BLUE ); // the corner pilaster
+		part( BLUE_END - 0.35, BLUE_END, f.base, eave( BLUE_END ), 0.12, BLUE );
+		part( 0, BLUE_END, eave( 3 ) - 1.2, eave( 3 ) - 0.8, 0.08, BLUE ); // the frieze's bands
+		part( 0, BLUE_END, eave( 3 ) - 0.32, eave( 3 ), 0.22, BLUE );
+		const g = ( t ) => ground( t );
+		opening( 2.3, g( 2.3 ), 1.1, 2.3, true );
+		opening( 4, g( 4 ) + 0.95, 0.72, 1.2, false );
+		opening( 5.5, g( 5.5 ) + 0.95, 0.62, 1.2, false );
+		const upBlue = 40;
+		for ( const [ i, t ] of [ 1.9, 3.8, 5.45 ].entries() ) {
+
+			opening( t, upBlue, 0.78, 1.35, false );
+			pot( t - 0.22, upBlue, 11 + i );
+			pot( t + 0.22, upBlue, 21 + i );
+
+		}
+
+		// the white house: a yellow pilaster, doors and windows, a stone ledge, four windows over it
+		part( BLUE_END, BLUE_END + 0.25, f.base, eave( BLUE_END ), 0.08, YELLOW );
+		part( END - 2.6, END - 2.4, f.base, eave( END - 2.5 ), 0.06, YELLOW );
+		for ( const [ t, door ] of [ [ 8.2, true ], [ 9.6, false ], [ 12.1, false ], [ 13.6, true ], [ 15.2, false ], [ 16.7, true ] ] ) door ? opening( t, g( t ), 1, 2.2, true ) : opening( t, g( t ) + 0.95, 0.68, 1.15, false );
+		const ledge = 40.35, upWhite = 40.8;
+		part( BLUE_END + 0.25, BEND - 0.02, ledge - 0.1, ledge, 0.28, STONE );
+		part( BEND + 0.02, 15, ledge - 0.1, ledge, 0.28, STONE );
+		for ( const [ i, t ] of [ 8.3, 9.9, 12.1, 13.7 ].entries() ) {
+
+			opening( t, upWhite, 0.72, 1.2, false );
+			pot( t + 0.75, ledge, 31 + i );
+
+		}
+
+		// the white house's roof stands a little over the blue one's, its tiles older and greyer: laid over the
+		// footprint's single roof from the cornice to the ridge. The cornice and its course of tiles follow the eave.
+		const kit = this.walls, LIFT = 0.25, TILE = srgbToLinear( [ 0.5, 0.3, 0.22 ] );
+		const band = ( t0, t1, y0, y1, proud, c ) => {
+
+			const A = out( t0, proud ), C = out( t1, proud ), A0 = out( t0, 0 ), C0 = out( t1, 0 ), ya = eave( t0 ), yc = eave( t1 ), p = at( ( t0 + t1 ) / 2 ), n = out( ( t0 + t1 ) / 2, 1 ), m = out( ( t0 + t1 ) / 2, 0 );
+			const want = [ n[ 0 ] - m[ 0 ], 0, n[ 1 ] - m[ 1 ] ], uv = [ [ 0, 0 ], [ 1, 0 ], [ 1, 1 ], [ 0, 1 ] ];
+			kit.color = c;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.quadFacing( [ A[ 0 ], ya + y0, A[ 1 ] ], [ C[ 0 ], yc + y0, C[ 1 ] ], [ C[ 0 ], yc + y1, C[ 1 ] ], [ A[ 0 ], ya + y1, A[ 1 ] ], want, uv );
+			kit.quadFacing( [ A[ 0 ], ya + y1, A[ 1 ] ], [ C[ 0 ], yc + y1, C[ 1 ] ], [ C0[ 0 ], yc + y1, C0[ 1 ] ], [ A0[ 0 ], ya + y1, A0[ 1 ] ], [ 0, 1, 0 ], uv );
+			kit.quadFacing( [ A[ 0 ], ya + y0, A[ 1 ] ], [ C[ 0 ], yc + y0, C[ 1 ] ], [ C0[ 0 ], yc + y0, C0[ 1 ] ], [ A0[ 0 ], ya + y0, A0[ 1 ] ], [ 0, - 1, 0 ], uv );
+			kit.quadFacing( [ A[ 0 ], ya + y0, A[ 1 ] ], [ A0[ 0 ], ya + y0, A0[ 1 ] ], [ A0[ 0 ], ya + y1, A0[ 1 ] ], [ A[ 0 ], ya + y1, A[ 1 ] ], [ - p.ux, 0, - p.uz ], uv );
+
+		};
+		for ( const [ t0, t1 ] of [ [ BLUE_END, BEND ], [ BEND, END ] ] ) {
+
+			band( t0, t1, - 0.22, LIFT, 0.27, WHITE );
+			band( t0, t1, LIFT, LIFT + 0.1, 0.36, TILE );
+
+		}
+
+		{
+
+			const roof = this.roofs;
+			const toRidge = ( t ) => {
+
+				let d = 0;
+				while ( d < 9 && pointInPolygon( ...out( t, - d - 0.2 ), f.poly ) && f.roofH( ...out( t, - d - 0.2 ) ) > f.roofH( ...out( t, - d ) ) + 0.001 ) d += 0.2;
+				return d;
+
+			};
+			const rows = [ BLUE_END, BEND, END ].map( ( t ) => {
+
+				const z = out( t, 0 ), r = out( t, - toRidge( t ) );
+				return { front: [ z[ 0 ], f.roofH( ...z ) + LIFT + 0.08, z[ 1 ] ], ridge: [ r[ 0 ], f.roofH( ...r ) + LIFT, r[ 1 ] ], t };
+
+			} );
+			roof.color = [ 0.74, 0.72, 0.7 ];
+			roof.vdata = [ 0.71, 0.95, 0, 0 ];
+			for ( let i = 0; i + 1 < rows.length; i ++ ) {
+
+				const a = rows[ i ], b = rows[ i + 1 ], D = Math.hypot( a.ridge[ 0 ] - a.front[ 0 ], a.ridge[ 2 ] - a.front[ 2 ] );
+				roof.quadFacing( a.front, b.front, b.ridge, a.ridge, [ 0, 1, 0 ], [ [ a.t, D ], [ b.t, D ], [ b.t, 0 ], [ a.t, 0 ] ] );
+
+			}
+
+			// its end over the blue house's roof
+			const a = rows[ 0 ];
+			roof.quadFacing( a.front, a.ridge, [ a.ridge[ 0 ], a.ridge[ 1 ] - LIFT, a.ridge[ 2 ] ], [ a.front[ 0 ], a.front[ 1 ] - LIFT, a.front[ 2 ] ], [ - at( BLUE_END ).ux, 0, - at( BLUE_END ).uz ], [ [ 0, 0 ], [ 3, 0 ], [ 3, 0.25 ], [ 0, 0.25 ] ] );
+
+		}
+
+		// the lantern on the blue house, on its bracket by the corner, a pot hanging under it (lit in Town._lanterns)
+		pot( 1, 40.75, 61 );
+		part( 0.96, 1.04, 40.98, 41.02, 0.45, srgbToLinear( [ 0.1, 0.1, 0.1 ] ) );
+		const [ lx, lz ] = out( 1, 0.62 ), [ wx, wz ] = out( 1, 0 );
+		this.blueLantern = { x: lx, z: lz, wx, wz, y: 41.1, yaw: at( 1 ).yaw };
+
+	}
+
+	// ORNELAS_EAST's wall: whitewashed, a yellow foot that follows the street, its top level (the garden's edge),
+	// 1.7 m over the street at the corner and meeting it where the street has climbed.
+	_ornelasGardenWall( list ) {
+
+		const E = this.terrain.ornelasEast;
+		if ( ! E ) return;
+		this._footedWall( E.wall, E.wallTops, 0.07 );
+		this._ornelasWallFace( E );
+		this._gardenSteps( E );
+		this._ornelasUpper( E, list );
+		this._hotelFront( list );
+		this._ornelasTop( list );
+		// the drainpipe down the curtain just short of the wall, turning out at its foot
+		const kit = this.walls, x = 59.99, z = 114.2, g = this.terrain.heightAt( x, z ), nx = 0.368, nz = 0.93;
+		kit.vdata = [ 0, 0, 0.53, 4 ];
+		kit.color = srgbToLinear( [ 0.2, 0.21, 0.22 ] );
+		kit.box( x, g + 1.75, z, 0.07, 3.3, 0.07, 0, 'bottom' );
+		kit.box( x + nx * 0.1, g + 0.13, z + nz * 0.1, 0.09, 0.09, 0.28, Math.atan2( nx, nz ), 'bottom' );
+		for ( const y of [ 1.1, 2.3, 3.3 ] ) kit.box( x - nx * 0.05, g + y, z - nz * 0.05, 0.14, 0.04, 0.14, 0 );
+
+	}
+
+	// what the photo (references/...-img-4389) shows on the white wall's face between its corner and the steps, t
+	// metres from the corner, h up from its foot: worn plaster over a faint ledge, little lattice vents; the S R
+	// panels on the marker stones
+	_ornelasWallFace( E ) {
+
+		const T = this.terrain, kit = this.walls, cx = 59.1, cz = 118.9, dx = - 0.592, dz = - 0.806, nx = 0.806, nz = - 0.592, yaw = Math.atan2( - dz, dx );
+		const F = ( t ) => T.heightAt( cx + dx * t + nx * 0.4, cz + dz * t + nz * 0.4 );
+		const FLAT = [ 0, 0, 0.53, 4 ], WHITE = srgbToLinear( [ 0.9, 0.89, 0.85 ] ), DARK = srgbToLinear( [ 0.07, 0.07, 0.07 ] );
+		const on = ( t, y, w, h, proud, c ) => {
+
+			kit.color = c;
+			kit.vdata = FLAT;
+			kit.box( cx + dx * t + nx * proud / 2, y + h / 2, cz + dz * t + nz * proud / 2, w, h, proud, yaw, 'bottom' );
+
+		};
+		// worn plaster, a fine grid of soft tones over the white (above the yellow foot): grey wear in drifts, heavier
+		// toward the steps and along the old ledge 1.2 m up, whose line runs across it
+		const END = 2.62, CELL = 0.07, FOOT = 0.58, ledge = 1.2;
+		const smooth = valueNoise2;
+		const tone = ( t, h ) => {
+
+			const n = smooth( t * 4, h * 8 ) * 0.45 + smooth( t * 13, h * 15 ) * 0.55;
+			const wear = smoothstep01( 0.42, 0.72, n + ( t / END ) * 0.12 + Math.exp( - ( ( ( h - ledge ) / 0.22 ) ** 2 ) ) * 0.14 );
+			const v = 0.9 - wear * 0.11 - Math.exp( - ( ( ( h - ledge ) / 0.022 ) ** 2 ) ) * 0.14 * smooth( t * 3, 9 );
+			return srgbToLinear( [ v, v * 0.985, v * 0.94 ] );
+
+		};
+		const point = ( t, h ) => [ cx + dx * t + nx * 0.008, F( t ) + h, cz + dz * t + nz * 0.008 ];
+		kit.vdata = FLAT;
+		const up = ( t ) => E.top - 0.07 - F( t ); // (up to where its top edge starts rounding)
+		for ( let ti = 0; ti * CELL < END; ti ++ ) for ( let hi = 0; ; hi ++ ) {
+
+			const t0 = ti * CELL, t1 = Math.min( END, t0 + CELL ), h0 = FOOT + hi * CELL;
+			if ( h0 >= Math.max( up( t0 ), up( t1 ) ) - 0.01 ) break;
+			const h1 = h0 + CELL, a = Math.min( h1, up( t0 ) ), b = Math.min( h1, up( t1 ) );
+			const P = [ [ t0, h0 ], [ t1, h0 ], [ t1, b ], [ t0, a ] ];
+			const idx = P.map( ( [ t, h ] ) => {
+
+				kit.color = tone( t, h );
+				return kit.vertex( point( t, h ), [ nx, 0, nz ], t, h );
+
+			} );
+			kit.idx.push( idx[ 0 ], idx[ 1 ], idx[ 2 ], idx[ 0 ], idx[ 2 ], idx[ 3 ] );
+
+		}
+
+		// the vents, seen from the photo's left to right
+		for ( const [ t, h ] of [ [ 0.4, 0.71 ], [ 1.16, 1.03 ], [ 1.48, 0.66 ], [ 1.66, 0.46 ], [ 1.98, 0.8 ] ] ) {
+
+			const y = F( t ) + h, W = 0.13, H = 0.14;
+			on( t, y - H / 2, W, H, 0.012, DARK );
+			for ( const k of [ - 0.5, - 0.17, 0.17, 0.5 ] ) on( t + k * W, y - H / 2, 0.012, H, 0.018, WHITE );
+			for ( const k of [ - 0.5, - 0.17, 0.17, 0.5 ] ) on( t, y + k * H - 0.006, W, 0.012, 0.018, WHITE );
+
+		}
+
+		// S over R in white on a black panel, on each marker stone
+		const FONT = { S: [ 7, 4, 7, 1, 7 ], R: [ 6, 5, 6, 5, 5 ] };
+		for ( const [ x, z ] of ORNELAS_MARKERS ) {
+
+			const g = T.heightAt( x, z ), px = 0.016;
+			const part = ( u, y, w, h, proud, c ) => {
+
+				kit.color = c;
+				kit.vdata = FLAT;
+				const ax = - 0.592 * u + nx * ( 0.09 + proud / 2 ), az = - 0.806 * u + nz * ( 0.09 + proud / 2 );
+				kit.box( x + ax, y + h / 2, z + az, w, h, proud, yaw, 'bottom' );
+
+			};
+			part( 0, g + 0.05, 0.11, 0.2, 0.006, DARK );
+			[ [ 'S', 0.155 ], [ 'R', 0.065 ] ].forEach( ( [ L, y0 ] ) => FONT[ L ].forEach( ( bits, row ) => {
+
+				for ( let col = 0; col < 3; col ++ ) if ( bits & ( 4 >> col ) ) part( ( col - 1 ) * px, g + y0 + ( 4 - row ) * px - 0.005, px, px, 0.009, WHITE );
+
+			} ) );
+
+		}
+
+	}
+
+	// the steps up into the garden (photo references/...-img-4389): against the white wall's face, on the street's
+	// side, they climb along it toward the curtain, past the wall's end, their open side showing their stepped
+	// shape, to a landing. From there one low rise, painted yellow, to the garden's edge: earth and weeds behind the
+	// wall's end, to the left of a whitewashed collar on a yellow base round an iron pipe, against the curtain.
+	_gardenSteps( E ) {
+
+		const T = this.terrain, kit = this.walls, cx = 59.1, cz = 118.9, dx = - 0.592, dz = - 0.806, nx = 0.806, nz = - 0.592, yaw = Math.atan2( - dz, dx );
+		// t along the wall's face from its corner, o out from the face toward the street
+		const P = ( t, o ) => [ cx + dx * t + nx * o, cz + dz * t + nz * o ];
+		const WIDTH = 1.08, N = 5, TREAD = 0.3, START = 2.05, WALL_END = 2.62, TOP = START + TREAD * ( N - 1 ), EDGE_T = TOP + 0.38, BACK = 4.3;
+		const yG = E.top - 0.3, SILL = 0.18, foot = T.heightAt( ...P( START - 0.25, WIDTH / 2 ) ) - 0.03, rise = ( yG - SILL - foot ) / N;
+		const CONCRETE = srgbToLinear( [ 0.74, 0.72, 0.64 ] ), EDGE = srgbToLinear( [ 0.55, 0.53, 0.47 ] ), YELLOW = srgbToLinear( [ 0.78, 0.6, 0.2 ] ), WHITE = srgbToLinear( [ 0.88, 0.87, 0.82 ] ), IRON = srgbToLinear( [ 0.4, 0.4, 0.38 ] );
+		const EARTH = srgbToLinear( [ 0.5, 0.41, 0.27 ] ), KERB = srgbToLinear( [ 0.7, 0.68, 0.6 ] ), LEAF = srgbToLinear( [ 0.27, 0.37, 0.14 ] ), LEAF2 = srgbToLinear( [ 0.18, 0.28, 0.1 ] ), TILE = srgbToLinear( [ 0.68, 0.36, 0.22 ] );
+		const block = ( t0, t1, o0, o1, y0, y1, color, walk ) => {
+
+			const [ x, z ] = P( ( t0 + t1 ) / 2, ( o0 + o1 ) / 2 );
+			kit.color = color;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.box( x, ( y0 + y1 ) / 2, z, t1 - t0, y1 - y0, o1 - o0, yaw, 'bottom' );
+			if ( walk !== undefined ) this.colliders.addBox( new Vector3( x, ( y0 + y1 ) / 2, z ), new Vector3( ( t1 - t0 ) / 2, ( y1 - y0 ) / 2, ( o1 - o0 ) / 2 ), yaw, { walkable: walk, tag: walk ? 'stair' : 'wall' } );
+
+		};
+		// the photo's worn concrete, baked into a fine grid laid just over a face: grey and grimy, patches of old
+		// yellow paint (yellow > 0: mostly yellow, worn through to grey), and on the risers and the side, where the
+		// render has come away, the brick under it
+		const tone = ( t, o, h, a, b, kind, yellow ) => {
+
+			const n = valueNoise2( t * 3.1 + o * 1.7, h * 3.1 + o * 2.3 ) * 0.6 + valueNoise2( t * 11 + o * 7, h * 11 + o * 5 ) * 0.4;
+			const v = 0.56 + valueNoise2( t * 23 + o * 17, h * 23 ) * 0.08;
+			let c = [ v, v * 0.97, v * 0.88 ];
+			const paint = yellow ? smoothstep01( 0.3, 0.55, n ) * 0.8 : smoothstep01( 0.56, 0.74, n ) * 0.55;
+			c = c.map( ( q, k ) => q + ( [ 0.64, 0.52, 0.26 ][ k ] - q ) * paint );
+			const dirt = smoothstep01( 0.5, 0.8, valueNoise2( t * 6 + 3, h * 6 + o * 4 ) ) * 0.45;
+			c = c.map( ( q, k ) => q + ( [ 0.32, 0.29, 0.24 ][ k ] - q ) * dirt );
+			if ( kind !== 'tread' ) {
+
+				// (mostly at the risers' open ends and low on the side)
+				const where = kind === 'riser' ? smoothstep01( 0.7, 0.95, o / WIDTH ) : 1 - smoothstep01( 0.3, 0.6, h );
+				const brick = smoothstep01( 0.5, 0.62, valueNoise2( t * 2.3 + o * 2.5 + 7, h * 2.6 + 1 ) ) * where * 0.85;
+				if ( brick > 0 ) {
+
+					const row = Math.floor( b / 0.066 ), mortar = b / 0.066 - row < 0.28 || ( ( a + row * 0.11 ) / 0.22 ) % 1 < 0.12;
+					const bc = mortar ? [ 0.52, 0.49, 0.43 ] : [ 0.5, 0.33, 0.25 ].map( ( q ) => q * ( 0.85 + hash2( row, Math.floor( ( a + row * 0.11 ) / 0.22 ) ) * 0.25 ) );
+					c = c.map( ( q, k ) => q + ( bc[ k ] - q ) * brick );
+
+				}
+
+			}
+
+			return srgbToLinear( c );
+
+		};
+		// kind: 'riser' (across the steps, facing down them), 'tread' (on top), 'side' (along the open side, facing the
+		// street); from ( t0, y0, o0 ), A metres along its first axis, B along its second
+		const face = ( t0, y0, o0, kind, A, B, yellow = 0 ) => {
+
+			const CELL = kind === 'tread' ? 0.045 : 0.032, nA = Math.max( 1, Math.ceil( A / CELL ) ), nB = Math.max( 1, Math.ceil( B / CELL ) );
+			const pt = ( a, b ) => {
+
+				const t = kind === 'tread' ? t0 + b : kind === 'side' ? t0 + a : t0 - 0.004;
+				const o = kind === 'tread' ? o0 + a : kind === 'side' ? o0 + 0.004 : o0 + a;
+				const h = kind === 'tread' ? y0 + 0.004 : y0 + b;
+				return { t, o, h, p: P( t, o ) };
+
+			};
+			const normal = kind === 'tread' ? [ 0, 1, 0 ] : kind === 'side' ? [ nx, 0, nz ] : [ - dx, 0, - dz ];
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < nA; i ++ ) for ( let j = 0; j < nB; j ++ ) {
+
+				const ids = [ [ i, j ], [ i + 1, j ], [ i + 1, j + 1 ], [ i, j + 1 ] ].map( ( [ ia, jb ] ) => {
+
+					const a = Math.min( A, ia * A / nA ), b = Math.min( B, jb * B / nB ), q = pt( a, b );
+					kit.color = tone( q.t, q.o, q.h - foot, a, b, kind, yellow );
+					return kit.vertex( [ q.p[ 0 ], q.h, q.p[ 1 ] ], normal, a, b );
+
+				} );
+				kit.idx.push( ids[ 0 ], ids[ 1 ], ids[ 2 ], ids[ 0 ], ids[ 2 ], ids[ 3 ] ); // (each axis pair turns to its normal)
+
+			}
+
+		};
+		// the steps, the last the landing; each runs back only to the next, so that the open side shows their shape
+		for ( let i = 0; i < N; i ++ ) {
+
+			const t0 = START + TREAD * i, t1 = i < N - 1 ? t0 + TREAD + 0.01 : EDGE_T, top = foot + rise * ( i + 1 );
+			block( t0, t1, 0.01, WIDTH, foot - 0.4, top, CONCRETE, true );
+			// worn: the riser, the tread, the open side down to the street
+			face( t0, top - rise, 0.01, 'riser', WIDTH - 0.01, rise );
+			face( t0, top, 0.01, 'tread', t1 - t0, WIDTH - 0.01 );
+			face( t0, foot - 0.05, WIDTH, 'side', t1 - t0, top - foot + 0.05 );
+
+		}
+
+		face( EDGE_T, yG - SILL, 0.01, 'riser', WIDTH - 0.01, SILL, 0.75 );
+		face( EDGE_T, foot - 0.05, WIDTH + 0.01, 'side', BACK - EDGE_T, yG - foot + 0.05 );
+		face( WALL_END, foot, 0.01, 'side', EDGE_T - WALL_END, yG - foot, 0.85 );
+		// beside them past the wall's end the same mass holds up the garden, yellow
+		block( WALL_END, EDGE_T, - 1.35, 0.01, foot - 0.4, yG, YELLOW, false );
+		block( WALL_END, EDGE_T, - 1.35, 0.01, yG - 0.001, yG + 0.002, EARTH );
+		// the low rise, and the garden's edge behind it
+		block( EDGE_T - 0.012, EDGE_T + 0.01, 0.01, WIDTH, yG - SILL, yG, YELLOW );
+		block( EDGE_T, BACK, - 1.35, WIDTH, foot - 0.4, yG, EARTH, true );
+		block( EDGE_T, BACK, WIDTH - 0.001, WIDTH + 0.008, foot - 0.2, yG, CONCRETE ); // (its open side, like the steps')
+		// the collar with its pipe, on its base, a thin kerb to the left of them
+		block( EDGE_T + 0.1, 4.08, 0.42, WIDTH, yG, yG + 0.2, YELLOW, false );
+		block( EDGE_T + 0.17, 4.05, 0.55, 1.0, yG + 0.2, yG + 0.78, WHITE );
+		block( 3.87, 3.91, 0.76, 0.8, yG + 0.78, yG + 1.3, IRON );
+		block( EDGE_T + 0.02, 4.1, 0.3, 0.38, yG, yG + 0.05, KERB );
+		// weeds in the gap beside it, bits of tile about the wall's end and, over the wall, a small heap of them
+		const r = mulberry32( 4388 );
+		for ( let i = 0; i < 46; i ++ ) {
+
+			const t = EDGE_T + 0.05 + r() * 0.58, o = - 0.22 + r() * 0.5, h = 0.05 + r() * r() * 0.28, sT = 0.005 + r() * 0.006, sO = 0.008 + r() * 0.012;
+			block( t - sT, t + sT, o - sO, o + sO, yG, yG + h, r() < 0.5 ? LEAF : LEAF2 );
+
+		}
+
+		for ( const [ t, o, w, h ] of [ [ WALL_END + 0.22, - 0.28, 0.2, 0.05 ], [ WALL_END + 0.5, - 0.5, 0.14, 0.04 ], [ 1.55, - 0.72, 0.32, 0.34 ], [ 1.75, - 0.78, 0.26, 0.4 ], [ 1.42, - 0.8, 0.22, 0.44 ], [ 1.62, - 0.88, 0.3, 0.52 ] ] ) block( t - w / 2, t + w / 2, o - w * 0.35, o + w * 0.35, yG - 0.01, yG + h, TILE );
+
+	}
+
+	// up the street from the garden steps (photo references/...-img-4386): the white wall carries on along it to a
+	// few stone steps by the curtain, up into the garden from its near end; a signpost in front of it; across the
+	// street the two houses show it a long blank cream wall over a yellow foot
+	_ornelasUpper( E, list ) {
+
+		const T = this.terrain, kit = this.walls, W = E.upperWall, tops = E.upperTops;
+		// its top's edge rounded, and at its very end, the return, the top rounding down toward the steps' top
+		// (photo references/...-img-4388): a quarter ellipse DROP deep over the last RUN metres
+		{
+
+			const DROP = 0.42, RUN = 0.5, a = W.at( - 2 ), c = W.at( - 1 ), L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), t0 = tops.at( - 2 ), t1 = tops.at( - 1 );
+			const W2 = W.slice( 0, - 1 ), tops2 = tops.slice( 0, - 1 ), u0 = Math.max( 0.05, L - RUN );
+			for ( let k = 0; k <= 8; k ++ ) {
+
+				const u = u0 + ( L - u0 ) * k / 8, x = ( u - u0 ) / ( L - u0 ), f = u / L;
+				W2.push( [ a[ 0 ] + ( c[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( c[ 1 ] - a[ 1 ] ) * f ] );
+				tops2.push( t0 + ( t1 - t0 ) * f - DROP * ( 1 - Math.sqrt( Math.max( 0, 1 - x * x ) ) ) );
+
+			}
+
+			this._footedWall( W2, tops2, 0.07 );
+
+		}
+		// the wall turns in at its end toward the curtain (OSM's outline); the steps go up against the curtain beside
+		// that return, climbing along it to a landing behind the wall in the garden. s along the curtain's face
+		// (up the steps), q out from it
+		const F0 = [ 19.37, 139 ], cx = 0.62, cz = - 0.78, qx = 0.78, qz = 0.63, R = W.at( - 1 );
+		const P = ( sv, q ) => [ F0[ 0 ] + cx * sv + qx * q, F0[ 1 ] + cz * sv + qz * q ], yaw = Math.atan2( - cz, cx );
+		const S_R = ( R[ 0 ] - F0[ 0 ] ) * cx + ( R[ 1 ] - F0[ 1 ] ) * cz, Q_R = ( R[ 0 ] - F0[ 0 ] ) * qx + ( R[ 1 ] - F0[ 1 ] ) * qz;
+		const yG = tops.at( - 1 ) - 0.3, N = 5, TREAD = 0.36, S_TOP = S_R, S0 = S_TOP - TREAD * N, Q0 = 0.03, Q1 = Q_R;
+		const foot = T.heightAt( ...P( S0 - 0.3, ( Q0 + Q1 ) / 2 ) ) - 0.03, rise = ( yG - foot ) / N;
+		const step = ( s0, s1, q0, q1, top, v ) => {
+
+			const [ x, z ] = P( ( s0 + s1 ) / 2, ( q0 + q1 ) / 2 );
+			kit.color = srgbToLinear( [ v, v * 0.98, v * 0.9 ] );
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.box( x, ( foot - 0.4 + top ) / 2, z, s1 - s0, top - foot + 0.4, q1 - q0, yaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, ( foot - 0.4 + top ) / 2, z ), new Vector3( ( s1 - s0 ) / 2, ( top - foot + 0.4 ) / 2, ( q1 - q0 ) / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+		};
+		for ( let i = 0; i < N; i ++ ) step( S0 + TREAD * i, S_TOP + 0.02, Q0, Q1, foot + rise * ( i + 1 ), 0.42 + ( ( i * 7 ) % 5 ) * 0.02 );
+		// (the landing starts a hair behind the wall's return, whose face it would otherwise show through)
+		step( S_TOP + 0.03, S_TOP + 1.1, Q0, Q1 + 0.4, yG, 0.44 );
+		this._mossySteps( P, yaw, { N, TREAD, S0, S_TOP, Q0, Q1, foot, rise, yG } );
+		// trailing stems from the garden over the wall's end (photo references/...-img-4388): down its face, and a
+		// few long ones across the steps' side
+		{
+
+			const r = mulberry32( 4388 ), a = W[ 7 ], c = W[ 8 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = uz, nz = - ux, top = tops[ 8 ];
+			for ( let k = 0; k < 9; k ++ ) {
+
+				// along the face, from just before the rounded corner back up the street
+				const d = 0.02 + r() * 1.3, x = c[ 0 ] - ux * d, z = c[ 1 ] - uz * d, hang = 0.25 + r() * r() * 1.1, drift = ( r() - 0.5 ) * 0.5;
+				const pts = [ [ x - nx * 0.35, top + 0.12, z - nz * 0.35 ], [ x - nx * 0.05, top + 0.06, z - nz * 0.05 ], [ x + nx * 0.04, top - 0.04, z + nz * 0.04 ] ];
+				for ( let j = 1; j <= 6; j ++ ) {
+
+					const f = j / 6, sway = Math.sin( f * 3 + k ) * 0.04;
+					pts.push( [ x + nx * 0.05 + ux * ( drift * f + sway ), top - 0.04 - hang * f, z + nz * 0.05 + uz * ( drift * f + sway ) ] );
+
+				}
+
+				this._vine( pts, [ nx, 0, nz ], r );
+
+			}
+
+			for ( let k = 0; k < 3; k ++ ) {
+
+				// long ones off the wall's end, sagging down across the steps' side to the street
+				const s0 = S_TOP + 0.15 + r() * 0.2, s1 = S0 + 0.2 + r() * 0.6, y0 = tops.at( - 1 ) - 0.1, y1 = foot + 0.3 + r() * 0.3, pts = [];
+				for ( let j = 0; j <= 10; j ++ ) {
+
+					const f = j / 10, q = P( s0 + ( s1 - s0 ) * f, Q1 + 0.05 + Math.sin( f * Math.PI ) * 0.06 );
+					pts.push( [ q[ 0 ], y0 + ( y1 - y0 ) * f - Math.sin( f * Math.PI ) * ( 0.15 + k * 0.08 ), q[ 1 ] ] );
+
+				}
+
+				const out = P( 0, 1 ), o = P( 0, 0 );
+				this._vine( pts, [ out[ 0 ] - o[ 0 ], 0, out[ 1 ] - o[ 1 ] ], r );
+
+			}
+
+		}
+		// (the signpost faces the street, square to the wall's last straight stretch before its rounded corner)
+		const wu = [ W[ 7 ][ 0 ] - W[ 6 ][ 0 ], W[ 7 ][ 1 ] - W[ 6 ][ 1 ] ], wl = Math.hypot( ...wu ), wx = wu[ 0 ] / wl, wz = wu[ 1 ] / wl;
+		const nx = wz, nz = - wx, signYaw = Math.atan2( - wz, wx );
+
+		// the signpost in front of the wall
+		{
+
+			const x = 26.2, z = 138.3, g = T.heightAt( x, z );
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = srgbToLinear( [ 0.35, 0.36, 0.36 ] );
+			kit.box( x, g + 1.15, z, 0.06, 2.3, 0.06, signYaw, 'bottom' );
+			kit.color = srgbToLinear( [ 0.16, 0.18, 0.2 ] );
+			kit.box( x + nx * 0.03, g + 2.05, z + nz * 0.03, 0.3, 0.32, 0.03, signYaw, 'bottom' );
+			this.colliders.addBox( new Vector3( x, g + 1.15, z ), new Vector3( 0.05, 1.15, 0.05 ), 0, { walkable: false, tag: 'sign' } );
+
+		}
+
+		// the cream wall across the street
+		const CREAM = srgbToLinear( [ 0.9, 0.84, 0.66 ] ), YELLOW = srgbToLinear( [ 0.86, 0.64, 0.2 ] );
+		for ( const [ id, LINE ] of [ [ 299089845, [ [ 37.4, 141.4 ], [ 30.2, 142.1 ] ] ], [ 299090146, [ [ 30.2, 142.1 ], [ 23.3, 146.9 ] ] ] ] ) {
+
+			const f = list.find( ( q ) => q.b.id === id );
+			if ( ! f ) continue;
+			const Lf = Math.hypot( LINE[ 1 ][ 0 ] - LINE[ 0 ][ 0 ], LINE[ 1 ][ 1 ] - LINE[ 0 ][ 1 ] ), { out, ground: g } = this._frontTools( f, LINE );
+			const A = out( 0, 0.03 ), C = out( Lf, 0.03 ), ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] ), n1 = out( 1, 1 ), n0 = out( 1, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = CREAM;
+			kit.quadFacing( [ A[ 0 ], f.base, A[ 1 ] ], [ C[ 0 ], f.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
+			const FA = out( 0, 0.05 ), FC = out( Lf, 0.05 );
+			kit.color = YELLOW;
+			kit.quadFacing( [ FA[ 0 ], f.base, FA[ 1 ] ], [ FC[ 0 ], f.base, FC[ 1 ] ], [ FC[ 0 ], g( Lf ) + 0.75, FC[ 1 ] ], [ FA[ 0 ], g( 0 ) + 0.75, FA[ 1 ] ], want, [ [ 0, 0 ], [ Lf, 0 ], [ Lf, 1 ], [ 0, 1 ] ] );
+
+		}
+
+	}
+
+	// up the street past the stone steps (photo references/...-img-4384): on the left one long cream front over
+	// the three footprints, a slate-blue foot, two storeys of windows in stone frames, dark wooden sashes, the
+	// upper tall ones opening onto curved iron balconies, small square windows between, lanterns, and under the
+	// eave a red brick cornice. Laid over the walls' own procedural windows, which it covers.
+	_hotelFront( list ) {
+
+		const kit = this.walls;
+		const CREAM = srgbToLinear( [ 0.93, 0.87, 0.72 ] ), FOOT = srgbToLinear( [ 0.22, 0.26, 0.33 ] ), WOOD = srgbToLinear( [ 0.22, 0.14, 0.09 ] );
+		const IRON = srgbToLinear( [ 0.05, 0.05, 0.05 ] ), BRICK = srgbToLinear( [ 0.62, 0.3, 0.2 ] ), BRICK2 = srgbToLinear( [ 0.52, 0.24, 0.16 ] ), MORTAR = srgbToLinear( [ 0.86, 0.82, 0.74 ] );
+		let tg = 0, bay = 0;
+		for ( const [ id, LINE ] of [ [ 299090456, [ [ 20.4, 149.1 ], [ 17.2, 154.8 ] ] ], [ 299090857, [ [ 17.2, 154.8 ], [ 12, 161 ] ] ], [ 298848393, [ [ 12, 161 ], [ - 0.8, 180.4 ] ] ] ] ) {
+
+			const f = list.find( ( q ) => q.b.id === id );
+			const L = Math.hypot( LINE[ 1 ][ 0 ] - LINE[ 0 ][ 0 ], LINE[ 1 ][ 1 ] - LINE[ 0 ][ 1 ] );
+			if ( ! f ) {
+
+				tg += L;
+				continue;
+
+			}
+
+			const { at, out, ground: g, part, opening, STONE } = this._frontTools( f, LINE );
+			const eave = EAVE[ id ], n1 = out( 1, 1 ), n0 = out( 1, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
+			const A = out( 0, 0.03 ), C = out( L, 0.03 ), ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] );
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = CREAM;
+			kit.quadFacing( [ A[ 0 ], f.base, A[ 1 ] ], [ C[ 0 ], f.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], want, [ [ 0, 0 ], [ L, 0 ], [ L, 1 ], [ 0, 1 ] ] );
+			// the foot, following the street in short steps
+			kit.color = FOOT;
+			const NF = Math.ceil( L / 0.8 );
+			for ( let i = 0; i < NF; i ++ ) {
+
+				const t0 = L * i / NF, t1 = L * ( i + 1 ) / NF, P0 = out( t0, 0.05 ), P1 = out( t1, 0.05 );
+				kit.quadFacing( [ P0[ 0 ], f.base, P0[ 1 ] ], [ P1[ 0 ], f.base, P1[ 1 ] ], [ P1[ 0 ], g( t1 ) + 0.9, P1[ 1 ] ], [ P0[ 0 ], g( t0 ) + 0.9, P0[ 1 ] ], want, [ [ 0, 0 ], [ 1, 0 ], [ 1, 1 ], [ 0, 1 ] ] );
+
+			}
+			// the cornice: three courses of brick stepping out under the eave, the middle one in dentils
+			part( 0, L, eave - 0.14, eave - 0.02, 0.26, BRICK );
+			part( 0, L, eave - 0.17, eave - 0.14, 0.2, MORTAR );
+			for ( let t = 0.05; t + 0.1 < L; t += 0.2 ) part( t, t + 0.1, eave - 0.3, eave - 0.17, 0.18, ( Math.floor( t * 5 ) % 3 ) ? BRICK : BRICK2 );
+			part( 0, L, eave - 0.33, eave - 0.3, 0.12, MORTAR );
+			part( 0, L, eave - 0.45, eave - 0.33, 0.08, BRICK2 );
+			// the bays, one rhythm along the whole front: a tall window under a balcony, then a pair of small square ones
+			const SPACE = 2.4;
+			for ( let k = Math.ceil( ( tg - 1.2 ) / SPACE ); ; k ++ ) {
+
+				const t = 1.2 + k * SPACE - tg;
+				if ( t > L - 0.9 ) break;
+				if ( t < 0.9 ) continue;
+				const gr = g( t ), upperSill = eave - 0.75 - 2.1;
+				if ( k % 2 === 1 ) {
+
+					// a tall window below, a French window above onto its balcony
+					if ( gr + 2.6 < upperSill - 0.6 ) opening( t, gr + 1.0, 0.95, 1.5, false, undefined, WOOD );
+					opening( t, upperSill, 1.0, 2.1, false, undefined, WOOD );
+					part( t - 0.78, t + 0.78, upperSill - 0.12, upperSill, 0.42, STONE );
+					this._ironBalcony( at, out, t, upperSill, 1.3, 0.9, IRON );
+
+				} else {
+
+					if ( gr + 2.2 < upperSill - 0.6 ) opening( t, gr + 1.65, 0.5, 0.5, false, undefined, WOOD );
+					opening( t, eave - 2.05, 0.55, 0.55, false, undefined, WOOD );
+					// now and then a lantern on its bracket between the ground floor windows
+					if ( bay ++ % 3 === 1 ) {
+
+						const y = Math.max( gr + 2.6, gr + 1.65 + 0.8 );
+						// the bracket out from a small plate, the lantern hanging from it: a cap, glass, a frame
+						part( t - 0.05, t + 0.05, y + 0.3, y + 0.5, 0.03, IRON );
+						part( t - 0.015, t + 0.015, y + 0.42, y + 0.45, 0.42, IRON );
+						const [ lx, lz ] = out( t, 0.34 ), yaw = at( t ).yaw;
+						kit.color = IRON;
+						kit.box( lx, y + 0.34, lz, 0.2, 0.05, 0.2, yaw, '' );
+						kit.box( lx, y + 0.02, lz, 0.16, 0.04, 0.16, yaw, '' );
+						kit.color = srgbToLinear( [ 0.86, 0.8, 0.6 ] );
+						kit.box( lx, y + 0.18, lz, 0.14, 0.28, 0.14, yaw, '' );
+						kit.color = IRON;
+						for ( const [ dx, dz ] of [ [ - 1, - 1 ], [ 1, - 1 ], [ 1, 1 ], [ - 1, 1 ] ] ) {
+
+							const p = at( t ), cx = lx + ( p.ux * dx + p.nx * dz ) * 0.075, cz = lz + ( p.uz * dx + p.nz * dz ) * 0.075;
+							kit.box( cx, y + 0.18, cz, 0.018, 0.3, 0.018, yaw, '' );
+
+						}
+
+					}
+
+				}
+
+			}
+
+			tg += L;
+
+		}
+
+	}
+
+	// near the top of Rua Dom João de Ornelas (photo references/...-img-4383): the whitewashed wall over a yellow
+	// foot that leaves the curtain tall, curves down and runs on along the street to the house's corner, old
+	// whitewash flaking off its tall end; a no-entry sign before it and the pousadas' board on the curtain; up
+	// the street a line of white slabs, a line of bigger round stones, a drain cover; stone bollards on its left
+	_ornelasTop( list ) {
+
+		const E = this.terrain.ornelasEast, T = this.terrain, kit = this.walls;
+		if ( ! E?.topWall ) return;
+		const FLAT = [ 0, 0, 0.53, 4 ], r = mulberry32( 4383 );
+		// the wall: subdivided, its top high from the curtain to the bend, then curving down to the house
+		const W0 = E.topWall, W = [], tops = [];
+		let total = 0;
+		const segL = [];
+		for ( let i = 0; i + 1 < W0.length; i ++ ) segL.push( Math.hypot( W0[ i + 1 ][ 0 ] - W0[ i ][ 0 ], W0[ i + 1 ][ 1 ] - W0[ i ][ 1 ] ) );
+		total = segL.reduce( ( a, b ) => a + b, 0 );
+		let acc = 0;
+		for ( let i = 0; i + 1 < W0.length; i ++ ) {
+
+			const n = Math.max( 2, Math.ceil( segL[ i ] / 0.4 ) ), a = W0[ i ], c = W0[ i + 1 ];
+			const ux = ( c[ 0 ] - a[ 0 ] ) / segL[ i ], uz = ( c[ 1 ] - a[ 1 ] ) / segL[ i ];
+			for ( let k = i === 0 ? 0 : 1; k <= n; k ++ ) {
+
+				const t = segL[ i ] * k / n, q = [ a[ 0 ] + ux * t, a[ 1 ] + uz * t ], sAll = ( acc + t ) / total;
+				W.push( q );
+				const g = T.heightAt( q[ 0 ] + uz * 0.6, q[ 1 ] - ux * 0.6 );
+				tops.push( g + 1.95 + 1.5 * ( 1 - smoothstep01( 0.4, 0.72, sAll ) ) );
+
+			}
+
+			acc += segL[ i ];
+
+		}
+
+		this._footedWall( W, tops, 0.07 );
+		// the old whitewash come away from its tall end in dark patches, the stone showing
+		{
+
+			const a = W0[ 0 ], c = W0[ 1 ], L = segL[ 0 ], ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L, nx = uz, nz = - ux;
+			const STONE = [ [ 0.55, 0.52, 0.45 ], [ 0.62, 0.58, 0.5 ], [ 0.48, 0.46, 0.4 ] ].map( srgbToLinear );
+			kit.vdata = FLAT;
+			for ( const [ t0, h0, rad ] of [ [ 0.6, 1.35, 0.26 ], [ 1.05, 1.0, 0.16 ], [ 0.3, 0.85, 0.12 ], [ 0.85, 1.8, 0.12 ], [ 0.35, 1.95, 0.1 ] ] ) {
+
+				const g = T.heightAt( a[ 0 ] + ux * t0 + nx * 0.6, a[ 1 ] + uz * t0 + nz * 0.6 ), N = 14;
+				const R = Array.from( { length: N }, () => rad * ( 0.55 + r() * 0.6 ) );
+				const P = ( k ) => {
+
+					const ang = k / N * Math.PI * 2, rr = R[ k % N ];
+					const t = t0 + Math.cos( ang ) * rr * 1.3, h = h0 + Math.sin( ang ) * rr * 0.75;
+					return [ a[ 0 ] + ux * t + nx * 0.006, g + h, a[ 1 ] + uz * t + nz * 0.006 ];
+
+				};
+				const cP = [ a[ 0 ] + ux * t0 + nx * 0.006, g + h0, a[ 1 ] + uz * t0 + nz * 0.006 ];
+				kit.color = STONE[ Math.floor( r() * 3 ) ];
+				for ( let k = 0; k < N; k ++ ) kit.quadFacing( cP, P( k ), P( k + 1 ), P( k + 1 ), [ nx, 0, nz ] );
+
+			}
+
+		}
+
+		// the tall house behind it: its narrow gable end over the wall, two small windows one above the other; its
+		// front up the street plain over the yellow foot, small windows in stone frames, pots under the upper
+		// ones, lanterns between
+		{
+
+			const f = list.find( ( q ) => q.b.id === 299072134 );
+			if ( f ) {
+
+				const eave = this.buildings.find( ( q ) => q.id === 299072134 )?.eave ?? f.roofH( - 37, 229 );
+				const WHITE = srgbToLinear( [ 0.92, 0.91, 0.87 ] ), YELLOW = srgbToLinear( [ 0.86, 0.66, 0.2 ] ), IRON = srgbToLinear( [ 0.06, 0.06, 0.06 ] );
+				for ( const [ LINE, gable ] of [ [ [ [ - 38.7, 223.96 ], [ - 35.3, 225.4 ] ], true ], [ [ [ - 35.3, 225.4 ], [ - 38.2, 234.7 ] ], false ] ] ) {
+
+					let L = 0;
+					for ( let i = 0; i + 1 < LINE.length; i ++ ) L += Math.hypot( LINE[ i + 1 ][ 0 ] - LINE[ i ][ 0 ], LINE[ i + 1 ][ 1 ] - LINE[ i ][ 1 ] );
+					const { at, out, ground: g, part, opening, pot } = this._frontTools( f, LINE );
+					kit.vdata = FLAT;
+					kit.color = WHITE;
+					// (the plaster in pieces, one per side of the line)
+					for ( let i = 0, t0 = 0; i + 1 < LINE.length; i ++ ) {
+
+						const t1 = t0 + Math.hypot( LINE[ i + 1 ][ 0 ] - LINE[ i ][ 0 ], LINE[ i + 1 ][ 1 ] - LINE[ i ][ 1 ] );
+						const A = out( t0 + 0.001, 0.03 ), C = out( t1 - 0.001, 0.03 ), ha = f.roofH( A[ 0 ], A[ 1 ] ), hc = f.roofH( C[ 0 ], C[ 1 ] ), m = ( t0 + t1 ) / 2, n1 = out( m, 1 ), n0 = out( m, 0 );
+						kit.quadFacing( [ A[ 0 ], f.base, A[ 1 ] ], [ C[ 0 ], f.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ] );
+						t0 = t1;
+
+					}
+
+					const n1 = out( L - 0.5, 1 ), n0 = out( L - 0.5, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
+					if ( gable ) {
+
+						opening( L * 0.5, eave - 1.2, 0.5, 0.62, false );
+						opening( L * 0.5, eave - 3.1, 0.5, 0.62, false );
+						continue;
+
+					}
+
+					const NF = Math.ceil( L / 0.8 );
+					kit.color = YELLOW;
+					for ( let i = 0; i < NF; i ++ ) {
+
+						const t0 = L * i / NF, t1 = L * ( i + 1 ) / NF, P0 = out( t0, 0.05 ), P1 = out( t1, 0.05 );
+						kit.quadFacing( [ P0[ 0 ], f.base, P0[ 1 ] ], [ P1[ 0 ], f.base, P1[ 1 ] ], [ P1[ 0 ], g( t1 ) + 0.75, P1[ 1 ] ], [ P0[ 0 ], g( t0 ) + 0.75, P0[ 1 ] ], want );
+
+					}
+
+					for ( let t = 1.6, k = 0; t < L - 0.6; t += 2.3, k ++ ) {
+
+						opening( t, eave - 1.3, 0.55, 0.65, false );
+						opening( t, eave - 3.3, 0.55, 0.65, false );
+						pot( t, eave - 3.4, 7 + k );
+						if ( k % 2 === 0 ) pot( t, eave - 1.4, 11 + k );
+						if ( k % 2 === 1 ) {
+
+							// a lantern on its bracket
+							const y = g( t ) + 2.9, [ lx, lz ] = out( t, 0.32 ), yaw = at( t ).yaw;
+							part( t - 0.015, t + 0.015, y + 0.36, y + 0.39, 0.38, IRON );
+							kit.color = IRON;
+							kit.box( lx, y + 0.3, lz, 0.18, 0.05, 0.18, yaw, '' );
+							kit.color = srgbToLinear( [ 0.86, 0.8, 0.6 ] );
+							kit.box( lx, y + 0.15, lz, 0.13, 0.24, 0.13, yaw, '' );
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+		// the no-entry sign before the wall, turned down the street
+		{
+
+			const x = - 32.8, z = 220.6, g = T.heightAt( x, z ), fx = 0.54, fz = - 0.84, yaw = Math.atan2( fx, fz );
+			kit.vdata = FLAT;
+			kit.color = srgbToLinear( [ 0.55, 0.56, 0.57 ] );
+			kit.box( x, g + 0.92, z, 0.05, 1.84, 0.05, 0, 'bottom' );
+			this.colliders.addBox( new Vector3( x, g + 0.92, z ), new Vector3( 0.04, 0.92, 0.04 ), 0, { walkable: false, tag: 'sign' } );
+			// (a disc of thin boxes, red, the white bar across it; the small plate under it)
+			const sx = Math.cos( yaw ), sz = - Math.sin( yaw ), yD = g + 1.55, o = 0.04; // (as low as the photo's)
+			for ( let k = - 6; k <= 6; k ++ ) {
+
+				const h = 0.3 * Math.sqrt( Math.max( 0, 1 - ( k / 6.5 ) ** 2 ) ) * 2;
+				kit.color = srgbToLinear( [ 0.72, 0.08, 0.08 ] );
+				kit.box( x + fx * o + sx * k * 0.046, yD, z + fz * o + sz * k * 0.046, 0.047, h, 0.012, yaw, '' );
+
+			}
+
+			kit.color = srgbToLinear( [ 0.93, 0.93, 0.92 ] );
+			kit.box( x + fx * ( o + 0.01 ), yD, z + fz * ( o + 0.01 ), 0.42, 0.09, 0.006, yaw, '' );
+			kit.box( x + fx * o, g + 1.05, z + fz * o, 0.26, 0.33, 0.012, yaw, '' );
+			kit.color = srgbToLinear( [ 0.1, 0.1, 0.1 ] );
+			for ( let k = 0; k < 5; k ++ ) kit.box( x + fx * ( o + 0.008 ), g + 1.15 - k * 0.055, z + fz * ( o + 0.008 ), 0.18 - ( k % 2 ) * 0.04, 0.018, 0.004, yaw, '' );
+
+		}
+
+		// the pousadas' board on the curtain, just before the wall leaves it: white, lines of black lettering,
+		// an arrow under them
+		{
+
+			const F = E.curtainFoot, a = F.at( - 2 ), c = F.at( - 1 ), L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			const nx = uz, nz = - ux, t = L - 1.6, x = a[ 0 ] + ux * t + nx * 0.03, z = a[ 1 ] + uz * t + nz * 0.03, g = T.heightAt( x + nx, z + nz ), yaw = Math.atan2( - uz, ux );
+			kit.vdata = FLAT;
+			kit.color = srgbToLinear( [ 0.92, 0.92, 0.9 ] );
+			kit.box( x, g + 2.55, z, 1.3, 0.9, 0.04, yaw, '' );
+			kit.color = srgbToLinear( [ 0.08, 0.08, 0.08 ] );
+			for ( let k = 0; k < 4; k ++ ) kit.box( x + nx * 0.025 + ux * 0.08, g + 2.88 - k * 0.13, z + nz * 0.025 + uz * 0.08, [ 0.55, 0.85, 0.55, 0.75 ][ k ], 0.06, 0.01, yaw, '' );
+			kit.box( x + nx * 0.025 + ux * 0.1, g + 2.28, z + nz * 0.025 + uz * 0.1, 0.5, 0.07, 0.01, yaw, '' );
+
+		}
+
+		// up the street: the line of white slabs, the line of round stones beside it, a drain cover; bollards
+		// (topStreet, then on up the street's OSM line to where it meets Rua Porta da Vila)
+		const S = [ ...E.topStreet, [ - 39.1, 245.5 ], [ - 42.7, 253 ], [ - 46.7, 261.2 ], [ - 50, 265.5 ], [ - 53, 269.2 ] ], cum = [ 0 ];
+		for ( let i = 0; i + 1 < S.length; i ++ ) cum.push( cum[ i ] + Math.hypot( S[ i + 1 ][ 0 ] - S[ i ][ 0 ], S[ i + 1 ][ 1 ] - S[ i ][ 1 ] ) );
+		const along = ( d, side ) => {
+
+			let i = 0;
+			while ( i + 2 < S.length && d > cum[ i + 1 ] ) i ++;
+			const L = cum[ i + 1 ] - cum[ i ], ux = ( S[ i + 1 ][ 0 ] - S[ i ][ 0 ] ) / L, uz = ( S[ i + 1 ][ 1 ] - S[ i ][ 1 ] ) / L, t = d - cum[ i ];
+			// side: + toward the square (east), - toward the curtain
+			return { x: S[ i ][ 0 ] + ux * t + uz * side, z: S[ i ][ 1 ] + uz * t - ux * side, ux, uz };
+
+		};
+		const flat = ( p, hu, hs, lift, color ) => {
+
+			// a thin flat piece lying on the ground: hu half along, hs half across
+			const C = [ [ - hu, - hs ], [ hu, - hs ], [ hu, hs ], [ - hu, hs ] ].map( ( [ a, b ] ) => {
+
+				const x = p.x + p.ux * a + p.uz * b, z = p.z + p.uz * a - p.ux * b;
+				return [ x, T.heightAt( x, z ) + lift, z ];
+
+			} );
+			kit.color = color;
+			kit.quadFacing( C[ 0 ], C[ 1 ], C[ 2 ], C[ 3 ], [ 0, 1, 0 ] );
+			for ( let k = 0; k < 4; k ++ ) {
+
+				const A = C[ k ], B = C[ ( k + 1 ) % 4 ], mx = ( A[ 0 ] + B[ 0 ] ) / 2 - p.x, mz = ( A[ 2 ] + B[ 2 ] ) / 2 - p.z;
+				kit.quadFacing( [ A[ 0 ], A[ 1 ] - lift - 0.03, A[ 2 ] ], [ B[ 0 ], B[ 1 ] - lift - 0.03, B[ 2 ] ], B, A, [ mx, 0, mz ] );
+
+			}
+
+		};
+		kit.vdata = FLAT;
+		// the slabs from about where the photo was taken to the junction with Rua Porta da Vila
+		for ( let d = 15; d < cum.at( - 1 ) - 1.5; ) {
+
+			const len = 0.85 + r() * 0.3, v = 0.74 + r() * 0.08;
+			flat( along( d + len / 2, 0.3 ), len / 2 - 0.012, 0.28, 0.02, srgbToLinear( [ v, v * 0.99, v * 0.95 ] ) );
+			d += len;
+
+		}
+
+		for ( let d = 12; d < 30; d += 0.19 + r() * 0.05 ) {
+
+			const v = 0.5 + r() * 0.16;
+			flat( along( d, - 1.15 + ( r() - 0.5 ) * 0.06 ), 0.08 + r() * 0.02, 0.07 + r() * 0.02, 0.025, srgbToLinear( [ v, v * 0.98, v * 0.93 ] ) );
+
+		}
+
+		flat( along( 21.8, - 0.4 ), 0.4, 0.4, 0.012, srgbToLinear( [ 0.3, 0.29, 0.27 ] ) );
+		// the stone bollards at the top, on the square's edge, in two rows with a gap between them for people to
+		// walk through, a chain hanging in a wide U between each two (about three or four strides apart)
+		const IRON = srgbToLinear( [ 0.07, 0.07, 0.07 ] ), LIME = srgbToLinear( [ 0.82, 0.8, 0.74 ] );
+		for ( const [ A, B, n ] of [ [ [ - 35.79, 246.82 ], [ - 41.95, 260.19 ], 7 ], [ [ - 43.32, 262.85 ], [ - 34.11, 264.57 ], 5 ] ] ) {
+
+			const tops = [];
+			for ( let i = 0; i < n; i ++ ) {
+
+				const f = i / ( n - 1 ), x = A[ 0 ] + ( B[ 0 ] - A[ 0 ] ) * f, z = A[ 1 ] + ( B[ 1 ] - A[ 1 ] ) * f, g = T.heightAt( x, z ), yaw = Math.atan2( - ( B[ 1 ] - A[ 1 ] ), B[ 0 ] - A[ 0 ] );
+				kit.color = LIME;
+				kit.box( x, g + 0.3, z, 0.24, 0.65, 0.24, yaw, 'bottom' );
+				kit.box( x, g + 0.65, z, 0.18, 0.07, 0.18, yaw, 'bottom' );
+				this.colliders.addBox( new Vector3( x, g + 0.35, z ), new Vector3( 0.12, 0.35, 0.12 ), 0, { walkable: false, tag: 'bollard' } );
+				tops.push( [ x, g + 0.56, z ] );
+
+			}
+
+			kit.color = IRON;
+			for ( let i = 0; i + 1 < tops.length; i ++ ) {
+
+				const P = tops[ i ], Q = tops[ i + 1 ], K = 16, yaw = Math.atan2( - ( Q[ 2 ] - P[ 2 ] ), Q[ 0 ] - P[ 0 ] ), L = Math.hypot( Q[ 0 ] - P[ 0 ], Q[ 2 ] - P[ 2 ] );
+				for ( let k = 0; k < K; k ++ ) {
+
+					const f = ( k + 0.5 ) / K, y = P[ 1 ] + ( Q[ 1 ] - P[ 1 ] ) * f - 0.38 * 4 * f * ( 1 - f );
+					kit.box( P[ 0 ] + ( Q[ 0 ] - P[ 0 ] ) * f, y, P[ 2 ] + ( Q[ 2 ] - P[ 2 ] ) * f, L / K + 0.01, 0.025, 0.025, yaw, '' );
+
+				}
+
+			}
+
+		}
+
+	}
+
+	// a curved iron balcony guard in front of a French window: balusters bellying out, rails top and bottom
+	_ironBalcony( at, out, t, y0, W, H, IRON ) {
+
+		const kit = this.walls, yaw = at( t ).yaw, belly = ( h ) => 0.1 + 0.2 * Math.sin( Math.PI * Math.min( 1, h / H ) * 0.85 );
+		const piece = ( tt, y, d, w, h, dep ) => {
+
+			const [ x, z ] = out( tt, d );
+			kit.box( x, y + h / 2, z, w, h, dep, yaw, '' );
+
+		};
+		kit.color = IRON;
+		kit.vdata = [ 0, 0, 0.53, 4 ];
+		const N = 9, SEG = 7;
+		for ( let i = 0; i < N; i ++ ) {
+
+			const tt = t - W / 2 + W * i / ( N - 1 ), end = i === 0 || i === N - 1;
+			for ( let j = 0; j < SEG; j ++ ) {
+
+				const h0 = H * j / SEG, h1 = H * ( j + 1 ) / SEG, d = end ? 0.06 : ( belly( h0 ) + belly( h1 ) ) / 2;
+				piece( tt, y0 + h0, d, 0.018, h1 - h0 + 0.01, end ? 0.12 : 0.02 );
+
+			}
+
+		}
+
+		// the rails, and a scroll of bars across the belly
+		for ( const h of [ 0.02, 0.45, H - 0.02 ] ) piece( t, y0 + h - 0.015, belly( h ), W, 0.03, 0.025 );
+
+	}
+
+	// a trailing stem through pts (x, y, z), its leaves on it, all facing roughly `face`
+	_vine( pts, face, r ) {
+
+		const kit = this.walls, STEM = srgbToLinear( [ 0.3, 0.27, 0.18 ] ), LEAVES = [ [ 0.2, 0.3, 0.11 ], [ 0.14, 0.23, 0.08 ], [ 0.27, 0.36, 0.14 ] ].map( srgbToLinear );
+		const want = [ face[ 0 ] + 0.001, 0.35, face[ 2 ] ];
+		kit.vdata = [ 0, 0, 0.53, 4 ];
+		const cross = ( a, b ) => [ a[ 1 ] * b[ 2 ] - a[ 2 ] * b[ 1 ], a[ 2 ] * b[ 0 ] - a[ 0 ] * b[ 2 ], a[ 0 ] * b[ 1 ] - a[ 1 ] * b[ 0 ] ];
+		const unit = ( v ) => { const l = Math.hypot( ...v ) || 1; return v.map( ( q ) => q / l ); };
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const p0 = pts[ i ], p1 = pts[ i + 1 ], dir = unit( p1.map( ( q, k ) => q - p0[ k ] ) ), side = unit( cross( dir, face ) ).map( ( q ) => q * 0.005 );
+			kit.color = STEM;
+			kit.quadFacing( p0.map( ( q, k ) => q - side[ k ] ), p1.map( ( q, k ) => q - side[ k ] ), p1.map( ( q, k ) => q + side[ k ] ), p0.map( ( q, k ) => q + side[ k ] ), want );
+			// leaves in pairs along it, small and pointed, a few missing
+			const seg = Math.hypot( ...p1.map( ( q, k ) => q - p0[ k ] ) );
+			for ( let t = r() * 0.06; t < seg; t += 0.05 + r() * 0.04 ) {
+
+				if ( r() < 0.2 ) continue;
+				const c = p0.map( ( q, k ) => q + dir[ k ] * t ), lean = r() < 0.5 ? - 1 : 1, len = 0.03 + r() * 0.03, wid = len * 0.45;
+				const along = unit( dir.map( ( q, k ) => q * 0.5 + side[ k ] * 200 * lean + ( k === 1 ? - 0.3 : 0 ) ) );
+				const across = unit( cross( along, face ) ), tip = c.map( ( q, k ) => q + along[ k ] * len ), mid = c.map( ( q, k ) => q + along[ k ] * len * 0.45 );
+				kit.color = LEAVES[ Math.floor( r() * 3 ) ];
+				kit.quadFacing( c, mid.map( ( q, k ) => q + across[ k ] * wid ), tip, mid.map( ( q, k ) => q - across[ k ] * wid ), want );
+
+			}
+
+		}
+
+	}
+
+	// the stone steps by the curtain worn like the photo's: pale, sandy treads rubbed lighter down the middle, risers
+	// dark with grime and specked with lichen, moss in the corners and along the curtain's foot, a few weeds. A fine
+	// grid of vertex colours laid just over each face; s up the steps, q out from the curtain (P maps them)
+	_mossySteps( P, yaw, { N, TREAD, S0, S_TOP, Q0, Q1, foot, rise, yG } ) {
+
+		const kit = this.walls, W = Q1 - Q0;
+		const mix = ( c, d, k ) => c.map( ( q, i ) => q + ( d[ i ] - q ) * k );
+		const MOSS = [ 0.3, 0.35, 0.15 ], MOSS2 = [ 0.21, 0.27, 0.11 ];
+		// back: metres to the riser behind (treads), up: height above the step below (risers and side)
+		const tone = ( s, q, h, kind, back, up ) => {
+
+			const n = valueNoise2( s * 3.3 + q * 1.3, h * 3.3 + q * 2.1 ) * 0.6 + valueNoise2( s * 12 + q * 9, h * 12 + q * 4 ) * 0.4;
+			const fine = valueNoise2( s * 31 + q * 23, h * 29 + q * 7 ) * 0.1 - 0.05;
+			let c;
+			if ( kind === 'tread' ) {
+
+				// sandy stone, rubbed paler where feet go, greyer to the sides
+				const worn = Math.exp( - ( ( q - Q0 - W * 0.55 ) ** 2 ) / ( 2 * ( W * 0.22 ) ** 2 ) ) * smoothstep01( 0.02, 0.12, back );
+				c = mix( [ 0.6, 0.56, 0.47 ], [ 0.76, 0.7, 0.58 ], worn * 0.8 + n * 0.3 );
+				// a dark line where the tread meets the riser behind it
+				c = mix( c, [ 0.3, 0.29, 0.25 ], ( 1 - smoothstep01( 0, 0.05, back ) ) * 0.7 );
+
+			} else if ( kind === 'side' ) {
+
+				// the open side whitewashed like the wall it turns from, over the same yellow foot, both grimy and
+				// worn (photo references/...-img-4388)
+				c = mix( [ 0.86, 0.85, 0.8 ], [ 0.6, 0.59, 0.55 ], smoothstep01( 0.45, 0.85, n ) * 0.7 );
+				const barH = 0.6 + ( valueNoise2( s * 4, 1.7 ) - 0.5 ) * 0.04;
+				const ochre = mix( [ 0.8, 0.6, 0.2 ], [ 0.62, 0.5, 0.26 ], smoothstep01( 0.4, 0.8, n ) );
+				c = mix( c, ochre, 1 - smoothstep01( barH - 0.01, barH + 0.01, h ) );
+				c = mix( c, [ 0.36, 0.34, 0.3 ], ( 1 - smoothstep01( 0.02, 0.2, h ) ) * 0.5 );
+				return srgbToLinear( c.map( ( q ) => Math.max( 0, q + fine * 0.5 ) ) );
+
+			} else {
+
+				// risers in shade and grime: dark grey, streaked downward, lighter where the nosing has worn
+				c = mix( [ 0.4, 0.39, 0.35 ], [ 0.29, 0.29, 0.26 ], smoothstep01( 0.3, 0.8, valueNoise2( s * 2 + q * 7, h * 0.8 ) ) );
+				c = mix( c, [ 0.62, 0.58, 0.5 ], smoothstep01( 0.7, 1, up / rise ) * 0.5 );
+				// lichen: small pale specks
+				const L = valueNoise2( s * 26 + q * 23, h * 26 + q * 11 );
+				c = mix( c, [ 0.58, 0.6, 0.5 ], smoothstep01( 0.8, 0.9, L ) * 0.45 );
+
+			}
+
+			// moss: thick at the curtain's foot, in the corners at the back of each tread and the bottom of each
+			// riser, in patches elsewhere
+			const curtain = 1 - smoothstep01( 0.04, 0.32, q - Q0 );
+			const corner = kind === 'tread' ? 1 - smoothstep01( 0, 0.08, back ) : 1 - smoothstep01( 0, 0.07, up );
+			const m = smoothstep01( 0.36, 0.58, n + curtain * 0.4 + corner * 0.3 ) * ( 0.35 + curtain * 0.6 + corner * 0.5 );
+			c = mix( c, valueNoise2( s * 19, q * 19 + h * 7 ) > 0.5 ? MOSS : MOSS2, Math.min( 0.95, m ) );
+			return srgbToLinear( c.map( ( q ) => Math.max( 0, q + fine ) ) );
+
+		};
+		// one face: from ( s0, y0, q0 ), A metres along its first axis, B along its second (tread: q then s; riser:
+		// q then up; side: s then up). The axis pairs turn to the faces' normals as in the garden steps
+		const face = ( s0, y0, q0, kind, A, B, back0 = 0 ) => {
+
+			const CELL = 0.035, nA = Math.max( 1, Math.ceil( A / CELL ) ), nB = Math.max( 1, Math.ceil( B / CELL ) );
+			const o = P( 0, 0 ), u = P( 1, 0 ), v = P( 0, 1 );
+			const normal = kind === 'tread' ? [ 0, 1, 0 ] : kind === 'side' ? [ v[ 0 ] - o[ 0 ], 0, v[ 1 ] - o[ 1 ] ] : [ o[ 0 ] - u[ 0 ], 0, o[ 1 ] - u[ 1 ] ];
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			const vert = ( ia, jb ) => {
+
+				const a = Math.min( A, ia * A / nA ), b = Math.min( B, jb * B / nB );
+				const s = kind === 'tread' ? s0 + b : kind === 'side' ? s0 + a : s0 - 0.004;
+				const q = kind === 'tread' ? q0 + a : kind === 'side' ? q0 + 0.004 : q0 + a;
+				const h = kind === 'tread' ? y0 + 0.004 : y0 + b;
+				kit.color = tone( s, q, h - foot, kind, kind === 'tread' ? back0 - b : 0, kind === 'tread' ? 0 : b );
+				const p = P( s, q );
+				return kit.vertex( [ p[ 0 ], h, p[ 1 ] ], normal, a, b );
+
+			};
+
+			for ( let i = 0; i < nA; i ++ ) for ( let j = 0; j < nB; j ++ ) {
+
+				const ids = [ vert( i, j ), vert( i + 1, j ), vert( i + 1, j + 1 ), vert( i, j + 1 ) ];
+				kit.idx.push( ids[ 0 ], ids[ 1 ], ids[ 2 ], ids[ 0 ], ids[ 2 ], ids[ 3 ] );
+
+			}
+
+		};
+		for ( let i = 0; i < N; i ++ ) {
+
+			const s0 = S0 + TREAD * i, s1 = s0 + TREAD, top = foot + rise * ( i + 1 );
+			face( s0, top - rise, Q0, 'riser', W, rise );
+			// (the last runs on into the landing, with no riser behind it)
+			face( s0, top, Q0, 'tread', W, i < N - 1 ? TREAD : TREAD + 0.6, i < N - 1 ? TREAD : 9 );
+			// the open side, stepped like the treads, down to the street
+			face( s0, foot - 0.05, Q1, 'side', ( i < N - 1 ? s1 : S_TOP ) - s0, top - foot + 0.05 );
+
+		}
+
+		// weeds: along the curtain's foot up the steps and a tuft at the top corner
+		const r = mulberry32( 4386 ), LEAF = srgbToLinear( [ 0.22, 0.3, 0.12 ] ), LEAF2 = srgbToLinear( [ 0.15, 0.22, 0.08 ] );
+		const blade = ( s, q, y, h ) => {
+
+			const [ x, z ] = P( s, q ), ws = 0.0025 + r() * 0.003, wq = 0.004 + r() * 0.005;
+			kit.color = r() < 0.5 ? LEAF : LEAF2;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.box( x, y + h / 2, z, ws * 2, h, wq * 2, yaw, 'bottom' );
+
+		};
+		for ( let i = 0; i < 40; i ++ ) {
+
+			const k = Math.floor( r() * N ), s = S0 + TREAD * k + 0.02 + r() * ( TREAD - 0.04 );
+			blade( s, Q0 + 0.03 + r() * r() * 0.16, foot + rise * ( k + 1 ), 0.03 + r() * r() * 0.12 );
+
+		}
+
+		for ( let i = 0; i < 18; i ++ ) blade( S_TOP + 0.03 + r() * 0.3, Q0 + 0.03 + r() * 0.25, yG, 0.05 + r() * r() * 0.2 );
+		// and in the street at the bottom step's foot, by the curtain
+		for ( let i = 0; i < 12; i ++ ) blade( S0 - 0.04 - r() * 0.2, Q0 + 0.03 + r() * 0.3, foot + 0.02, 0.04 + r() * 0.12 );
+
+	}
+
+	// a whitewashed wall along pts, its outside on the left going along (x, z), a yellow foot following the
+	// ground, its top level
+	// round > 0: the top's outer edge rounded to that radius (and the ends to match)
+	_footedWall( wall, tops, round = 0 ) {
+
+		const T = this.terrain, kit = this.walls, TH = 0.6, topAt = ( i ) => Array.isArray( tops ) ? tops[ i ] : tops;
+		const ARC = round > 0 ? [ 0, 1, 2, 3, 4 ].map( ( k ) => k / 4 * Math.PI / 2 ) : [];
+		// the rounded edge's profile under a top t: d in from the face, y
+		const arcAt = ( t, th ) => [ round * ( 1 - Math.cos( th ) ), t - round + round * Math.sin( th ) ];
+		kit.color = srgbToLinear( [ 0.88, 0.66, 0.2 ] );
+		for ( let i = 0; i + 1 < wall.length; i ++ ) {
+
+			const a = wall[ i ], c = wall[ i + 1 ], L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] ), ta = topAt( i ), tc = topAt( i + 1 );
+			const ux = ( c[ 0 ] - a[ 0 ] ) / L, uz = ( c[ 1 ] - a[ 1 ] ) / L;
+			// outward, the street's side
+			const nx = uz, nz = - ux;
+			const ga = T.heightAt( a[ 0 ] + nx * 0.4, a[ 1 ] + nz * 0.4 ), gc = T.heightAt( c[ 0 ] + nx * 0.4, c[ 1 ] + nz * 0.4 ), g = Math.min( ga, gc ), base = g - 0.8;
+			const slope = Math.max( - 0.95, Math.min( 0.95, ( gc - ga ) / L ) );
+			const p = ( q, d ) => [ q[ 0 ] - nx * d, q[ 1 ] - nz * d ];
+			const B = [ p( a, TH ), p( c, TH ) ];
+			kit.vdata = [ L, 1, 0.073, slope * 0.4 ];
+			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], tc - round, c[ 1 ] ], [ a[ 0 ], ta - round, a[ 1 ] ], [ nx, 0, nz ],
+				[ [ 0, base - g ], [ L, base - g ], [ L, tc - round - g ], [ 0, ta - round - g ] ] );
+			// its back and top, white (well above the foot); its ends
+			kit.vdata = [ L, 1, 0.073, 0 ];
+			kit.quadFacing( [ B[ 0 ][ 0 ], base, B[ 0 ][ 1 ] ], [ B[ 1 ][ 0 ], base, B[ 1 ][ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ - nx, 0, - nz ],
+				[ [ 0, 3 ], [ L, 3 ], [ L, 5 ], [ 0, 5 ] ] );
+			const R0 = p( a, round ), R1 = p( c, round );
+			kit.quadFacing( [ R0[ 0 ], ta, R0[ 1 ] ], [ R1[ 0 ], tc, R1[ 1 ] ], [ B[ 1 ][ 0 ], tc, B[ 1 ][ 1 ] ], [ B[ 0 ][ 0 ], ta, B[ 0 ][ 1 ] ], [ 0, 1, 0 ],
+				[ [ 0, 5 ], [ L, 5 ], [ L, 5.6 ], [ 0, 5.6 ] ] );
+			for ( let k = 0; k + 1 < ARC.length; k ++ ) {
+
+				const [ d0, ya0 ] = arcAt( ta, ARC[ k ] ), [ d1, ya1 ] = arcAt( ta, ARC[ k + 1 ] ), [ , yc0 ] = arcAt( tc, ARC[ k ] ), [ , yc1 ] = arcAt( tc, ARC[ k + 1 ] );
+				const A0 = p( a, d0 ), A1 = p( a, d1 ), C0 = p( c, d0 ), C1 = p( c, d1 ), m = ( ARC[ k ] + ARC[ k + 1 ] ) / 2;
+				kit.quadFacing( [ A0[ 0 ], ya0, A0[ 1 ] ], [ C0[ 0 ], yc0, C0[ 1 ] ], [ C1[ 0 ], yc1, C1[ 1 ] ], [ A1[ 0 ], ya1, A1[ 1 ] ], [ nx * Math.cos( m ), Math.sin( m ), nz * Math.cos( m ) ],
+					[ [ 0, ya0 - g ], [ L, yc0 - g ], [ L, yc1 - g ], [ 0, ya1 - g ] ] );
+
+			}
+
+			// an end: up to the rounded edge, then fanned from the back under it
+			const end = ( q, t, gq, want, uvOff ) => {
+
+				const Bq = p( q, TH ), v = ( d, y ) => { const r = p( q, d ); return [ r[ 0 ], y, r[ 1 ] ]; };
+				kit.quadFacing( [ q[ 0 ], base, q[ 1 ] ], [ Bq[ 0 ], base, Bq[ 1 ] ], [ Bq[ 0 ], t - round, Bq[ 1 ] ], [ q[ 0 ], t - round, q[ 1 ] ], want,
+					[ [ 0, base - gq + uvOff ], [ TH, base - gq + uvOff ], [ TH, t - round - gq + uvOff ], [ 0, t - round - gq + uvOff ] ] );
+				if ( round <= 0 ) return;
+				const pts = ARC.map( ( th ) => arcAt( t, th ) ).concat( [ [ TH, t ] ] ), hub = v( TH, t - round );
+				for ( let k = 0; k + 1 < pts.length; k ++ ) {
+
+					const P0 = v( ...pts[ k ] ), P1 = v( ...pts[ k + 1 ] );
+					kit.quadFacing( hub, P0, P1, P1, want, [ [ TH, t - round - gq + uvOff ], [ pts[ k ][ 0 ], P0[ 1 ] - gq + uvOff ], [ pts[ k + 1 ][ 0 ], P1[ 1 ] - gq + uvOff ], [ pts[ k + 1 ][ 0 ], P1[ 1 ] - gq + uvOff ] ] );
+
+				}
+
+			};
+			if ( i === 0 ) end( a, ta, ga, [ - ux, 0, - uz ], 3 );
+			// the far end: its foot painted too where it faces the street
+			kit.vdata = [ TH, 1, 0.073, 0 ];
+			if ( i === wall.length - 2 ) end( c, tc, gc, [ ux, 0, uz ], 0 );
+
+			const top = Math.max( ta, tc );
+			this.colliders.addBox( new Vector3( ( a[ 0 ] + c[ 0 ] ) / 2 - nx * TH / 2, ( base + top ) / 2, ( a[ 1 ] + c[ 1 ] ) / 2 - nz * TH / 2 ), new Vector3( L / 2, ( top - base ) / 2, TH / 2 ), Math.atan2( - uz, ux ), { walkable: false, tag: 'wall' } );
+
+		}
+
+	}
+
+	// the fork at the end of the climb down the curtain (photo references/...-img-4390): the two houses before it,
+	// the wall between the streets, the long low house past it with its green gate, the signs
+	_ornelasFork( list ) {
+
+		const E = this.terrain.ornelasEast, find = ( id ) => list.find( ( q ) => q.b.id === id );
+		if ( ! E ) return;
+		const T = this.terrain, kit = this.walls;
+		const YELLOW = srgbToLinear( [ 0.88, 0.66, 0.2 ] ), CREAM = srgbToLinear( [ 0.92, 0.86, 0.71 ] ), WOOD = srgbToLinear( [ 0.2, 0.12, 0.07 ] ), FRAME = srgbToLinear( [ 0.3, 0.36, 0.28 ] );
+		const GREEN = srgbToLinear( [ 0.36, 0.6, 0.48 ] ), GREEN_DARK = srgbToLinear( [ 0.25, 0.44, 0.35 ] ), WHITE = srgbToLinear( [ 0.93, 0.92, 0.88 ] ), BLUE = srgbToLinear( [ 0.08, 0.25, 0.68 ] );
+		this._footedWall( E.forkWall, E.forkTop );
+
+		// the house with the steps: cream over a yellow foot, a yellow pilaster at its far corner
+		const h1 = find( 299088474 );
+		if ( h1 ) {
+
+			const L = Math.hypot( 1.5, 6.7 ), { at, out, ground: g, part, opening, pot, STONE } = this._frontTools( h1, [ [ 75.7, 109.4 ], [ 77.2, 102.7 ] ] );
+			const A = out( 0, 0.03 ), C = out( L, 0.03 ), ha = h1.roofH( A[ 0 ], A[ 1 ] ), hc = h1.roofH( C[ 0 ], C[ 1 ] ), p = at( 1 ), n = out( 1, 1 ), o = out( 1, 0 ), want = [ n[ 0 ] - o[ 0 ], 0, n[ 1 ] - o[ 1 ] ];
+			kit.color = CREAM;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.quadFacing( [ A[ 0 ], h1.base, A[ 1 ] ], [ C[ 0 ], h1.base, C[ 1 ] ], [ C[ 0 ], hc, C[ 1 ] ], [ A[ 0 ], ha, A[ 1 ] ], want, [ [ 0, 0 ], [ L, 0 ], [ L, 1 ], [ 0, 1 ] ] );
+			const FA = out( 0, 0.05 ), FC = out( L, 0.05 ), ga = g( 0 ), gc = g( L ), FOOT = 0.85;
+			kit.color = YELLOW;
+			kit.quadFacing( [ FA[ 0 ], h1.base, FA[ 1 ] ], [ FC[ 0 ], h1.base, FC[ 1 ] ], [ FC[ 0 ], gc + FOOT, FC[ 1 ] ], [ FA[ 0 ], ga + FOOT, FA[ 1 ] ], want, [ [ 0, 0 ], [ L, 0 ], [ L, 1 ], [ 0, 1 ] ] );
+			part( L - 0.34, L, h1.base, h1.roofH( ...out( L, 0.1 ) ), 0.1, YELLOW );
+			const DOOR_T = 5, up = g( DOOR_T ) + 2.95;
+			// the door over two worn steps, a window beside it, two over them, a pot on its hoop
+			const stepY = g( DOOR_T + 1 ) + 0.02;
+			part( DOOR_T - 1.1, DOOR_T + 1.1, h1.base, stepY + 0.17, 1.05, STONE );
+			part( DOOR_T - 0.95, DOOR_T + 0.95, h1.base, stepY + 0.34, 0.55, STONE );
+			{
+
+				const yaw = at( DOOR_T ).yaw, foot = stepY - 0.4;
+				for ( const [ proud, half, top ] of [ [ 1.05, 1.1, 0.17 ], [ 0.55, 0.95, 0.34 ] ] ) {
+
+					const [ cx, cz ] = out( DOOR_T, proud / 2 ), y1 = stepY + top;
+					this.colliders.addBox( new Vector3( cx, ( foot + y1 ) / 2, cz ), new Vector3( half, ( y1 - foot ) / 2, proud / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+				}
+
+			}
+
+			opening( DOOR_T, stepY + 0.34, 1, 2.2, true, WOOD );
+			opening( 2.2, g( 2.2 ) + 1, 0.8, 1.2, false, undefined, FRAME );
+			opening( DOOR_T, up, 0.85, 1.2, false, undefined, FRAME );
+			opening( 2.2, up, 0.85, 1.2, false, undefined, FRAME );
+			pot( DOOR_T + 1, up + 0.65, 51 );
+
+		}
+
+		// the low one after it: a blue foot, one window with wooden shutters, a meter box
+		const h2 = find( 299088432 );
+		if ( h2 ) {
+
+			const L = Math.hypot( 2.4, 5.2 ), { ground: g, plaster, part, opening } = this._frontTools( h2, [ [ 77.2, 102.7 ], [ 79.6, 97.5 ] ] );
+			plaster( 0, L, [ 0.13, 0.24, 0.6 ], 0.073 );
+			opening( 3.1, g( 3.1 ) + 1.05, 0.8, 1.1, false, undefined, WOOD );
+			part( 1.2, 1.55, g( 1.2 ) + 0.6, g( 1.2 ) + 1.05, 0.05, srgbToLinear( [ 0.78, 0.76, 0.7 ] ) );
+
+		}
+
+		// the long one: white, a yellow foot, the wall across its yard's mouth carrying on its line; the green gate
+		// in that; a blue sign on the wall beside it; on the stone wall's
+		// return (Walls._ornelasForkStone) a tile plaque and a lamp
+		const h3 = find( 299088405 );
+		if ( h3 ) {
+
+			const LINE = [ [ 83.4, 81.4 ], [ 81.8, 68.8 ], [ 83.3, 51.6 ] ], B = Math.hypot( 1.6, 12.6 ), END = B + Math.hypot( 1.5, 17.2 );
+			const { ground: g, plaster, part } = this._frontTools( h3, LINE, - 1 );
+			this.colliders.addBox( new Vector3( 82.6, g( 6 ) + 1, 75.1 ), new Vector3( 6.35, 3, 0.2 ), Math.atan2( 0.992, - 0.126 ), { walkable: false, tag: 'wall' } );
+			plaster( 0, B, [ 0.88, 0.66, 0.2 ], 0.073 );
+			plaster( B, END, [ 0.88, 0.66, 0.2 ], 0.073 );
+			const y0 = g( 3.1 ) - 0.1, t0 = 0.9, t1 = 5.4;
+			part( t0, t1, y0, y0 + 2.5, 0.08, GREEN );
+			for ( let t = t0 + 0.14; t < t1; t += 0.28 ) part( t - 0.02, t + 0.02, y0, y0 + 2.5, 0.1, GREEN_DARK );
+			part( ( t0 + t1 ) / 2 - 0.04, ( t0 + t1 ) / 2 + 0.04, y0, y0 + 2.5, 0.12, GREEN_DARK );
+			for ( const y of [ 0.15, 1.2, 2.4 ] ) part( t0, t1, y0 + y - 0.05, y0 + y + 0.05, 0.12, GREEN_DARK );
+			part( 6.9, 7.4, g( 7 ) + 1.9, g( 7 ) + 2.4, 0.05, BLUE );
+			part( 7.08, 7.22, g( 7 ) + 1.98, g( 7 ) + 2.28, 0.06, WHITE );
+
+			const R = this._frontTools( h3, [ [ 83.4, 81.4 ], [ 86, 83.1 ] ] ), gr = R.ground( 1.5 ) + 0.2;
+			R.part( 0.7, 1.6, gr + 1.5, gr + 2.05, 0.3, WHITE );
+			R.part( 0.8, 1.5, gr + 1.6, gr + 1.95, 0.32, BLUE );
+			R.part( 2.25, 2.4, gr + 1.95, gr + 2.3, 0.45, srgbToLinear( [ 0.12, 0.12, 0.12 ] ) );
+			R.part( 2.27, 2.38, gr + 1.65, gr + 1.95, 0.45, srgbToLinear( [ 0.86, 0.84, 0.72 ] ) );
+
+		}
+
+		// the small round metal lid set in the setts near the climb's start
+		{
+
+			const x = 72.1, z = 107.5, y = T.heightAt( x, z ) + 0.02, n = 12;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			for ( const [ r, up, c ] of [ [ 0.09, 0, [ 0.1, 0.1, 0.1 ] ], [ 0.06, 0.004, [ 0.3, 0.31, 0.3 ] ] ] ) {
+
+				kit.color = srgbToLinear( c );
+				for ( let i = 0; i < n; i ++ ) {
+
+					const a0 = i / n * Math.PI * 2, a1 = ( i + 1 ) / n * Math.PI * 2;
+					kit.tri( [ x, y + up, z ], [ x + Math.cos( a1 ) * r, y + up, z + Math.sin( a1 ) * r ], [ x + Math.cos( a0 ) * r, y + up, z + Math.sin( a0 ) * r ], [ [ 0, 0 ], [ 0, 0 ], [ 0, 0 ] ], [ 0, 1, 0 ] );
+
+				}
+
+			}
+
+		}
+
+		// the round sign by the curtain, on its post, seen from behind going down
+		{
+
+			const x = 71.1, z = 98.8, y = T.heightAt( x, z ), GREY = srgbToLinear( [ 0.36, 0.37, 0.37 ] ), r = 0.31, n = 6;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			kit.color = GREY;
+			kit.box( x, y + 1.15, z + 0.02, 0.07, 2.3, 0.07, 0, 'bottom' );
+			const disc = ( cy, rad, dz, c ) => {
+
+				kit.color = c;
+				for ( let i = 0; i < n; i ++ ) {
+
+					const v0 = - rad + 2 * rad * i / n, v1 = v0 + 2 * rad / n, vm = Math.max( Math.abs( v0 ), Math.abs( v1 ) ) * 0.85;
+					kit.box( x, cy + ( v0 + v1 ) / 2, z + dz, 2 * Math.sqrt( Math.max( 0, rad * rad - vm * vm ) ), v1 - v0, 0.02, 0, 'bottom' );
+
+				}
+
+			};
+			disc( y + 2, r, 0.05, GREY );
+			disc( y + 2, r, - 0.01, srgbToLinear( [ 0.75, 0.1, 0.08 ] ) );
+			disc( y + 2, r * 0.76, - 0.03, srgbToLinear( [ 0.1, 0.28, 0.72 ] ) );
+			this.colliders.addBox( new Vector3( x, y + 1.15, z ), new Vector3( 0.06, 1.15, 0.06 ), 0, { walkable: false, tag: 'sign' } );
+
+		}
+
+	}
+
+	// a line of small pale stones set in the street, lying on its slope
+	_stoneLine( pts, width = 0.3 ) {
+
+		const T = this.terrain, kit = this.walls, rand = mulberry32( 4392 );
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const a = pts[ i ], b = pts[ i + 1 ];
+			const L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ), ux = ( b[ 0 ] - a[ 0 ] ) / L, uz = ( b[ 1 ] - a[ 1 ] ) / L;
+			for ( let d = 0; d < L - 0.1; ) {
+
+				const len = Math.min( 0.28 + rand() * 0.22, L - d ), hw = width / 2 * ( 0.85 + rand() * 0.3 ), off = ( rand() - 0.5 ) * 0.05, v = 0.6 + rand() * 0.14;
+				const P = ( t, s ) => {
+
+					const x = a[ 0 ] + ux * ( d + t ) - uz * ( off + s ), z = a[ 1 ] + uz * ( d + t ) + ux * ( off + s );
+					return [ x, T.heightAt( x, z ) + 0.025, z ];
+
+				};
+				kit.color = srgbToLinear( [ v, v * 0.96, v * 0.86 ] );
+				kit.vdata = [ len, 1, 0.1 + rand() * 0.2, 0 ]; // no windows
+				kit.quadFacing( P( 0.02, - hw ), P( len - 0.02, - hw ), P( len - 0.02, hw ), P( 0.02, hw ), [ 0, 1, 0 ], [ [ 0, 0 ], [ len, 0 ], [ len, 0.3 ], [ 0, 0.3 ] ] );
+				d += len;
+
+			}
+
+		}
+
+	}
+
 	// a whitewashed wall along pts (the Casa da Música's terrace), with a painted base band, from below the
 	// ground up to `top`
 	_parapet( { pts, top, thick }, paint ) {
@@ -406,6 +1761,7 @@ export class Town {
 		let eave = Math.max( ( gLow + gMax ) / 2 + storeys * STOREY + 0.2, gMax + 2.7 );
 		if ( isChurch ) eave = gMax + Math.min( 13, 6 + Math.sqrt( f.area ) * 0.5 );
 		if ( isTower ) eave = gMax + 16;
+		if ( EAVE[ b.id ] ) eave = EAVE[ b.id ];
 		const base = gMin - 1.2;
 
 		// roof: gable along the oriented box, ridge through its centre
@@ -422,6 +1778,9 @@ export class Town {
 			return eave + Math.max( 0, Math.min( rise, ( halfW - a ) * PITCH ) );
 
 		};
+
+		f.roofH = roofH; // (for a front built over this wall: Town._ornelasFronts)
+		f.base = base;
 
 		// split the outline where it crosses a roof crease (the ridge, the flat strip's edges)
 		const creases = flat > 0.05 ? [ - flat, flat ] : [ 0 ];

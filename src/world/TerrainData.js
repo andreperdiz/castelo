@@ -53,6 +53,46 @@ export const PORTA_DA_VILA_SQUARE = [ [ - 60.2, 236.4 ], [ - 44, 236.4 ], [ - 44
 // (OSM's line, from the square), cobbled: a few steps down off the square, then a slope, with a wall
 // holding the square up on its left
 export const ORNELAS = [ [ - 46.7, 261.2 ], [ - 42.7, 253 ], [ - 39.1, 245.5 ], [ - 35.7, 234.9 ], [ - 31.4, 221.8 ] ];
+// The same street further on, along the curtain's foot below Porta Este's corner (photo references/...-img-4391):
+// the setts stop at a line of pale stones (guide, going up); between it and the wall a strip of worn ground
+// with patches of setts (strip); then a whitewashed wall across the strip and on up the street's edge
+// (wall: from the curtain's foot to the corner, then up the street), holding up a garden against the curtain
+// (garden: the ground raised inside it, far enough in for the wall to hide the slope).
+// the small stones marked S R along that street: one at the white wall's corner, one further down
+export const ORNELAS_MARKERS = [ [ 67.1, 111.9 ], [ 59.05, 118.66 ] ];
+export const ORNELAS_EAST = {
+	street: [ [ 72.8, 110 ], [ 68.1, 114.4 ], [ 60.1, 120.3 ], [ 54.7, 124.2 ], [ 48.3, 127.8 ], [ 41.8, 131.3 ] ],
+	guide: [ [ 70.4, 109.9 ], [ 66.9, 113.1 ], [ 60.6, 117.8 ] ],
+	strip: [ [ 70.4, 109.9 ], [ 66.9, 113.1 ], [ 59.1, 118.9 ], [ 55.9, 114.4 ], [ 60.5, 112.3 ], [ 66.1, 110.1 ], [ 67.7, 109.3 ] ],
+	// (it stops short of the curtain: the steps up into the garden go through the gap, photo references/...-img-4389)
+	wall: [ [ 57.56, 116.8 ], [ 58.99, 118.75 ], [ 59.03, 118.88 ], [ 58.95, 119.01 ], [ 53.7, 122.8 ], [ 50.7, 124.5 ] ],
+	garden: [ [ 55.63, 116.2 ], [ 57.42, 118.64 ], [ 53, 121.83 ], [ 50.12, 123.45 ], [ 46, 122.5 ], [ 44.5, 119.5 ], [ 50, 114.5 ], [ 55.6, 112.5 ] ],
+	// and up the street from it (photo references/...-img-4386): the same wall goes on along the street (OSM's
+	// garden wall) to a few steps by the curtain, its top following the street; the garden behind it raised
+	// (upperGarden: far enough in for the wall to hide the slope)
+	upperWall: [ [ 50.7, 124.5 ], [ 46.99, 126.58 ], [ 43.28, 128.66 ], [ 39.56, 130.74 ], [ 35.85, 132.81 ], [ 32.14, 134.89 ], [ 28.43, 136.97 ], [ 24.71, 139.05 ],
+		// (its corner rounded, as in references/...-img-4388)
+		[ 21.34, 140.94 ], [ 21.24, 140.99 ], [ 21.12, 141.01 ], [ 21.01, 141.01 ], [ 20.89, 141.00 ], [ 20.79, 140.96 ], [ 20.69, 140.90 ], [ 19.96, 140.35 ] ],
+	// along the curtain's face up the street from the stone steps (photo references/...-img-4384): its foot's
+	// greyer lowest courses (Walls._footTone) and before them a strip of rough stones in sand
+	curtainFoot: [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ], [ - 30.31, 211.41 ], [ - 35.5, 219.15 ] ],
+	// near the top (photo references/...-img-4383): a whitewashed wall over a yellow foot leaves the curtain, tall
+	// there, comes out toward the street and round, its top curving down, into the line of the tall house's
+	// front, to its corner (topWall); the street paved wall to wall (topStreet, OSM's centre line)
+	topWall: [ [ - 35.65, 219.39 ], [ - 34.75, 220.6 ], [ - 34.2, 222.1 ], [ - 34.55, 223.0 ], [ - 35.3, 225.4 ] ],
+	topStreet: [ [ - 20.5, 204.3 ], [ - 24.6, 210.9 ], [ - 31.4, 221.8 ], [ - 35.7, 234.9 ] ],
+	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
+	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot
+	// to the fronts (pave, foot along the curtain), one even climb (climb); at the fork the lower street goes off
+	// to the right (low) under a whitewashed wall with a rounded end (forkWall), holding up the upper street
+	// (forkUpper: far enough in for the wall to hide the slope)
+	pave: [ [ 67.7, 109.3 ], [ 70.4, 109.9 ], [ 75.7, 109.4 ], [ 77.2, 102.7 ], [ 79.6, 97.5 ], [ 81, 92 ], [ 80, 86.8 ], [ 85.5, 83.2 ], [ 83.4, 81.4 ], [ 81.8, 68.8 ], [ 82.6, 60 ], [ 73, 60 ], [ 71, 80 ], [ 69.5, 92 ] ],
+	foot: [ [ 67.8, 109 ], [ 70, 89.7 ], [ 71.4, 76 ], [ 73.3, 60 ] ],
+	climb: [ [ 73.2, 109 ], [ 75, 100 ], [ 75.5, 91 ] ],
+	low: [ [ 78, 93.6 ], [ 82.2, 89.7 ], [ 86, 86.2 ], [ 90.5, 83.3 ] ],
+	forkWall: [ [ 85.9, 83.3 ], [ 80.6, 87.3 ], [ 80.38, 87.36 ], [ 80.18, 87.24 ], [ 80.12, 87.02 ], [ 80.24, 86.82 ] ],
+	forkUpper: [ [ 85.2, 82.3 ], [ 79.9, 86.3 ], [ 78, 85 ], [ 79, 80 ], [ 83, 80 ] ],
+};
 // Porta Este, the gate in the east curtain where Travessa do Poço comes out (photo
 // references/...-deforaportaeste), and the lane's end at Rua Padre Nunes Tavares
 export const PORTA_ESTE = [ 74.9, 48.5 ];
@@ -618,6 +658,7 @@ export class TerrainData {
 		} );
 
 		this._ornelas();
+		this._ornelasEast();
 
 		// the small square inside the inner arch: level, 0.6 m over the street. Walls builds its floor,
 		// steps and walls and the stone column; the ground under it is left as it is
@@ -626,16 +667,16 @@ export class TerrainData {
 
 	}
 
-	// Rua Dom João de Ornelas (ORNELAS): a cars' slope from the square, 1.2 m down by the wall's start, then on
-	// down to where it meets the ground again; beside it on its left the square runs on level to a short
-	// flight of steps down to the wall's start. this.ornelas tells Walls where the steps and the wall go.
+	// Rua Dom João de Ornelas (ORNELAS): a cars' slope from the square, 1.2 m down by S_W, then on down to
+	// where it meets the ground again; beside it on its left the square, level, held up by a wall from W_START
+	// (level with the end of the bollards across the street). this.ornelas tells Walls where the wall goes.
 	_ornelas() {
 
 		const F = this.pvFloor, { res, texel, origin, heights } = this;
 		const R = ORNELAS, cum = [ 0 ];
 		for ( let i = 1; i < R.length; i ++ ) cum.push( cum[ i - 1 ] + Math.hypot( R[ i ][ 0 ] - R[ i - 1 ][ 0 ], R[ i ][ 1 ] - R[ i - 1 ][ 1 ] ) );
 		const L = cum[ cum.length - 1 ], end = R[ R.length - 1 ], yEnd = this.heightAt( end[ 0 ], end[ 1 ] );
-		const HALF = 2.4, S0 = 0.5, S_W = 8, DROP = 1.2, yW = F - DROP, FLIGHT = 2.25;
+		const HALF = 2.4, S0 = 0.5, S_W = 8, DROP = 1.2, yW = F - DROP, W_START = 3;
 		const roadY = ( s ) => s <= S0 ? F : s < S_W ? lerp( F, yW, ( s - S0 ) / ( S_W - S0 ) ) : lerp( yW, yEnd, smoothstep( 0, 1, ( s - S_W ) / ( L - S_W ) ) * 0.4 + 0.6 * ( s - S_W ) / ( L - S_W ) );
 		// position, direction (going down) and the left (the square's side) at s along the line
 		const at = ( s ) => {
@@ -647,7 +688,7 @@ export class TerrainData {
 			return { x: a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * t, z: a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * t, dx, dz, lx: dz, lz: - dx };
 
 		};
-		// the wall's road face, a little off the road's left edge, from the steps' top to the house
+		// the wall's road face, a little off the road's left edge, from W_START to the house
 		const WALL_OFF = HALF + 0.2, WALL_END = 24.8;
 		const SOFT = 4;
 		this._stroke( R, HALF, SOFT, ( k, t ) => {
@@ -664,11 +705,11 @@ export class TerrainData {
 
 			const p = at( best.s ), side = ( x - p.x ) * p.lx + ( z - p.z ) * p.lz;
 			// on the square's side: the street's level reaches a little under what stands at its edge (the
-			// square's kerb, the steps and their side wall, the wall), so the ground doesn't slope out of their
+			// square's kerb, the wall), so the ground doesn't slope out of their
 			// faces; the square, level, beyond (Walls paves over the dip behind them)
 			if ( side > 0 && best.s < WALL_END ) {
 
-				const low = best.s < S_W - FLIGHT ? HALF + 1 : best.s < S_W ? HALF + 3 : WALL_OFF + 1;
+				const low = best.s < W_START ? HALF + 1 : WALL_OFF + 1;
 				heights[ k ] = side <= low ? roadY( best.s ) : F;
 				return;
 
@@ -678,7 +719,7 @@ export class TerrainData {
 			heights[ k ] = lerp( heights[ k ], roadY( best.s ), side > 0 ? 1 : t );
 
 		} );
-		this.ornelas = { at, roadY, F, S0, S_W, DROP, FLIGHT, HALF, WALL_OFF, WALL_END, length: L };
+		this.ornelas = { at, roadY, F, S0, S_W, DROP, W_START, HALF, WALL_OFF, WALL_END, length: L };
 
 	}
 
@@ -1194,6 +1235,193 @@ export class TerrainData {
 
 	}
 
+	// ORNELAS_EAST: the street's levels; the garden 1.4 m over the street at the wall's corner (never lowering the ground, which
+	// climbs to the curtain). this.ornelasEast tells Town the wall's top, 0.3 m over it.
+	_ornelasEast() {
+
+		const E = ORNELAS_EAST, { heights, res, texel, origin } = this;
+		// the street an even climb from point to point, without the ground's small waves
+		const R = E.street, ys = R.map( ( q ) => this.heightAt( q[ 0 ], q[ 1 ] ) );
+		this._stroke( R, 3.4, 3, ( k, t ) => {
+
+			if ( this.inside[ k ] ) return;
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			let best = null;
+			for ( let i = 0; i + 1 < R.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, R[ i ], R[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, y: lerp( ys[ i ], ys[ i + 1 ], u ) };
+
+			}
+
+			heights[ k ] = lerp( heights[ k ], best.y, 1 - smoothstep( 3.4, 6.4, best.d ) );
+
+		} );
+		// on up the street from the white wall, past the stone steps and the long cream front, one even grade to the
+		// top of its straight run and a gentler one beyond (photo references/...-img-4384): no waves, level across
+		{
+
+			const U = [ [ 41.8, 131.3 ], [ 33.5, 135.9 ], [ 23.8, 141.2 ], [ 14.2, 151.4 ], [ 1, 170 ], [ - 24.6, 210.9 ] ];
+			const cum = [ 0 ];
+			for ( let i = 0; i + 1 < U.length; i ++ ) cum.push( cum[ i ] + Math.hypot( U[ i + 1 ][ 0 ] - U[ i ][ 0 ], U[ i + 1 ][ 1 ] - U[ i ][ 1 ] ) );
+			const along = ( d ) => {
+
+				let i = 0;
+				while ( i + 2 < U.length && d > cum[ i + 1 ] ) i ++;
+				const u = ( d - cum[ i ] ) / ( cum[ i + 1 ] - cum[ i ] );
+				return [ lerp( U[ i ][ 0 ], U[ i + 1 ][ 0 ], u ), lerp( U[ i ][ 1 ], U[ i + 1 ][ 1 ], u ) ];
+
+			};
+			const KNOTS = [ 0, 75, 108 ].map( ( d ) => [ d, this.heightAt( ...along( d ) ) ] );
+			const grade = ( d ) => d <= KNOTS[ 1 ][ 0 ] ? lerp( KNOTS[ 0 ][ 1 ], KNOTS[ 1 ][ 1 ], d / KNOTS[ 1 ][ 0 ] ) : lerp( KNOTS[ 1 ][ 1 ], KNOTS[ 2 ][ 1 ], clamp01( ( d - KNOTS[ 1 ][ 0 ] ) / ( KNOTS[ 2 ][ 0 ] - KNOTS[ 1 ][ 0 ] ) ) );
+			this._stroke( U, 7, 3, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				// (not behind the white wall: the garden there keeps its ground)
+				if ( pointInPolygon( x, z, E.upperGarden ) ) return;
+				let best = null;
+				for ( let i = 0; i + 1 < U.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, U[ i ], U[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, at: cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] ) };
+
+				}
+
+				const w = ( 1 - smoothstep( 4.2, 7, best.d ) ) * smoothstep( 0, 3, best.at ) * ( 1 - smoothstep( 100, 108, best.at ) );
+				heights[ k ] = lerp( heights[ k ], grade( best.at ), w );
+
+			} );
+
+		}
+
+		// and its last stretch up to the square, near the top (photo references/...-img-4383): one even grade too
+		{
+
+			const U = E.topStreet, cum = [ 0 ];
+			for ( let i = 0; i + 1 < U.length; i ++ ) cum.push( cum[ i ] + Math.hypot( U[ i + 1 ][ 0 ] - U[ i ][ 0 ], U[ i + 1 ][ 1 ] - U[ i ][ 1 ] ) );
+			const Ltot = cum.at( - 1 ), y0 = this.heightAt( ...U[ 0 ] ), y1 = this.heightAt( ...U.at( - 1 ) );
+			this._stroke( U, 6.5, 3, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				let best = null;
+				for ( let i = 0; i + 1 < U.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, U[ i ], U[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, at: cum[ i ] + u * ( cum[ i + 1 ] - cum[ i ] ) };
+
+				}
+
+				const w = ( 1 - smoothstep( 4.4, 6.5, best.d ) ) * smoothstep( 0, 3, best.at ) * ( 1 - smoothstep( Ltot - 3, Ltot, best.at ) );
+				heights[ k ] = lerp( heights[ k ], lerp( y0, y1, best.at / Ltot ), w );
+
+			} );
+
+		}
+
+		// down to the fork: one even climb, the ground rising a little toward the curtain, no step in it
+		{
+
+			const C = E.climb, y0 = this.heightAt( ...C[ 0 ] ), y1 = this.heightAt( ...C[ 2 ] ), z0 = C[ 0 ][ 1 ], z1 = C[ 2 ][ 1 ];
+			this._stroke( C, 4, 3, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				let d = Infinity;
+				for ( let i = 0; i + 1 < C.length; i ++ ) d = Math.min( d, segmentDistance( x, z, C[ i ], C[ i + 1 ] )[ 0 ] );
+				const u = clamp01( ( z - z0 ) / ( z1 - z0 ) ), w = ( 1 - smoothstep( 4, 7, d ) ) * ( 1 - smoothstep( 106.5, 109.5, z ) );
+				heights[ k ] = lerp( heights[ k ], lerp( y0, y1, u ) + 0.12 * ( 75 - x ), w * smoothstep( 88, 92, z ) );
+
+			} );
+			// and on along the curtain no bank at its foot: the setts run up to it
+			this._stroke( [ [ 71, 88 ], [ 72.4, 68 ], [ 73.3, 60 ] ], 1.5, 1.5, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				heights[ k ] = Math.min( heights[ k ], this.heightAt( x + 3, z ) + 0.15 );
+
+			} );
+			// the lower street, level across, up to the wall's foot; the upper street held up behind the wall
+			const L = E.low, ls = L.map( ( q ) => this.heightAt( q[ 0 ], q[ 1 ] ) );
+			this._stroke( L, 2.7, 1, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				let best = null;
+				for ( let i = 0; i + 1 < L.length; i ++ ) {
+
+					const [ d, u ] = segmentDistance( x, z, L[ i ], L[ i + 1 ] );
+					if ( ! best || d < best.d ) best = { d, y: lerp( ls[ i ], ls[ i + 1 ], u ) };
+
+				}
+
+				heights[ k ] = lerp( heights[ k ], best.y, 1 - smoothstep( 2.7, 3.7, best.d ) );
+
+			} );
+			this._fill( E.forkUpper, ( k ) => {
+
+				heights[ k ] = Math.max( heights[ k ], 36.1 );
+
+			} );
+
+		}
+
+		const y = this.heightAt( ...E.wall[ 1 ] ) + 1.4;
+		// the wall's top about 1.8 m over the street all the way up it, following its slope, never under the corner's
+		// by the garden steps; the gardens behind 0.3 m under it
+		const WALL_H = 1.8;
+		const topsAlong = ( W ) => W.map( ( q, i ) => {
+
+			const a = W[ Math.max( 0, i - 1 ) ], b = W[ Math.min( W.length - 1, i + 1 ) ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			const nx = ( b[ 1 ] - a[ 1 ] ) / L, nz = - ( b[ 0 ] - a[ 0 ] ) / L;
+			return Math.max( y + 0.3, this.heightAt( q[ 0 ] + nx * 1.2, q[ 1 ] + nz * 1.2 ) + WALL_H );
+
+		} );
+		const wallTops = topsAlong( E.wall ), UW = E.upperWall, upperTops = topsAlong( UW );
+		// (the two stretches meet at one point: one top there)
+		upperTops[ 0 ] = wallTops[ wallTops.length - 1 ] = Math.max( upperTops[ 0 ], wallTops.at( - 1 ) );
+		const underTop = ( W, tops, x, z ) => {
+
+			let best = null;
+			for ( let i = 0; i + 1 < W.length; i ++ ) {
+
+				const [ d, u ] = segmentDistance( x, z, W[ i ], W[ i + 1 ] );
+				if ( ! best || d < best.d ) best = { d, y: lerp( tops[ i ], tops[ i + 1 ], u ) };
+
+			}
+
+			return best.y - 0.3;
+
+		};
+		const at = ( k ) => [ origin + ( k % res + 0.5 ) * texel, origin + ( Math.floor( k / res ) + 0.5 ) * texel ];
+		this._fill( E.upperGarden, ( k ) => {
+
+			if ( this.inside[ k ] ) return;
+			heights[ k ] = Math.max( heights[ k ], underTop( UW, upperTops, ...at( k ) ) );
+
+		} );
+		this._fill( E.garden, ( k ) => {
+
+			heights[ k ] = Math.max( heights[ k ], y, underTop( E.wall, wallTops, ...at( k ) ) );
+
+		} );
+		// and at the top of the stone steps by the curtain, the garden level with their landing right up to the
+		// curtain's foot (Town._ornelasUpper: s along the curtain, q out from it)
+		{
+
+			const P = ( sv, q ) => [ 19.37 + 0.62 * sv + 0.78 * q, 139 - 0.78 * sv + 0.63 * q ];
+			this._fill( [ P( 0, - 0.3 ), P( 3.2, - 0.3 ), P( 3.2, 2.1 ), P( 0, 2.1 ) ], ( k ) => {
+
+				heights[ k ] = Math.max( heights[ k ], upperTops.at( - 1 ) - 0.3 );
+
+			} );
+
+		}
+		this.ornelasEast = { ...E, top: y + 0.3, forkTop: 36.4, wallTops, upperTops };
+
+	}
+
 	// rasterize a thick polyline: cb( k, t ) with t = 1 on the centre line .. 0 at half + soft
 	_stroke( pts, half, soft, cb ) {
 
@@ -1290,6 +1518,55 @@ export class TerrainData {
 			this.scarp[ k ] = 255;
 
 		} );
+		// the strip along the curtain beside Rua Dom João de Ornelas: worn ground (a dusty track's), patches of
+		// setts, more of them toward the street, none at the wall's foot
+		{
+
+			const { street, guide, strip, pave } = ORNELAS_EAST, foot = strip.slice( 3 );
+			// the setts reach the houses' fronts
+			// and on up from it, past the long garden wall (photo references/...-img-4386)
+			this._stroke( [ [ 41.8, 131.3 ], [ 33.5, 135.9 ], [ 23.8, 141.2 ], [ 14.2, 151.4 ] ], 3.6, 0.6, ( k, t ) => {
+
+				if ( t < 0.5 ) return;
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			} );
+			this._stroke( street, 3.2, 0.6, ( k, t ) => {
+
+				if ( t < 0.5 ) return;
+				path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			} );
+			const near = ( line, x, z ) => {
+
+				let d = Infinity;
+				for ( let i = 0; i + 1 < line.length; i ++ ) d = Math.min( d, segmentDistance( x, z, line[ i ], line[ i + 1 ] )[ 0 ] );
+				return d;
+
+			};
+			// down to the fork: setts right to the curtain, worn into patches in its last metre or so
+			this._fill( pave, ( k ) => {
+
+				const x = this.origin + ( k % this.res + 0.5 ) * this.texel, z = this.origin + ( Math.floor( k / this.res ) + 0.5 ) * this.texel;
+				const n = this.noise2.fbm( x / 1.7, z / 1.7, 2 ) * 0.5 + 0.5;
+				path[ k ] = near( ORNELAS_EAST.foot, x, z ) < 2.4 && n < 0.42 ? 110 : 255;
+				this.scarp[ k ] = 255;
+
+			} );
+			this._fill( strip, ( k ) => {
+
+				const x = this.origin + ( k % this.res + 0.5 ) * this.texel, z = this.origin + ( Math.floor( k / this.res ) + 0.5 ) * this.texel;
+				const n = this.noise2.fbm( x / 2.3, z / 2.3, 2 ) * 0.5 + 0.5, toRoad = near( guide, x, z );
+				// (setts all round the wall and its steps)
+				const atWall = segmentDistance( x, z, [ 56.6, 115.5 ], [ 59.1, 118.9 ] )[ 0 ] < 3.2;
+				path[ k ] = atWall || near( foot, x, z ) > 2.2 && n + 0.3 * ( 1 - toRoad / 3 ) > 0.55 ? 255 : 110;
+
+			} );
+
+		}
+
 		// outside Porta do Vale the streets to the gate are setts too, not asphalt (photo
 		// references/...-porta-nordeste-1)
 		for ( const st of OSM.streets.filter( ( q ) => PORTA_DO_VALE_STREETS.includes( q.id ) ) ) this._stroke( st.pts, STREET_HALF[ st.highway ], 0.6, ( k, t ) => {
@@ -1561,6 +1838,47 @@ export class TerrainData {
 			rock[ k ] = r;
 
 		}
+
+		// near the top of Rua Dom João de Ornelas the setts run from the curtain and the wall to the square's edge
+		this._stroke( ORNELAS_EAST.topStreet, 4.4, 0.8, ( k, t ) => {
+
+			if ( t < 0.5 || this.inside[ k ] ) return;
+			path[ k ] = 255;
+			scarp[ k ] = 255;
+			sand[ k ] = 0;
+
+		} );
+		// the strip of rough stones at the curtain's foot up Rua Dom João de Ornelas: paved (path) with the rough
+		// flag (sand under paving: Terrain's shader lays bigger, irregular stones there), weeds in patches (gully)
+		{
+
+			const F = ORNELAS_EAST.curtainFoot;
+			this._stroke( F, 1.6, 1.6, ( k ) => {
+
+				if ( this.inside[ k ] ) return;
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				let d = Infinity;
+				for ( let i = 0; i + 1 < F.length; i ++ ) d = Math.min( d, segmentDistance( x, z, F[ i ], F[ i + 1 ] )[ 0 ] );
+				const w = 1 - smoothstep( 0.85, 1.35, d + nz2.noise( x / 2.3, z / 2.3 ) * 0.25 );
+				if ( w <= 0 ) return;
+				heights[ k ] -= 0.12 * w; // (a shallow gutter: Terrain's shader shapes the rest)
+				path[ k ] = Math.max( path[ k ], Math.round( 255 * Math.min( 1, w * 1.5 ) ) );
+				sand[ k ] = Math.max( sand[ k ], Math.round( 230 * w ) );
+				gully[ k ] = Math.max( gully[ k ], Math.round( w * ( 150 + 100 * smoothstep( 0.1, 0.6, nz2.noise( x / 1.7 + 9, z / 1.7 ) ) ) ) );
+
+			} );
+
+		}
+
+		// the garden over the wall beside Rua Dom João de Ornelas: planted, though the houses round it count as town
+		for ( const g of [ ORNELAS_EAST.garden, ORNELAS_EAST.upperGarden ] ) this._fill( g, ( k ) => {
+
+			path[ k ] = 0;
+			scarp[ k ] = 0;
+			sand[ k ] = 0;
+			gully[ k ] = 255;
+
+		} );
 
 	}
 
