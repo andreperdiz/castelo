@@ -2017,6 +2017,9 @@ export class Walls {
 
 		}
 
+		// a step halfway up its face from the street, against the wall's end: a way up onto the square
+		box( o.W_START - 0.9, o.W_START, a0 - 0.36, a0 + 0.01, ( o.F + o.roadY( o.W_START ) ) / 2, o.roadY( o.W_START ) - 0.5, true, 'stair' );
+
 		// the wall, whitewashed: its faces built here so the blue band (the plaster's barra) runs along the
 		// street's slope, 1.25 m up, rather than level
 		const BLUE = lin( [ 0.1, 0.27, 0.78 ] );
