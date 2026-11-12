@@ -12,11 +12,9 @@ export const WORLD = {
 	terrainRes: 2048,
 	latitude: 39.3616,
 
-	// where the player starts: by the area being worked on, at the foot of the stepped lane beside Porta da
-	// Vila's flight, looking up it as at the start of the video (references/IMG_4350)
-	// (before: the foot of Travessa do Beneficiado, ( 41.5, 0, 39.6 ), yaw 1.71; and just inside Porta da
-	// Vila, looking north up Rua Direita: ( - 49.5, 0, 214 ), yaw - 0.1)
-	start: { position: new THREE.Vector3( - 53.8, 0, 219.4 ), yaw: 1.6, pitch: 0.04 },
+	// where the player starts: just inside Porta da Vila, looking north up Rua Direita
+	// (while working on one spot, start there with ?fly or a saved view instead of changing this)
+	start: { position: new THREE.Vector3( - 49.5, 0, 214 ), yaw: - 0.1, pitch: - 0.02 },
 	// the main gate and the castle keep (for the free camera / review views)
 	gate: new THREE.Vector3( - 56, 0, 232 ),
 	castle: new THREE.Vector3( 20, 0, - 205 ),
