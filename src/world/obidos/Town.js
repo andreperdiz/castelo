@@ -1181,10 +1181,10 @@ export class Town {
 			const x = - 32.8, z = 220.6, g = T.heightAt( x, z ), fx = 0.54, fz = - 0.84, yaw = Math.atan2( fx, fz );
 			kit.vdata = FLAT;
 			kit.color = srgbToLinear( [ 0.55, 0.56, 0.57 ] );
-			kit.box( x, g + 1.25, z, 0.05, 2.5, 0.05, 0, 'bottom' );
-			this.colliders.addBox( new Vector3( x, g + 1.25, z ), new Vector3( 0.04, 1.25, 0.04 ), 0, { walkable: false, tag: 'sign' } );
+			kit.box( x, g + 0.92, z, 0.05, 1.84, 0.05, 0, 'bottom' );
+			this.colliders.addBox( new Vector3( x, g + 0.92, z ), new Vector3( 0.04, 0.92, 0.04 ), 0, { walkable: false, tag: 'sign' } );
 			// (a disc of thin boxes, red, the white bar across it; the small plate under it)
-			const sx = Math.cos( yaw ), sz = - Math.sin( yaw ), yD = g + 2.1, o = 0.04;
+			const sx = Math.cos( yaw ), sz = - Math.sin( yaw ), yD = g + 1.55, o = 0.04; // (as low as the photo's)
 			for ( let k = - 6; k <= 6; k ++ ) {
 
 				const h = 0.3 * Math.sqrt( Math.max( 0, 1 - ( k / 6.5 ) ** 2 ) ) * 2;
@@ -1195,9 +1195,9 @@ export class Town {
 
 			kit.color = srgbToLinear( [ 0.93, 0.93, 0.92 ] );
 			kit.box( x + fx * ( o + 0.01 ), yD, z + fz * ( o + 0.01 ), 0.42, 0.09, 0.006, yaw, '' );
-			kit.box( x + fx * o, g + 1.6, z + fz * o, 0.26, 0.33, 0.012, yaw, '' );
+			kit.box( x + fx * o, g + 1.05, z + fz * o, 0.26, 0.33, 0.012, yaw, '' );
 			kit.color = srgbToLinear( [ 0.1, 0.1, 0.1 ] );
-			for ( let k = 0; k < 5; k ++ ) kit.box( x + fx * ( o + 0.008 ), g + 1.7 - k * 0.055, z + fz * ( o + 0.008 ), 0.18 - ( k % 2 ) * 0.04, 0.018, 0.004, yaw, '' );
+			for ( let k = 0; k < 5; k ++ ) kit.box( x + fx * ( o + 0.008 ), g + 1.15 - k * 0.055, z + fz * ( o + 0.008 ), 0.18 - ( k % 2 ) * 0.04, 0.018, 0.004, yaw, '' );
 
 		}
 
@@ -1217,7 +1217,8 @@ export class Town {
 		}
 
 		// up the street: the line of white slabs, the line of round stones beside it, a drain cover; bollards
-		const S = E.topStreet, cum = [ 0 ];
+		// (topStreet, then on up the street's OSM line to where it meets Rua Porta da Vila)
+		const S = [ ...E.topStreet, [ - 39.1, 245.5 ], [ - 42.7, 253 ], [ - 46.7, 261.2 ], [ - 50, 265.5 ], [ - 53, 269.2 ] ], cum = [ 0 ];
 		for ( let i = 0; i + 1 < S.length; i ++ ) cum.push( cum[ i ] + Math.hypot( S[ i + 1 ][ 0 ] - S[ i ][ 0 ], S[ i + 1 ][ 1 ] - S[ i ][ 1 ] ) );
 		const along = ( d, side ) => {
 
@@ -1248,7 +1249,8 @@ export class Town {
 
 		};
 		kit.vdata = FLAT;
-		for ( let d = 3.5; d < cum.at( - 1 ) - 1; ) {
+		// the slabs from about where the photo was taken to the junction with Rua Porta da Vila
+		for ( let d = 15; d < cum.at( - 1 ) - 1.5; ) {
 
 			const len = 0.85 + r() * 0.3, v = 0.74 + r() * 0.08;
 			flat( along( d + len / 2, 0.3 ), len / 2 - 0.012, 0.28, 0.02, srgbToLinear( [ v, v * 0.99, v * 0.95 ] ) );
@@ -1256,7 +1258,7 @@ export class Town {
 
 		}
 
-		for ( let d = 4; d < cum.at( - 1 ) - 6; d += 0.19 + r() * 0.05 ) {
+		for ( let d = 12; d < 30; d += 0.19 + r() * 0.05 ) {
 
 			const v = 0.5 + r() * 0.16;
 			flat( along( d, - 1.15 + ( r() - 0.5 ) * 0.06 ), 0.08 + r() * 0.02, 0.07 + r() * 0.02, 0.025, srgbToLinear( [ v, v * 0.98, v * 0.93 ] ) );
@@ -1264,10 +1266,10 @@ export class Town {
 		}
 
 		flat( along( 21.8, - 0.4 ), 0.4, 0.4, 0.012, srgbToLinear( [ 0.3, 0.29, 0.27 ] ) );
-		// the stone bollards along the square's edge, on up the street
-		for ( let d = 24; d < cum.at( - 1 ) - 0.5; d += 1.6 ) {
+		// the stone bollards in a close row at the street's left edge, where the photo has them
+		for ( let d = 28.9; d < 33.8; d += 0.68 ) {
 
-			const p = along( d, 2.6 ), g = T.heightAt( p.x, p.z );
+			const p = along( d, 2.0 ), g = T.heightAt( p.x, p.z );
 			kit.color = srgbToLinear( [ 0.78, 0.76, 0.7 ] );
 			kit.box( p.x, g + 0.32, p.z, 0.24, 0.7, 0.24, Math.atan2( - p.uz, p.ux ), 'bottom' );
 			kit.box( p.x, g + 0.69, p.z, 0.18, 0.06, 0.18, Math.atan2( - p.uz, p.ux ), 'bottom' );

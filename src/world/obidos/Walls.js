@@ -267,7 +267,7 @@ export class Walls {
 			// the big plane tree past the long cream front's far end (photo references/...-img-4384)
 			[ 1.2, 187, 'plane', 1.0 ],
 			// and near the top, on the square's edge (photo references/...-img-4383)
-			[ - 23.4, 219.2, 'garden', 1.15 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
+			[ - 29.3, 227.6, 'garden', 1.15 ] ] ) this.extraTrees.push( { kind, x, z, scale } );
 		// and the worn stones along the curtain's foot there, and the two small marker stones
 		{
 
