@@ -76,10 +76,10 @@ export const ORNELAS_EAST = {
 	// along the curtain's face up the street from the stone steps (photo references/...-img-4384): its foot's
 	// greyer lowest courses (Walls._footTone) and before them a strip of rough stones in sand
 	curtainFoot: [ [ 17.79, 140.99 ], [ 11.1, 149.2 ], [ - 1.64, 168.35 ], [ - 24.9, 203.3 ], [ - 30.31, 211.41 ], [ - 35.5, 219.15 ] ],
-	// near the top (photo references/...-img-4383): a whitewashed wall over a yellow foot leaves the curtain a
-	// few metres before its end, tall there, comes out toward the street and round, its top curving down, to the
-	// tall house's front (topWall); the street paved wall to wall (topStreet, its centre line)
-	topWall: [ [ - 35.65, 219.39 ], [ - 35.15, 220.9 ], [ - 35.45, 222.7 ], [ - 36.6, 224.3 ], [ - 38.2, 225.6 ], [ - 39.82, 226.5 ] ],
+	// near the top (photo references/...-img-4383): a whitewashed wall over a yellow foot leaves the curtain, tall
+	// there, comes out toward the street and round, its top curving down, into the line of the tall house's
+	// front, to its corner (topWall); the street paved wall to wall (topStreet, OSM's centre line)
+	topWall: [ [ - 35.65, 219.39 ], [ - 34.75, 220.6 ], [ - 34.2, 222.1 ], [ - 34.55, 223.0 ], [ - 35.3, 225.4 ] ],
 	topStreet: [ [ - 20.5, 204.3 ], [ - 24.6, 210.9 ], [ - 31.4, 221.8 ], [ - 35.7, 234.9 ] ],
 	upperGarden: [ [ 50.1, 123.46 ], [ 21.6, 139.42 ], [ 19.8, 138.33 ], [ 29.5, 125.2 ], [ 35.5, 122.3 ], [ 46.8, 117.9 ], [ 50.5, 119 ] ],
 	// the other way, down the curtain to the fork (photo references/...-img-4390): setts from the curtain's foot

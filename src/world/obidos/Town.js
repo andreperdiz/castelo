@@ -49,7 +49,12 @@ const SKIP_ID = new Set( [ 1276312776, 1276312777, 475653566, 1276297062 ] );
 const PASSAGES = { 299064346: { street: 1177937020, half: 1.3 } };
 // the Auditório (Casa da Música) without its south wing, where the steps by Porta da Vila are built (its
 // terrace along Rua Direita: Walls._casaDaMusicaTerrace)
-const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ] };
+const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ],
+	// the tall house in the curtain's corner near the top of Rua Dom João de Ornelas (photo references/...-img-4383):
+	// outside the walls, its front on the street where OSM has it, its back against the curtain's outer faces
+	299072134: [ [ - 35.3, 225.4 ], [ - 38.7, 223.96 ], [ - 39.83, 225.62 ], [ - 45.6, 226.35 ], [ - 45.6, 236.6 ], [ - 39.5, 239 ], [ - 38.2, 234.7 ], [ - 35.3, 225.4 ] ] };
+// (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
+const KEEP_OUTLINE = new Set( [ 299072134 ] );
 // as in the photos: the Casa da Música is white with strong blue trim, two storeys
 const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the left going up Travessa do Beneficiado: yellow (photo references/...-ruaperpendiculara)
@@ -76,7 +81,10 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	299088474: 40.6, 299088405: 39.2,
 	// further up, the long cream front with the iron balconies (the Josefa d'Óbidos hotel and the two footprints
 	// below it, one front in the photo references/...-img-4384): two tall storeys, stepping up with the street
-	299090456: 50.0, 299090857: 50.6, 298848393: 51.8 };
+	299090456: 50.0, 299090857: 50.6, 298848393: 51.8,
+	// near the top, the tall house in the curtain's corner (photo references/...-img-4383): its ground behind the
+	// curtain is far higher than its street's
+	299072134: 57.6 };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -142,7 +150,7 @@ export class Town {
 
 			} ).map( ( q ) => {
 
-				const near = clearIndex.nearest( q[ 0 ], q[ 1 ], 6 );
+				const near = KEEP_OUTLINE.has( b.id ) ? null : clearIndex.nearest( q[ 0 ], q[ 1 ], 6 );
 				if ( ! near ) return q;
 				const { a, b: e } = near.seg, clear = near.seg.line.clear;
 				const L = Math.hypot( e[ 0 ] - a[ 0 ], e[ 1 ] - a[ 1 ] ) || 1;
@@ -1046,7 +1054,7 @@ export class Town {
 		const E = this.terrain.ornelasEast, T = this.terrain, kit = this.walls;
 		if ( ! E?.topWall ) return;
 		const FLAT = [ 0, 0, 0.53, 4 ], r = mulberry32( 4383 );
-		// the wall: subdivided, its top coming down in a long concave curve from the curtain
+		// the wall: subdivided, its top high from the curtain to the bend, then curving down to the house
 		const W0 = E.topWall, W = [], tops = [];
 		let total = 0;
 		const segL = [];
@@ -1062,7 +1070,7 @@ export class Town {
 				const t = segL[ i ] * k / n, q = [ a[ 0 ] + ux * t, a[ 1 ] + uz * t ], sAll = ( acc + t ) / total;
 				W.push( q );
 				const g = T.heightAt( q[ 0 ] + uz * 0.6, q[ 1 ] - ux * 0.6 );
-				tops.push( g + 1.95 + 1.4 * Math.pow( 1 - smoothstep01( 0, 0.4, sAll ), 1.4 ) );
+				tops.push( g + 1.95 + 1.5 * ( 1 - smoothstep01( 0.4, 0.72, sAll ) ) );
 
 			}
 
@@ -1106,8 +1114,7 @@ export class Town {
 
 				const eave = this.buildings.find( ( q ) => q.id === 299072134 )?.eave ?? f.roofH( - 37, 229 );
 				const WHITE = srgbToLinear( [ 0.92, 0.91, 0.87 ] ), YELLOW = srgbToLinear( [ 0.86, 0.66, 0.2 ] ), IRON = srgbToLinear( [ 0.06, 0.06, 0.06 ] );
-				// (the footprint as built: its front starts behind the curtain's end)
-				for ( const [ LINE, gable ] of [ [ [ [ - 43.51, 223.54 ], [ - 41.28, 222.52 ], [ - 40.76, 221.75 ] ], true ], [ [ [ - 40.76, 221.75 ], [ - 38.2, 234.7 ] ], false ] ] ) {
+				for ( const [ LINE, gable ] of [ [ [ [ - 38.7, 223.96 ], [ - 35.3, 225.4 ] ], true ], [ [ [ - 35.3, 225.4 ], [ - 38.2, 234.7 ] ], false ] ] ) {
 
 					let L = 0;
 					for ( let i = 0; i + 1 < LINE.length; i ++ ) L += Math.hypot( LINE[ i + 1 ][ 0 ] - LINE[ i ][ 0 ], LINE[ i + 1 ][ 1 ] - LINE[ i ][ 1 ] );
@@ -1127,8 +1134,8 @@ export class Town {
 					const n1 = out( L - 0.5, 1 ), n0 = out( L - 0.5, 0 ), want = [ n1[ 0 ] - n0[ 0 ], 0, n1[ 1 ] - n0[ 1 ] ];
 					if ( gable ) {
 
-						opening( L - 1.3, eave - 1.75, 0.5, 0.62, false );
-						opening( L - 1.3, eave - 4.6, 0.5, 0.62, false );
+						opening( L * 0.5, eave - 1.2, 0.5, 0.62, false );
+						opening( L * 0.5, eave - 3.1, 0.5, 0.62, false );
 						continue;
 
 					}
@@ -1144,10 +1151,10 @@ export class Town {
 
 					for ( let t = 1.6, k = 0; t < L - 0.6; t += 2.3, k ++ ) {
 
-						opening( t, eave - 1.6, 0.55, 0.65, false );
-						opening( t, eave - 4.3, 0.55, 0.65, false );
-						pot( t, eave - 4.4, 7 + k );
-						if ( k % 2 === 0 ) pot( t, eave - 1.7, 11 + k );
+						opening( t, eave - 1.3, 0.55, 0.65, false );
+						opening( t, eave - 3.3, 0.55, 0.65, false );
+						pot( t, eave - 3.4, 7 + k );
+						if ( k % 2 === 0 ) pot( t, eave - 1.4, 11 + k );
 						if ( k % 2 === 1 ) {
 
 							// a lantern on its bracket
@@ -1168,10 +1175,10 @@ export class Town {
 
 		}
 
-		// the no-entry sign before the wall's bend, turned down the street
+		// the no-entry sign before the wall, turned down the street
 		{
 
-			const B = W0[ 2 ], x = B[ 0 ] + 0.8, z = B[ 1 ] - 0.3, g = T.heightAt( x, z ), fx = 0.54, fz = - 0.84, yaw = Math.atan2( fx, fz );
+			const x = - 32.8, z = 220.6, g = T.heightAt( x, z ), fx = 0.54, fz = - 0.84, yaw = Math.atan2( fx, fz );
 			kit.vdata = FLAT;
 			kit.color = srgbToLinear( [ 0.55, 0.56, 0.57 ] );
 			kit.box( x, g + 1.25, z, 0.05, 2.5, 0.05, 0, 'bottom' );
@@ -1244,7 +1251,7 @@ export class Town {
 		for ( let d = 3.5; d < cum.at( - 1 ) - 1; ) {
 
 			const len = 0.85 + r() * 0.3, v = 0.74 + r() * 0.08;
-			flat( along( d + len / 2, - 0.65 ), len / 2 - 0.012, 0.28, 0.02, srgbToLinear( [ v, v * 0.99, v * 0.95 ] ) );
+			flat( along( d + len / 2, 0.3 ), len / 2 - 0.012, 0.28, 0.02, srgbToLinear( [ v, v * 0.99, v * 0.95 ] ) );
 			d += len;
 
 		}
@@ -1252,15 +1259,15 @@ export class Town {
 		for ( let d = 4; d < cum.at( - 1 ) - 6; d += 0.19 + r() * 0.05 ) {
 
 			const v = 0.5 + r() * 0.16;
-			flat( along( d, - 2.55 + ( r() - 0.5 ) * 0.06 ), 0.08 + r() * 0.02, 0.07 + r() * 0.02, 0.025, srgbToLinear( [ v, v * 0.98, v * 0.93 ] ) );
+			flat( along( d, - 1.15 + ( r() - 0.5 ) * 0.06 ), 0.08 + r() * 0.02, 0.07 + r() * 0.02, 0.025, srgbToLinear( [ v, v * 0.98, v * 0.93 ] ) );
 
 		}
 
-		flat( along( 17, - 1.7 ), 0.4, 0.4, 0.012, srgbToLinear( [ 0.3, 0.29, 0.27 ] ) );
+		flat( along( 21.8, - 0.4 ), 0.4, 0.4, 0.012, srgbToLinear( [ 0.3, 0.29, 0.27 ] ) );
 		// the stone bollards along the square's edge, on up the street
-		for ( let d = 17; d < cum.at( - 1 ) - 0.5; d += 1.6 ) {
+		for ( let d = 24; d < cum.at( - 1 ) - 0.5; d += 1.6 ) {
 
-			const p = along( d, 3.6 ), g = T.heightAt( p.x, p.z );
+			const p = along( d, 2.6 ), g = T.heightAt( p.x, p.z );
 			kit.color = srgbToLinear( [ 0.78, 0.76, 0.7 ] );
 			kit.box( p.x, g + 0.32, p.z, 0.24, 0.7, 0.24, Math.atan2( - p.uz, p.ux ), 'bottom' );
 			kit.box( p.x, g + 0.69, p.z, 0.18, 0.06, 0.18, Math.atan2( - p.uz, p.ux ), 'bottom' );
