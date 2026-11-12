@@ -1266,14 +1266,35 @@ export class Town {
 		}
 
 		flat( along( 21.8, - 0.4 ), 0.4, 0.4, 0.012, srgbToLinear( [ 0.3, 0.29, 0.27 ] ) );
-		// the stone bollards in a close row at the street's left edge, where the photo has them
-		for ( let d = 28.9; d < 33.8; d += 0.68 ) {
+		// the stone bollards at the top, on the square's edge, in two rows with a gap between them for people to
+		// walk through, a chain hanging in a wide U between each two (about three or four strides apart)
+		const IRON = srgbToLinear( [ 0.07, 0.07, 0.07 ] ), LIME = srgbToLinear( [ 0.82, 0.8, 0.74 ] );
+		for ( const [ A, B, n ] of [ [ [ - 35.79, 246.82 ], [ - 41.95, 260.19 ], 7 ], [ [ - 43.32, 262.85 ], [ - 34.11, 264.57 ], 5 ] ] ) {
 
-			const p = along( d, 2.0 ), g = T.heightAt( p.x, p.z );
-			kit.color = srgbToLinear( [ 0.78, 0.76, 0.7 ] );
-			kit.box( p.x, g + 0.32, p.z, 0.24, 0.7, 0.24, Math.atan2( - p.uz, p.ux ), 'bottom' );
-			kit.box( p.x, g + 0.69, p.z, 0.18, 0.06, 0.18, Math.atan2( - p.uz, p.ux ), 'bottom' );
-			this.colliders.addBox( new Vector3( p.x, g + 0.35, p.z ), new Vector3( 0.12, 0.35, 0.12 ), 0, { walkable: false, tag: 'bollard' } );
+			const tops = [];
+			for ( let i = 0; i < n; i ++ ) {
+
+				const f = i / ( n - 1 ), x = A[ 0 ] + ( B[ 0 ] - A[ 0 ] ) * f, z = A[ 1 ] + ( B[ 1 ] - A[ 1 ] ) * f, g = T.heightAt( x, z ), yaw = Math.atan2( - ( B[ 1 ] - A[ 1 ] ), B[ 0 ] - A[ 0 ] );
+				kit.color = LIME;
+				kit.box( x, g + 0.3, z, 0.24, 0.65, 0.24, yaw, 'bottom' );
+				kit.box( x, g + 0.65, z, 0.18, 0.07, 0.18, yaw, 'bottom' );
+				this.colliders.addBox( new Vector3( x, g + 0.35, z ), new Vector3( 0.12, 0.35, 0.12 ), 0, { walkable: false, tag: 'bollard' } );
+				tops.push( [ x, g + 0.56, z ] );
+
+			}
+
+			kit.color = IRON;
+			for ( let i = 0; i + 1 < tops.length; i ++ ) {
+
+				const P = tops[ i ], Q = tops[ i + 1 ], K = 16, yaw = Math.atan2( - ( Q[ 2 ] - P[ 2 ] ), Q[ 0 ] - P[ 0 ] ), L = Math.hypot( Q[ 0 ] - P[ 0 ], Q[ 2 ] - P[ 2 ] );
+				for ( let k = 0; k < K; k ++ ) {
+
+					const f = ( k + 0.5 ) / K, y = P[ 1 ] + ( Q[ 1 ] - P[ 1 ] ) * f - 0.38 * 4 * f * ( 1 - f );
+					kit.box( P[ 0 ] + ( Q[ 0 ] - P[ 0 ] ) * f, y, P[ 2 ] + ( Q[ 2 ] - P[ 2 ] ) * f, L / K + 0.01, 0.025, 0.025, yaw, '' );
+
+				}
+
+			}
 
 		}
 
