@@ -70,9 +70,10 @@ export class PhotoRefs {
 		window.addEventListener( 'dragover', ( e ) => e.preventDefault() );
 		window.addEventListener( 'drop', ( e ) => {
 
+			// always: otherwise the browser leaves the game to open whatever was dropped
+			e.preventDefault();
 			const f = [ ...( e.dataTransfer?.files || [] ) ].find( ( f ) => f.type.startsWith( 'image/' ) );
 			if ( ! f ) return;
-			e.preventDefault();
 			this.toggle( true );
 			this.setPhoto( f );
 
