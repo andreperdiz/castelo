@@ -1821,27 +1821,29 @@ export class TerrainData {
 			const h = heights[ k ];
 			const hx = ( heights[ k + 1 ] - heights[ k - 1 ] ) / ( 2 * texel ), hz = ( heights[ k + res ] - heights[ k - res ] ) / ( 2 * texel );
 			const slope = Math.sqrt( hx * hx + hz * hz );
-			// inside the walls, the slopes and the open ground not right by a house or a street (the castle's
-			// hill, with the LiDAR's real relief): grass, scrub and rock as outside, not the beaten earth between
-			// houses, which over slopes this big reads as sand dunes
+			// inside the walls, the open ground not right by a house or a street: back yards and gardens, and the
+			// castle's hill (with the LiDAR's real relief), in grass, bushes and rock, not the beaten earth of the
+			// streets' edges, which over grounds this big reads as sand dunes
 			let wild = 0;
 			if ( this.inside[ k ] && i > 3 && j > 3 && i < res - 4 && j < res - 4 ) {
 
 				const near = ( a, d ) => Math.max( a[ k ], a[ k - d ], a[ k + d ], a[ k - d * res ], a[ k + d * res ] );
-				if ( near( path, 3 ) === 0 && near( bcov, 2 ) === 0 ) wild = Math.max( smoothstep( 0.15, 0.35, slope ), 1 - smoothstep( 0.02, 0.15, blur[ k ] ) );
+				if ( near( path, 3 ) === 0 && near( bcov, 1 ) === 0 ) wild = 1;
 
 			}
 
-			const town = Math.max( scarp[ k ] / 255 * ( 1 - wild ), smoothstep( 0.08, 0.35, blur[ k ] ) );
+			const town = Math.max( scarp[ k ] / 255, smoothstep( 0.08, 0.35, blur[ k ] ) ) * ( 1 - wild );
 			scarp[ k ] = Math.round( town * 255 );
 			// scrub on steep uncultivated slopes and in OSM scrub / woods; patches elsewhere
 			const patch = nz.fbm( x / 140, z / 140, 3 ) + nz2.noise( x / 35, z / 35 ) * 0.25;
 			let scrub = Math.max( scrubK[ k ] / 255, smoothstep( 0.18, 0.4, slope + patch * 0.15 ) );
 			scrub = Math.max( scrub, smoothstep( 0.35, 0.55, patch ) * 0.85 );
 			scrub *= 1 - town;
+			// in a yard, bushes and shrubs in clumps over the grass (no fields inside the walls)
+			if ( wild > 0 ) scrub = Math.max( scrub, 0.3 + 0.45 * smoothstep( - 0.1, 0.4, nz2.noise( x / 7, z / 7 ) + patch * 0.3 ) );
 			// farmland on the gentler open ground
-			let farm = smoothstep( 0.2, 0.08, slope ) * ( 1 - scrub ) * ( 1 - town );
-			farm = Math.max( farm, farmK[ k ] / 255 * ( 1 - town ) );
+			let farm = smoothstep( 0.2, 0.08, slope ) * ( 1 - scrub ) * ( 1 - town ) * ( this.inside[ k ] ? 0 : 1 );
+			farm = Math.max( farm, farmK[ k ] / 255 * ( 1 - town ) * ( this.inside[ k ] ? 0 : 1 ) );
 			sand[ k ] = Math.round( clamp( farm, 0, 1 ) * 255 );
 			gully[ k ] = Math.round( clamp( scrub * ( 1 - farmK[ k ] / 255 * 0.8 ), 0, 1 ) * 255 );
 			// bare limestone on the steepest slopes outside the walls and on the castle hill's (not under streets)
