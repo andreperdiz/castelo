@@ -3369,19 +3369,19 @@ export class Walls {
 		const tOf = ( P ) => ( P[ 0 ] - S.from[ 0 ] ) * S.dir[ 0 ] + ( P[ 1 ] - S.from[ 1 ] ) * S.dir[ 1 ];
 		const alleyY = ( P ) => S.y( tOf( P ) );
 
-		// the steps' edges: long worn stones, a little proud of the cobbles
+		// the steps' edges: long worn stones, standing a hand's breadth over the cobbles below them
 		kit.vdata = [ 0.43, 0.55, 0, 0 ];
 		kit.color = [ 0.74, 0.73, 0.69 ];
 		for ( let t = 1.4; t < S.length - 0.8; t += 2.9 ) {
 
 			const [ x, z ] = at( t ), y = S.y( t );
-			kit.box( x, y - 0.05, z, 0.3, 0.2, 2 * S.HALF + 0.3, yaw );
+			kit.box( x, y + 0.01, z, 0.32, 0.2, 2 * S.HALF + 0.3, yaw ); // its top a short riser over the tread below
 
 		}
 
 		// the walls: on the south (the right going down) as high as the terrace behind it, so its top stays
 		// level while the alley falls; on the north the garden's, taller
-		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = alleyY( s0 ) + 1.9;
+		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.top;
 		this._oldWall( plaster, s0, s1, - 1, alleyY, top - alleyY( s0 ), top - alleyY( s1 ), 53, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
 		const ntop = alleyY( n0 ) + 3.2;
 		this._oldWall( plaster, n0, n1, 1, alleyY, ntop - alleyY( n0 ), ntop + 0.6 - alleyY( n1 ), 59, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
@@ -3408,6 +3408,29 @@ export class Walls {
 
 		}
 
+		// the terrace's far sides, held up by walls like the front one: its back (south) and its east end
+		{
+
+			const back = [ - out[ 0 ], - out[ 1 ] ], T = this.terrain, P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
+			// each from the lowest ground a metre out along it (the terrace's edge leans the nearest texels up), so
+			// its top stays level over the uneven paving
+			const base = ( A, B, n ) => {
+
+				let lo = Infinity;
+				for ( let f = 0; f <= 1.001; f += 0.05 ) lo = Math.min( lo, T.heightAt( A[ 0 ] + ( B[ 0 ] - A[ 0 ] ) * f + n[ 0 ], A[ 1 ] + ( B[ 1 ] - A[ 1 ] ) * f + n[ 1 ] ) );
+				return lo;
+
+			};
+			const blue = lin( [ 0.2, 0.34, 0.8 ] );
+			for ( const [ A, B, n, seed ] of [ [ P( SL, S.DEEP ), P( 0, S.DEEP ), back, 67 ], [ P( SL, 0.25 ), P( SL, S.DEEP ), su, 71 ] ] ) {
+
+				const g = base( A, B, n );
+				this._oldWall( plaster, A, B, - 1, () => g, top - g, top - g, seed, false, { foot: blue, ivy: false } );
+
+			}
+
+		}
+
 		const mesh = new Mesh( plaster.build(), materials.plaster );
 		mesh.name = 'santa-maria-steps';
 		mesh.castShadow = true;
@@ -3415,9 +3438,49 @@ export class Walls {
 		mesh.staticVelocity = true;
 		this.group.add( mesh );
 
-		// the bush in the bottom corner, against the south wall
-		this.extraTrees = this.extraTrees || [];
-		this.extraTrees.push( { kind: 'garden', x: s1[ 0 ] - 0.8, z: s1[ 1 ] + 0.8, scale: 0.32 } );
+		// the bush in the bottom corner against the south wall: dense leaves from the ground up, taller than a
+		// person, small orange flowers; and on the terrace above, the café's tables and chairs by the wall
+		const bush = new MeshKit(), rnd = mulberry32( 61 );
+		bush.vdata = [ 0, 0, 0.53, 4 ];
+		const B = [ s1[ 0 ] - 1.0 + out[ 0 ] * 0.75, s1[ 1 ] - 0.0 + out[ 1 ] * 0.75 ], gB = alleyY( B );
+		for ( let i = 0; i < 2600; i ++ ) {
+
+			// a rounded mass, broad and full low down, narrowing to the top
+			const h = Math.sqrt( rnd() ) * 2.2, rr = 0.85 * Math.sqrt( 1 - ( ( h - 0.9 ) / 1.35 ) ** 2 ) * Math.sqrt( rnd() ), a = rnd() * Math.PI * 2;
+			const x = B[ 0 ] + Math.cos( a ) * rr * 1.15, z = B[ 1 ] + Math.sin( a ) * rr * 0.8, sz = 0.05 + rnd() * 0.07, bloom = rnd();
+			bush.color = lin( bloom < 0.06 ? [ 0.95, 0.5, 0.12 ] : [ 0.12 + rnd() * 0.08, 0.26 + rnd() * 0.12, 0.08 ] );
+			bush.box( x, gB + 0.05 + 2.2 - h, z, bloom < 0.06 ? sz * 0.7 : sz, sz * 0.8, bloom < 0.06 ? sz * 0.7 : sz, rnd() * 3 );
+
+		}
+
+		const bushMesh = new Mesh( bush.build(), materials.plaster );
+		bushMesh.name = 'santa-maria-bush';
+		bushMesh.castShadow = true;
+		bushMesh.receiveShadow = true;
+		bushMesh.staticVelocity = true;
+		this.group.add( bushMesh );
+
+		kit.vdata = [ 0.29, 0.2, 0, 0 ];
+		for ( const u of [ 1.6, 4.4 ] ) {
+
+			// a small round table, two chairs, a step back from the wall's top
+			const C = [ s0[ 0 ] + su[ 0 ] * u - out[ 0 ] * 1.3, s0[ 1 ] + su[ 1 ] * u - out[ 1 ] * 1.3 ], g = S.top - 0.05;
+			kit.color = [ 0.06, 0.06, 0.06 ];
+			kit.box( C[ 0 ], g + 0.36, C[ 1 ], 0.05, 0.72, 0.05, 0 );
+			kit.color = [ 0.55, 0.55, 0.53 ];
+			kit.box( C[ 0 ], g + 0.73, C[ 1 ], 0.6, 0.03, 0.6, yaw + 0.785 );
+			for ( const sgn of [ - 1, 1 ] ) {
+
+				const P = [ C[ 0 ] + su[ 0 ] * 0.55 * sgn, C[ 1 ] + su[ 1 ] * 0.55 * sgn ], cy = Math.atan2( - su[ 1 ], su[ 0 ] );
+				kit.color = [ 0.05, 0.05, 0.05 ];
+				kit.box( P[ 0 ], g + 0.45, P[ 1 ], 0.4, 0.04, 0.4, cy ); // the seat
+				for ( const [ a, b ] of [ [ - 1, - 1 ], [ - 1, 1 ], [ 1, - 1 ], [ 1, 1 ] ] ) kit.box( P[ 0 ] + su[ 0 ] * 0.17 * a + out[ 0 ] * 0.17 * b, g + 0.22, P[ 1 ] + su[ 1 ] * 0.17 * a + out[ 1 ] * 0.17 * b, 0.03, 0.45, 0.03, cy );
+				const Bk = [ P[ 0 ] + su[ 0 ] * 0.19 * sgn, P[ 1 ] + su[ 1 ] * 0.19 * sgn ];
+				kit.box( Bk[ 0 ], g + 0.68, Bk[ 1 ], 0.03, 0.44, 0.4, cy ); // the back
+
+			}
+
+		}
 
 	}
 
