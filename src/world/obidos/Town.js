@@ -62,6 +62,9 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the right going up the Calçada da Misericórdia: a charcoal foot (photo
 	// references/...-whatsapp-image-2026-10-21-at-10-05-24)
 	299064166: [ 0.27, 0.27, 0.28 ],
+	// the Museu Municipal, along the way down from Praça de Santa Maria to the steps: a red foot (photo
+	// references/...-814e8453-...)
+	299063768: [ 0.62, 0.13, 0.1 ],
 	// down Rua Porta do Vale from the tower by the gate (photo references/...-img-4397): on the right, between
 	// it and Rua da Porta da Senhora da Graça, red; on the left a yellow foot, then blue
 	299086795: [ 0.62, 0.13, 0.1 ],

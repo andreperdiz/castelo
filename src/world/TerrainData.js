@@ -150,7 +150,7 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // museum toward the Igreja da Misericórdia (photo references/...-2fa087ec-...): a wide alley in long cobbled
 // steps, a white wall with a blue foot and an iron handrail on its right going down (south), a tall white
 // wall with a red foot on its left (the walled garden's, OSM), down to the corner where it turns north
-export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 12.4, - 13.6 ], [ 22.6, - 13.3 ] ] };
+export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 22.6, - 13.3 ] ] };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -1043,26 +1043,11 @@ export class TerrainData {
 			}
 
 		} );
-		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge):
-		// from the wall's face back 5 m; Walls holds its far sides up with walls like it, and on the square's side
-		// (west) it eases down to the ground over 2.5 m
-		const [ s0, s1 ] = S.south, top = y0 + 1.5, level = top - 0.05;
-		const SL = Math.hypot( s1[ 0 ] - s0[ 0 ], s1[ 1 ] - s0[ 1 ] ), su = [ ( s1[ 0 ] - s0[ 0 ] ) / SL, ( s1[ 1 ] - s0[ 1 ] ) / SL ];
-		const back = [ su[ 1 ], - su[ 0 ] ], DEEP = 5, SOFT = 2.5;
-		const i0 = Math.floor( ( Math.min( s0[ 0 ], s1[ 0 ] ) - DEEP - SOFT - origin ) / texel ), i1 = Math.ceil( ( Math.max( s0[ 0 ], s1[ 0 ] ) + DEEP + SOFT - origin ) / texel );
-		const j0 = Math.floor( ( Math.min( s0[ 1 ], s1[ 1 ] ) - DEEP - SOFT - origin ) / texel ), j1 = Math.ceil( ( Math.max( s0[ 1 ], s1[ 1 ] ) + DEEP + SOFT - origin ) / texel );
-		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
-
-			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
-			const u = ( x - s0[ 0 ] ) * su[ 0 ] + ( z - s0[ 1 ] ) * su[ 1 ], kb = ( x - s0[ 0 ] ) * back[ 0 ] + ( z - s0[ 1 ] ) * back[ 1 ];
-			if ( kb < 0.2 ) continue; // the alley's side of the wall
-			if ( u > SL || kb > DEEP ) continue; // walled
-			const out = Math.max( 0, - u );
-			if ( out >= SOFT ) continue;
-			const k = j * res + i, w = 1 - smoothstep( 0, SOFT, out );
-			heights[ k ] = Math.max( heights[ k ], lerp( heights[ k ], level, w ) );
-
-		}
+		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge),
+		// from the wall's face back 9.5 m along the way down from the square (photo references/...-814e8453-...):
+		// Walls builds it, walls round it and a paved floor over the ground, which is left as it is (a raised
+		// ground would bank out over the walls' feet)
+		const top = y0 + 1.5, DEEP = 9.5;
 
 		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP };
 

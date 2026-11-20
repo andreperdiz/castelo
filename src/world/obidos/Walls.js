@@ -3408,12 +3408,12 @@ export class Walls {
 
 		}
 
-		// the terrace's far sides, held up by walls like the front one: its back (south) and its east end
+		// the terrace's other sides, held up by walls like the front one: its back (south), its east end, and
+		// its west side along the way down from the square (photo references/...-814e8453-...)
 		{
 
 			const back = [ - out[ 0 ], - out[ 1 ] ], T = this.terrain, P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
-			// each from the lowest ground a metre out along it (the terrace's edge leans the nearest texels up), so
-			// its top stays level over the uneven paving
+			// each from the lowest ground a metre out along it, so its top stays level over the uneven paving
 			const base = ( A, B, n ) => {
 
 				let lo = Infinity;
@@ -3422,10 +3422,66 @@ export class Walls {
 
 			};
 			const blue = lin( [ 0.2, 0.34, 0.8 ] );
-			for ( const [ A, B, n, seed ] of [ [ P( SL, S.DEEP ), P( 0, S.DEEP ), back, 67 ], [ P( SL, 0.25 ), P( SL, S.DEEP ), su, 71 ] ] ) {
+			for ( const [ A, B, n, seed ] of [ [ P( SL, S.DEEP ), P( 0, S.DEEP ), back, 67 ], [ P( SL, 0.25 ), P( SL, S.DEEP ), su, 71 ], [ P( 0, S.DEEP ), P( 0, 0.25 ), [ - su[ 0 ], - su[ 1 ] ], 73 ] ] ) {
 
 				const g = base( A, B, n );
 				this._oldWall( plaster, A, B, - 1, () => g, top - g, top - g, seed, false, { foot: blue, ivy: false } );
+
+			}
+
+			// the floor: grey stone paving level just under the walls' tops, over the ground, and a collider for it
+			const F = top - 0.05, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, S.DEEP ), P( 0, S.DEEP ) ];
+			kit.vdata = [ 0.71, 0.3, 0, 0 ];
+			kit.color = [ 0.74, 0.72, 0.67 ];
+			kit.quadFacing( ...corners.map( ( q ) => [ q[ 0 ], F, q[ 1 ] ] ), [ 0, 1, 0 ], corners.map( ( q ) => [ q[ 0 ], q[ 1 ] ] ) );
+			const Cf = P( SL / 2, S.DEEP / 2 ), lo = base( corners[ 0 ], corners[ 2 ], [ 0, 0 ] ) - 0.5;
+			this.colliders.addBox( new Vector3( Cf[ 0 ], ( F + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( F - lo ) / 2, S.DEEP / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
+
+			// a coping of old brownish stone along all four tops, moss in it
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.36, 0.33, 0.27 ];
+			const C = P( SL / 2, S.DEEP / 2 );
+			for ( const [ A, B ] of [ [ P( 0, 0 ), P( SL, 0 ) ], [ P( SL, 0 ), P( SL, S.DEEP ) ], [ P( SL, S.DEEP ), P( 0, S.DEEP ) ], [ P( 0, S.DEEP ), P( 0, 0 ) ] ] ) {
+
+				const M = [ ( A[ 0 ] + B[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] ) / 2 ], l = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+				const m = Math.hypot( C[ 0 ] - M[ 0 ], C[ 1 ] - M[ 1 ] ), inw = [ ( C[ 0 ] - M[ 0 ] ) / m, ( C[ 1 ] - M[ 1 ] ) / m ];
+				kit.box( M[ 0 ] + inw[ 0 ] * 0.24, top + 0.04, M[ 1 ] + inw[ 1 ] * 0.24, l + 0.1, 0.08, 0.62, Math.atan2( - ( B[ 1 ] - A[ 1 ] ), B[ 0 ] - A[ 0 ] ) );
+
+			}
+
+		}
+
+		// in the garden's wall at the top of the steps, facing the way down from the square (photo
+		// references/...-814e8453-...): a green double door of panels in a surround of rough grey stone,
+		// its head a low arch of blocks
+		{
+
+			const NL = Math.hypot( n1[ 0 ] - n0[ 0 ], n1[ 1 ] - n0[ 1 ] ), nu = [ ( n1[ 0 ] - n0[ 0 ] ) / NL, ( n1[ 1 ] - n0[ 1 ] ) / NL ];
+			const face = [ nu[ 1 ], - nu[ 0 ] ]; // toward the alley
+			const U = 1.7, D = [ n0[ 0 ] + nu[ 0 ] * U, n0[ 1 ] + nu[ 1 ] * U ], g = this.terrain.heightAt( D[ 0 ] + face[ 0 ] * 0.6, D[ 1 ] + face[ 1 ] * 0.6 );
+			const dyaw = Math.atan2( - nu[ 1 ], nu[ 0 ] ), W = 1.5, H = 2.2;
+			const put = ( u, y, w, h, d, k ) => kit.box( D[ 0 ] + nu[ 0 ] * u + face[ 0 ] * k, y, D[ 1 ] + nu[ 1 ] * u + face[ 1 ] * k, w, h, d, dyaw );
+			kit.vdata = [ 0.43, 0.5, 0, 0 ];
+			kit.color = [ 0.08, 0.32, 0.26 ];
+			put( 0, g + H / 2, W, H, 0.06, 0.0 ); // the doors
+			kit.color = [ 0.06, 0.26, 0.21 ];
+			for ( const su2 of [ - 1, 1 ] ) for ( const y of [ 0.55, 1.5 ] ) put( su2 * W / 4, g + y, W / 2 - 0.3, 0.6, 0.04, 0.04 ); // their panels
+			put( 0, g + H / 2, 0.03, H, 0.04, 0.04 ); // the meeting stile
+			kit.color = [ 0.5, 0.49, 0.45 ];
+			for ( const sd of [ - 1, 1 ] ) for ( let y = g, i = 0; y < g + H - 0.05; i ++ ) {
+
+				// the jambs: rough blocks of uneven height and width
+				const h = 0.32 + ( ( i * 7 + ( sd > 0 ? 3 : 0 ) ) % 4 ) * 0.05, w = 0.3 + ( ( i * 5 + ( sd > 0 ? 1 : 0 ) ) % 3 ) * 0.06;
+				put( sd * ( W / 2 + w / 2 ), y + Math.min( h, g + H - y ) / 2, w, Math.min( h, g + H - y ) - 0.02, 0.16, 0.05 );
+				y += h;
+
+			}
+
+			for ( let i = 0; i < 7; i ++ ) {
+
+				// the head: blocks over the doors, rising a little to the middle
+				const a = ( i + 0.5 ) / 7 - 0.5, bw = ( W + 0.7 ) / 7;
+				put( a * ( W + 0.7 ), g + H + 0.24 + 0.14 * Math.cos( a * Math.PI ), bw - 0.02, 0.5 + 0.12 * Math.cos( a * Math.PI ), 0.17, 0.05 );
 
 			}
 
