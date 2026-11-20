@@ -3487,6 +3487,68 @@ export class Walls {
 
 		}
 
+		// the Museu's side door on the way down from the square (photo references/...-814e8453-...): a door of dark
+		// green boards in a plain frame of pale stone, two worn stone steps up to it standing out into the way
+		{
+
+			const A = [ 10, - 20.4 ], B = [ 8.5, - 8.3 ], ML = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+			const mu = [ ( B[ 0 ] - A[ 0 ] ) / ML, ( B[ 1 ] - A[ 1 ] ) / ML ], mo = [ mu[ 1 ], - mu[ 0 ] ]; // along the front, out of it
+			const D = [ A[ 0 ] + mu[ 0 ] * 4.9, A[ 1 ] + mu[ 1 ] * 4.9 ], dyaw = Math.atan2( - mu[ 1 ], mu[ 0 ] ), T = this.terrain;
+			const g = T.heightAt( D[ 0 ] + mo[ 0 ] * 1.2, D[ 1 ] + mo[ 1 ] * 1.2 ) - 0.02;
+			const put = ( u, k, y, w, h, d ) => kit.box( D[ 0 ] + mu[ 0 ] * u + mo[ 0 ] * k, y, D[ 1 ] + mu[ 1 ] * u + mo[ 1 ] * k, w, h, d, dyaw );
+			const sill = g + 0.36;
+			kit.vdata = [ 0.43, 0.55, 0, 0 ];
+			kit.color = [ 0.68, 0.66, 0.6 ];
+			for ( const [ i, w, d ] of [ [ 0, 1.5, 0.95 ], [ 1, 1.3, 0.5 ] ] ) {
+
+				// the steps, each a block from below the ground up to its tread
+				const y1 = g + 0.18 * ( i + 1 ), y0 = g - 0.3;
+				put( 0, d / 2, ( y0 + y1 ) / 2, w, y1 - y0, d );
+				const c = [ D[ 0 ] + mo[ 0 ] * d / 2, D[ 1 ] + mo[ 1 ] * d / 2 ];
+				this.colliders.addBox( new Vector3( c[ 0 ], ( y0 + y1 ) / 2, c[ 1 ] ), new Vector3( w / 2, ( y1 - y0 ) / 2, d / 2 ), dyaw, { walkable: true, tag: 'stair' } );
+
+			}
+
+			// the frame: jambs and a lintel of pale stone, a little proud of the plaster
+			kit.color = [ 0.72, 0.69, 0.62 ];
+			for ( const sd of [ - 1, 1 ] ) put( sd * 0.68, 0.06, sill + 1.2, 0.24, 2.4, 0.12 );
+			put( 0, 0.06, sill + 2.52, 1.6, 0.26, 0.12 );
+			kit.vdata = [ 0.43, 0.5, 0, 0 ];
+			kit.color = [ 0.06, 0.22, 0.18 ];
+			put( 0, 0.03, sill + 1.2, 1.12, 2.4, 0.06 ); // the door
+			kit.color = [ 0.04, 0.17, 0.14 ];
+			for ( let u = - 0.42; u < 0.45; u += 0.21 ) put( u, 0.065, sill + 1.2, 0.02, 2.36, 0.02 ); // its boards
+
+		}
+
+		// a terracotta pot of geraniums on the terrace wall's coping, a metre from its corner by the steps
+		{
+
+			const back = [ - out[ 0 ], - out[ 1 ] ], Q = [ s0[ 0 ] + back[ 0 ] * 1.0 + su[ 0 ] * 0.24, s0[ 1 ] + back[ 1 ] * 1.0 + su[ 1 ] * 0.24 ], rp = mulberry32( 83 );
+			kit.vdata = [ 0.29, 0.6, 0, 0 ];
+			kit.color = [ 0.62, 0.24, 0.11 ];
+			const y0 = top + 0.08;
+			kit.box( Q[ 0 ], y0 + 0.03, Q[ 1 ], 0.2, 0.06, 0.2, 0.3 ); // its foot
+			kit.box( Q[ 0 ], y0 + 0.19, Q[ 1 ], 0.3, 0.26, 0.3, 0.3 ); // its belly
+			kit.box( Q[ 0 ], y0 + 0.35, Q[ 1 ], 0.34, 0.06, 0.34, 0.3 ); // its rim
+			const leaves = new MeshKit();
+			leaves.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < 160; i ++ ) {
+
+				const a = rp() * Math.PI * 2, r = Math.sqrt( rp() ) * 0.28, h = rp() * 0.4, bloom = rp() < 0.12, sz = 0.05 + rp() * 0.05;
+				leaves.color = lin( bloom ? [ 0.9, 0.25, 0.35 ] : [ 0.16 + rp() * 0.08, 0.36 + rp() * 0.1, 0.1 ] );
+				leaves.box( Q[ 0 ] + Math.cos( a ) * r, y0 + 0.4 + h, Q[ 1 ] + Math.sin( a ) * r, sz, sz * 0.7, sz, rp() * 3 );
+
+			}
+
+			const lm = new Mesh( leaves.build(), materials.plaster );
+			lm.name = 'santa-maria-pot';
+			lm.castShadow = true;
+			lm.staticVelocity = true;
+			this.group.add( lm );
+
+		}
+
 		const mesh = new Mesh( plaster.build(), materials.plaster );
 		mesh.name = 'santa-maria-steps';
 		mesh.castShadow = true;
@@ -3508,6 +3570,11 @@ export class Walls {
 			bush.box( x, gB + 0.05 + 2.2 - h, z, bloom < 0.06 ? sz * 0.7 : sz, sz * 0.8, bloom < 0.06 ? sz * 0.7 : sz, rnd() * 3 );
 
 		}
+
+		// and in the garden behind the tall wall, a tree leaning its branches over the top (photo
+		// references/...-814e8453-...)
+		this.extraTrees = this.extraTrees || [];
+		this.extraTrees.push( { kind: 'garden', x: 13.8, z: - 5.0, scale: 1.3 } );
 
 		const bushMesh = new Mesh( bush.build(), materials.plaster );
 		bushMesh.name = 'santa-maria-bush';
