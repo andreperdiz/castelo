@@ -3619,17 +3619,25 @@ export class Walls {
 			}
 
 			const flight = ( P ) => ST.y( P[ 1 ] );
-			// on its right, from the church's corner up
-			this._oldWall( plaster, [ ST.x1 + 0.02, - 5.6 ], [ ST.x1 + 0.02, ST.zt ], 1, flight, 2.6, 2.0, 79, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
-			// on its left, from behind the cross to the terrace's corner: a low wall a metre over the steps, its
-			// foot down to whichever side's ground is lower (in short lengths, so its top follows the flight)
+			// on its right, the Misericórdia's side right against the lower steps, white over its black foot,
+			// golden stone quoins up its corner (photo references/...-2302-...); past it, set back a little, a
+			// lower wall with a blue foot up to the top
+			const CZ = - 6.4, blue = lin( [ 0.2, 0.34, 0.8 ] );
+			this._oldWall( plaster, [ ST.x1 + 0.02, ST.zb + 0.4 ], [ ST.x1 + 0.02, CZ ], 1, flight, 6.0, 6.0, 79, false, { foot: lin( [ 0.03, 0.03, 0.03 ] ), ivy: false } );
+			this._quoinCorner( [ ST.x1 + 0.02, CZ ], [ [ 0, 1 ], [ 1, 0 ] ], ST.y( CZ ) - 0.1, ST.y( CZ ) + 5.9 );
+			this._oldWall( plaster, [ ST.x1 + 0.27, CZ ], [ ST.x1 + 0.27, ST.zt ], 1, flight, 2.6, 2.0, 81, false, { foot: blue, ivy: false } );
+			// on its left, from behind the cross up to the terrace's corner, rising from a little over the steps to
+			// the terrace's top (the photos), its blue foot following the steps; and its back, down to the ramp's
+			// ground, in short lengths
 			const z0 = X.z - X.d / 2 + 0.3, z1 = s1[ 1 ] - 0.02, n = Math.ceil( ( z0 - z1 ) / 1.2 );
+			const tL0 = ST.y( z0 ) + 2.4, topL = ( z ) => tL0 + ( top - tL0 ) * ( z0 - z ) / ( z0 - z1 );
+			this._oldWall( plaster, [ ST.x0 - 0.02, z0 ], [ ST.x0 - 0.02, z1 ], - 1, flight, topL( z0 ) - ST.y( z0 ), topL( z1 ) - ST.y( z1 ), 83, false, { foot: blue, ivy: false } );
 			for ( let i = 0; i < n; i ++ ) {
 
-				const za = z0 - ( z0 - z1 ) * i / n, zb = z0 - ( z0 - z1 ) * ( i + 1 ) / n;
-				const low = ( P ) => Math.min( ST.y( P[ 1 ] ), T.heightAt( ST.x0 - 0.9, P[ 1 ] ) );
-				const A = [ ST.x0 - 0.02, za ], B = [ ST.x0 - 0.02, zb ];
-				this._oldWall( plaster, A, B, - 1, low, ST.y( za ) + 1.0 - low( A ), ST.y( zb ) + 1.0 - low( B ), 83 + i, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
+				const za = z1 + ( z0 - z1 ) * i / n, zb = z1 + ( z0 - z1 ) * ( i + 1 ) / n, xb = ST.x0 - 0.5;
+				const low = ( P ) => T.heightAt( P[ 0 ] - 0.8, P[ 1 ] );
+				const A = [ xb, za ], B = [ xb, zb ];
+				this._oldWall( plaster, A, B, - 1, low, topL( za ) - low( A ), topL( zb ) - low( B ), 87 + i, false, { foot: blue, ivy: false } );
 
 			}
 
@@ -3675,13 +3683,14 @@ export class Walls {
 			const g = T.heightAt( X.x, X.z + X.d / 2 + 0.5 ), zf = X.z + X.d / 2 + 0.3, rb = mulberry32( 97 );
 			kit.vdata = [ 0.43, 0.55, 0, 0 ];
 			kit.color = [ 0.62, 0.6, 0.55 ];
-			kit.box( X.x, g + 0.08, zf + 0.28, 1.0, 0.22, 0.14, 0 );
-			for ( const sd of [ - 1, 1 ] ) kit.box( X.x + sd * 0.45, g + 0.08, zf + 0.12, 0.14, 0.22, 0.38, 0 );
+			const bx = X.x - X.w / 2 + 0.6; // (in front of its left half)
+			kit.box( bx, g + 0.08, zf + 0.28, 1.0, 0.22, 0.14, 0 );
+			for ( const sd of [ - 1, 1 ] ) kit.box( bx + sd * 0.45, g + 0.08, zf + 0.12, 0.14, 0.22, 0.38, 0 );
 			const shrub = new MeshKit();
 			shrub.vdata = [ 0, 0, 0.53, 4 ];
 			for ( let i = 0; i < 140; i ++ ) {
 
-				const h = rb() * 1.0, x = X.x + ( rb() - 0.5 ) * ( 0.35 + h * 0.4 ), z = zf + 0.05 + rb() * 0.2, sz = 0.04 + rb() * 0.05;
+				const h = rb() * 1.0, x = bx + ( rb() - 0.5 ) * ( 0.35 + h * 0.4 ), z = zf + 0.05 + rb() * 0.2, sz = 0.04 + rb() * 0.05;
 				shrub.color = lin( [ 0.15 + rb() * 0.08, 0.33 + rb() * 0.12, 0.1 ] );
 				shrub.box( x, g + 0.15 + h, z, sz, sz * 0.7, sz, rb() * 3 );
 
@@ -3697,7 +3706,7 @@ export class Walls {
 		// over the stair, a lantern on a curled iron bracket from the wall on its right (photo references/...-2241-...)
 		{
 
-			const lamps = new MeshKit(), z = - 8.6, wx = ST.x1 - 0.01, y0 = ST.y( z ) + 1.85, lx = ST.x1 - 0.55; // (under the wall's top)
+			const lamps = new MeshKit(), z = - 8.6, wx = ST.x1 + 0.26, y0 = ST.y( z ) + 1.85, lx = ST.x1 - 0.45; // (under the wall's top)
 			lamps.vdata = [ 0, 0, 0, 0 ];
 			lamps.box( wx, y0 + 0.4, z, 0.06, 0.5, 0.24, 0 ); // the plate on the wall
 			lamps.box( ( wx + lx ) / 2, y0 + 0.62, z, wx - lx, 0.05, 0.05, 0 ); // the arm
