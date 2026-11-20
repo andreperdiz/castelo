@@ -3384,7 +3384,9 @@ export class Walls {
 		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.top;
 		this._oldWall( plaster, s0, s1, - 1, alleyY, top - alleyY( s0 ), top - alleyY( s1 ), 53, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
 		const ntop = alleyY( n0 ) + 3.2;
-		this._oldWall( plaster, n0, n1, 1, alleyY, ntop - alleyY( n0 ), ntop + 0.6 - alleyY( n1 ), 59, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
+		// (down at the corner, as high again over the alley's foot as the wall turning down the ramp)
+		const nEnd = alleyY( n1 ) + 4.2;
+		this._oldWall( plaster, n0, n1, 1, alleyY, ntop - alleyY( n0 ), nEnd - alleyY( n1 ), 59, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
 
 		// the handrail along the south wall: dark iron posts, a rail following the fall
 		const SL = Math.hypot( s1[ 0 ] - s0[ 0 ], s1[ 1 ] - s0[ 1 ] ), su = [ ( s1[ 0 ] - s0[ 0 ] ) / SL, ( s1[ 1 ] - s0[ 1 ] ) / SL ];
@@ -3397,11 +3399,11 @@ export class Walls {
 		};
 		kit.vdata = [ 0.29, 0.2, 0, 0 ];
 		kit.color = [ 0.06, 0.06, 0.06 ];
-		const posts = Math.max( 2, Math.round( ( SL - 0.8 ) / 1.6 ) );
+		const RAIL = Math.min( SL, 8.9 ), posts = Math.max( 2, Math.round( ( RAIL - 0.8 ) / 1.6 ) ); // (it stops short of the bush)
 		let prev = null;
 		for ( let i = 0; i <= posts; i ++ ) {
 
-			const [ x, g, z ] = railAt( 0.4 + ( SL - 0.8 ) * i / posts ), head = [ x, g + 0.92, z ];
+			const [ x, g, z ] = railAt( 0.4 + ( RAIL - 0.8 ) * i / posts ), head = [ x, g + 0.92, z ];
 			ironBar( kit, [ x, g - 0.05, z ], head, 0.035 );
 			if ( prev ) ironBar( kit, prev, head, 0.045 );
 			prev = head;
@@ -3549,6 +3551,90 @@ export class Walls {
 
 		}
 
+		// the ramp down from the alley's foot to the Largo da Misericórdia (photo references/...-2241-814e8453-...):
+		// long cobbled treads edged with stone like the alley's; on its left going down the garden's wall turning
+		// from the alley, white over its dark red foot, coming down with it
+		const R = S.ramp, ST = S.stair, X = S.cross, T = this.terrain;
+		const rampY = ( P ) => R.y( ( P[ 0 ] - R.from[ 0 ] ) * R.dir[ 0 ] + ( P[ 1 ] - R.from[ 1 ] ) * R.dir[ 1 ] );
+		kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		kit.color = [ 0.74, 0.73, 0.69 ];
+		for ( let t = 1.9; t < R.length - 0.6; t += 1.8 ) {
+
+			const x = R.from[ 0 ] + R.dir[ 0 ] * t, z = R.from[ 1 ] + R.dir[ 1 ] * t;
+			kit.box( x, R.y( t ) + 0.01, z, 0.3, 0.2, 2 * R.HALF + 0.4, Math.atan2( - R.dir[ 1 ], R.dir[ 0 ] ) );
+
+		}
+
+		{
+
+			const A = n1, Bw = [ 21.25, 0.6 ];
+			this._oldWall( plaster, A, Bw, 1, rampY, nEnd - rampY( A ), 3.4, 61, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
+
+		}
+
+		// the wayside cross (OSM; the photo): a tall plain cross of grey stone on a pedestal and two square steps,
+		// on a block between the ramp and the stair, whitewashed over a black foot, a stone slab on its top
+		{
+
+			const g = Math.min( T.heightAt( X.x, X.z + X.d / 2 + 0.3 ), T.heightAt( X.x - X.w / 2, X.z ) ), H = 1.75, y0 = g - 0.5, yt = g + H;
+			plaster.vdata = [ 0, 0, 0.53, 4 ];
+			plaster.color = lin( [ 0.9, 0.9, 0.88 ] );
+			plaster.box( X.x, ( g + 0.78 + yt ) / 2, X.z, X.w, yt - g - 0.78, X.d, 0 );
+			plaster.color = lin( [ 0.04, 0.04, 0.04 ] );
+			plaster.box( X.x, ( y0 + g + 0.78 ) / 2, X.z, X.w + 0.01, g + 0.78 - y0, X.d + 0.01, 0 );
+			this.colliders.addBox( new Vector3( X.x, ( y0 + yt ) / 2, X.z ), new Vector3( X.w / 2, ( yt - y0 ) / 2, X.d / 2 ), 0, { walkable: true, tag: 'wall' } );
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.6, 0.58, 0.53 ];
+			let y = yt;
+			for ( const [ w, h ] of [ [ X.w + 0.08, 0.1 ], [ 1.5, 0.17 ], [ 1.1, 0.17 ], [ 0.6, 0.62 ], [ 0.72, 0.1 ] ] ) {
+
+				// the slab, the two steps, the pedestal and its cap
+				kit.box( X.x, y + h / 2, X.z - ( w > X.w ? 0 : 0.2 ), w, h, w > X.w ? X.d + 0.08 : w, 0 );
+				y += h;
+
+			}
+
+			kit.color = [ 0.66, 0.64, 0.6 ];
+			kit.box( X.x, y + 1.75, X.z - 0.2, 0.26, 3.5, 0.24, 0 ); // the shaft
+			kit.box( X.x, y + 2.95, X.z - 0.2, 1.75, 0.26, 0.22, 0 ); // the arms
+			this.colliders.addBox( new Vector3( X.x, y + 1.75, X.z - 0.2 ), new Vector3( 0.15, 1.75, 0.15 ), 0, { walkable: false, tag: 'wall' } );
+
+		}
+
+		// the stair up from the Largo: long stone steps from the foot of the Igreja da Misericórdia's wall up along
+		// the terrace's east wall; a whitewashed wall with a blue foot on its right past the church's corner,
+		// and between it and the ramp, behind the cross, a wall up to the terrace's top
+		{
+
+			const N = Math.max( 4, Math.round( ( ST.yT - ST.yB ) / 0.17 ) ), rise = ( ST.yT - ST.yB ) / N, tread = ( ST.zb - ST.zt ) / N;
+			const xm = ( ST.x0 + ST.x1 ) / 2, W = ST.x1 - ST.x0;
+			kit.vdata = [ 0.43, 0.55, 0, 0 ];
+			for ( let i = 0; i < N; i ++ ) {
+
+				const z0 = ST.zb - tread * i, z1 = i < N - 1 ? z0 - tread - 0.02 : ST.zt - 0.3, top = ST.yB + rise * ( i + 1 ), bottom = ST.yB - 0.4;
+				kit.color = [ 0.7 - ( i % 3 ) * 0.02, 0.69 - ( i % 3 ) * 0.02, 0.64 - ( i % 2 ) * 0.02 ];
+				kit.box( xm, ( top + bottom ) / 2, ( z0 + z1 ) / 2, W, top - bottom, z0 - z1, 0 );
+				this.colliders.addBox( new Vector3( xm, ( top + bottom ) / 2, ( z0 + z1 ) / 2 ), new Vector3( W / 2, ( top - bottom ) / 2, ( z0 - z1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+
+			}
+
+			const flight = ( P ) => ST.y( P[ 1 ] );
+			// on its right, from the church's corner up
+			this._oldWall( plaster, [ ST.x1 + 0.02, - 5.6 ], [ ST.x1 + 0.02, ST.zt ], 1, flight, 2.6, 2.0, 79, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
+			// on its left, from behind the cross to the terrace's corner: a low wall a metre over the steps, its
+			// foot down to whichever side's ground is lower (in short lengths, so its top follows the flight)
+			const z0 = X.z - X.d / 2 + 0.3, z1 = s1[ 1 ] - 0.02, n = Math.ceil( ( z0 - z1 ) / 1.2 );
+			for ( let i = 0; i < n; i ++ ) {
+
+				const za = z0 - ( z0 - z1 ) * i / n, zb = z0 - ( z0 - z1 ) * ( i + 1 ) / n;
+				const low = ( P ) => Math.min( ST.y( P[ 1 ] ), T.heightAt( ST.x0 - 0.9, P[ 1 ] ) );
+				const A = [ ST.x0 - 0.02, za ], B = [ ST.x0 - 0.02, zb ];
+				this._oldWall( plaster, A, B, - 1, low, ST.y( za ) + 1.0 - low( A ), ST.y( zb ) + 1.0 - low( B ), 83 + i, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
+
+			}
+
+		}
+
 		const mesh = new Mesh( plaster.build(), materials.plaster );
 		mesh.name = 'santa-maria-steps';
 		mesh.castShadow = true;
@@ -3560,7 +3646,7 @@ export class Walls {
 		// person, small orange flowers; and on the terrace above, the café's tables and chairs by the wall
 		const bush = new MeshKit(), rnd = mulberry32( 61 );
 		bush.vdata = [ 0, 0, 0.53, 4 ];
-		const B = [ s1[ 0 ] - 1.0 + out[ 0 ] * 0.75, s1[ 1 ] - 0.0 + out[ 1 ] * 0.75 ], gB = alleyY( B );
+		const B = [ s0[ 0 ] + su[ 0 ] * ( SL - 2.9 ) + out[ 0 ] * 0.8, s0[ 1 ] + su[ 1 ] * ( SL - 2.9 ) + out[ 1 ] * 0.8 ], gB = alleyY( B );
 		for ( let i = 0; i < 2600; i ++ ) {
 
 			// a rounded mass, broad and full low down, narrowing to the top
@@ -3575,6 +3661,8 @@ export class Walls {
 		// references/...-814e8453-...)
 		this.extraTrees = this.extraTrees || [];
 		this.extraTrees.push( { kind: 'garden', x: 13.8, z: - 5.0, scale: 1.3 } );
+		// and the plane trees over the stair's top, before the church of Santa Maria (photo references/...-2241-...)
+		this.extraTrees.push( { kind: 'plane', x: 30.5, z: - 20.5, scale: 0.85 }, { kind: 'plane', x: 24.5, z: - 26.5, scale: 0.8 } );
 
 		const bushMesh = new Mesh( bush.build(), materials.plaster );
 		bushMesh.name = 'santa-maria-bush';

@@ -149,8 +149,12 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // the top of the Calçada da Misericórdia, going down east from the corner of Praça de Santa Maria by the
 // museum toward the Igreja da Misericórdia (photo references/...-2fa087ec-...): a wide alley in long cobbled
 // steps, a white wall with a blue foot and an iron handrail on its right going down (south), a tall white
-// wall with a red foot on its left (the walled garden's, OSM), down to the corner where it turns north
-export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 22.6, - 13.3 ] ] };
+// wall with a red foot on its left (the walled garden's, OSM), down to the corner where it turns north (ramp)
+// in long steps down to the Largo da Misericórdia; beside it the wayside cross on its block (cross), and past
+// that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
+// zb up to zt; photo references/...-2241-814e8453-...)
+export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
+	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.4, z: - 3.8, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -1020,16 +1024,20 @@ export class TerrainData {
 	}
 
 	// the steps down from Praça de Santa Maria (SANTA_MARIA_STEPS): one even fall, steeper than the ground's
-	// (the photo's alley drops about two metres to the corner), paved; Walls lays the steps' stone edges on it
+	// (the photos: the alley drops near three metres to the corner, the terrace wall four high there), paved;
+	// Walls lays the steps' stone edges on it
 	// and builds its walls. this.santaMariaSteps tells Walls where.
 	_santaMariaSteps() {
 
 		const S = SANTA_MARIA_STEPS, { res, texel, origin, heights } = this;
 		const L = Math.hypot( S.to[ 0 ] - S.from[ 0 ], S.to[ 1 ] - S.from[ 1 ] );
 		const dir = [ ( S.to[ 0 ] - S.from[ 0 ] ) / L, ( S.to[ 1 ] - S.from[ 1 ] ) / L ];
-		const y0 = this.heightAt( ...S.from ), y1 = this.heightAt( ...S.to ) - 0.5;
+		const y0 = this.heightAt( ...S.from ), y1 = this.heightAt( ...S.to ) - 1.25;
 		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
 		const HALF = 2.2;
+		// (the ground before any of it: the Largo's, at the ramp's foot and the stair's, and the stair's top)
+		const R = S.ramp, ST = S.stair, xm = ( ST.x0 + ST.x1 ) / 2;
+		const yR1 = this.heightAt( R.to[ 0 ], R.to[ 1 ] + 0.6 ), yB = this.heightAt( xm, ST.zb + 0.6 ), yT = this.heightAt( xm, ST.zt - 0.7 );
 		this._stroke( [ S.from, S.to ], HALF, 1.0, ( k, w ) => {
 
 			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
@@ -1043,13 +1051,43 @@ export class TerrainData {
 			}
 
 		} );
+		// the ramp down to the Largo: one even fall from the alley's foot, paved; Walls lays its steps' edges
+		const RL = Math.hypot( R.to[ 0 ] - R.from[ 0 ], R.to[ 1 ] - R.from[ 1 ] ), rdir = [ ( R.to[ 0 ] - R.from[ 0 ] ) / RL, ( R.to[ 1 ] - R.from[ 1 ] ) / RL ];
+		const rampY = ( t ) => lerp( y1, yR1, clamp( t / RL, 0, 1 ) );
+		this._stroke( [ R.from, R.to ], R.HALF, 1.0, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - R.from[ 0 ] ) * rdir[ 0 ] + ( z - R.from[ 1 ] ) * rdir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], rampY( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+
+		// the stair: Walls builds its steps; the ground under them kept a little below their line (here it
+		// bulges over it)
+		const stairY = ( z ) => lerp( yB, yT, clamp( ( ST.zb - z ) / ( ST.zb - ST.zt ), 0, 1 ) );
+		const i0 = Math.floor( ( ST.x0 - 1 - origin ) / texel ), i1 = Math.ceil( ( ST.x1 + 1 - origin ) / texel );
+		const j0 = Math.floor( ( ST.zt - origin ) / texel ), j1 = Math.ceil( ( ST.zb + 1 - origin ) / texel );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+			heights[ k ] = Math.min( heights[ k ], stairY( z ) - 0.15 );
+
+		}
+
 		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge),
 		// from the wall's face back 9.5 m along the way down from the square (photo references/...-814e8453-...):
 		// Walls builds it, walls round it and a paved floor over the ground, which is left as it is (a raised
 		// ground would bank out over the walls' feet)
 		const top = y0 + 1.5, DEEP = 9.5;
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP };
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP,
+			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY } };
 
 	}
 
