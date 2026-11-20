@@ -146,6 +146,11 @@ export const BENEFICIADO = { from: [ 39.9, 39.3 ], to: [ 20.6, 41.2 ], wall: [ [
 // references/...-whatsapp-image-2026-10-21-at-10-05-24): an even cobbled climb between the same walled garden
 // (west) and a house (east); the garden's east wall, and the house's corner with its faces
 export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ [ 37.4, 38.2 ], [ 32.5, 30.3 ] ], corner: [ 37.8, 33.5 ] };
+// the top of the Calçada da Misericórdia, going down east from the corner of Praça de Santa Maria by the
+// museum toward the Igreja da Misericórdia (photo references/...-2fa087ec-...): a wide alley in long cobbled
+// steps, a white wall with a blue foot and an iron handrail on its right going down (south), a tall white
+// wall with a red foot on its left (the walled garden's, OSM), down to the corner where it turns north
+export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 12.4, - 13.6 ], [ 22.6, - 13.3 ] ] };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -196,6 +201,7 @@ export class TerrainData {
 		this._senhoraDaGraca();
 		this._beneficiado();
 		this._misericordia();
+		this._santaMariaSteps();
 		this._escadariaBiblioteca();
 		this._pvLaneLevel();
 		this._pvClimb();
@@ -1010,6 +1016,34 @@ export class TerrainData {
 
 		} );
 		this.beneficiado = { from: B.from, to: B.to, wall: B.wall, dir, length: L, y, HALF };
+
+	}
+
+	// the steps down from Praça de Santa Maria (SANTA_MARIA_STEPS): one even fall, steeper than the ground's
+	// (the photo's alley drops about two metres to the corner), paved; Walls lays the steps' stone edges on it
+	// and builds its walls. this.santaMariaSteps tells Walls where.
+	_santaMariaSteps() {
+
+		const S = SANTA_MARIA_STEPS, { res, texel, origin, heights } = this;
+		const L = Math.hypot( S.to[ 0 ] - S.from[ 0 ], S.to[ 1 ] - S.from[ 1 ] );
+		const dir = [ ( S.to[ 0 ] - S.from[ 0 ] ) / L, ( S.to[ 1 ] - S.from[ 1 ] ) / L ];
+		const y0 = this.heightAt( ...S.from ), y1 = this.heightAt( ...S.to ) - 0.5;
+		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
+		const HALF = 2.2;
+		this._stroke( [ S.from, S.to ], HALF, 1.0, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - S.from[ 0 ] ) * dir[ 0 ] + ( z - S.from[ 1 ] ) * dir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], y( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF };
 
 	}
 

@@ -252,6 +252,7 @@ export class Walls {
 		this._praceta();
 		this._portaEste( materials );
 		this._beneficiado( materials );
+		this._santaMariaSteps( materials );
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
@@ -3350,6 +3351,73 @@ export class Walls {
 		mesh.receiveShadow = true;
 		mesh.staticVelocity = true;
 		this.group.add( mesh );
+
+	}
+
+	// The steps down from Praça de Santa Maria toward the Igreja da Misericórdia (photo
+	// references/...-2fa087ec-...; TerrainData lays the fall): rows of pale stone across the alley every
+	// three metres, the long cobbled treads between them; going down, on the right a white wall with a strong
+	// blue foot, its top level (the terrace behind it), an iron handrail along it on posts; on the left the walled
+	// garden's tall plain wall, white over a dark red foot; a flowering bush in the bottom corner.
+	_santaMariaSteps( materials ) {
+
+		const S = this.terrain.santaMariaSteps;
+		if ( ! S ) return;
+		const kit = this.kit, plaster = new MeshKit();
+		const yaw = Math.atan2( - S.dir[ 1 ], S.dir[ 0 ] ), left = [ S.dir[ 1 ], - S.dir[ 0 ] ];
+		const at = ( t, d = 0 ) => [ S.from[ 0 ] + S.dir[ 0 ] * t + left[ 0 ] * d, S.from[ 1 ] + S.dir[ 1 ] * t + left[ 1 ] * d ];
+		const tOf = ( P ) => ( P[ 0 ] - S.from[ 0 ] ) * S.dir[ 0 ] + ( P[ 1 ] - S.from[ 1 ] ) * S.dir[ 1 ];
+		const alleyY = ( P ) => S.y( tOf( P ) );
+
+		// the steps' edges: long worn stones, a little proud of the cobbles
+		kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		kit.color = [ 0.74, 0.73, 0.69 ];
+		for ( let t = 1.4; t < S.length - 0.8; t += 2.9 ) {
+
+			const [ x, z ] = at( t ), y = S.y( t );
+			kit.box( x, y - 0.05, z, 0.3, 0.2, 2 * S.HALF + 0.3, yaw );
+
+		}
+
+		// the walls: on the south (the right going down) as high as the terrace behind it, so its top stays
+		// level while the alley falls; on the north the garden's, taller
+		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = alleyY( s0 ) + 1.9;
+		this._oldWall( plaster, s0, s1, - 1, alleyY, top - alleyY( s0 ), top - alleyY( s1 ), 53, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
+		const ntop = alleyY( n0 ) + 3.2;
+		this._oldWall( plaster, n0, n1, 1, alleyY, ntop - alleyY( n0 ), ntop + 0.6 - alleyY( n1 ), 59, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
+
+		// the handrail along the south wall: dark iron posts, a rail following the fall
+		const SL = Math.hypot( s1[ 0 ] - s0[ 0 ], s1[ 1 ] - s0[ 1 ] ), su = [ ( s1[ 0 ] - s0[ 0 ] ) / SL, ( s1[ 1 ] - s0[ 1 ] ) / SL ];
+		const out = [ - su[ 1 ], su[ 0 ] ]; // off the wall's face, into the alley
+		const railAt = ( u ) => {
+
+			const P = [ s0[ 0 ] + su[ 0 ] * u + out[ 0 ] * 0.14, s0[ 1 ] + su[ 1 ] * u + out[ 1 ] * 0.14 ];
+			return [ P[ 0 ], alleyY( P ), P[ 1 ] ];
+
+		};
+		kit.vdata = [ 0.29, 0.2, 0, 0 ];
+		kit.color = [ 0.06, 0.06, 0.06 ];
+		const posts = Math.max( 2, Math.round( ( SL - 0.8 ) / 1.6 ) );
+		let prev = null;
+		for ( let i = 0; i <= posts; i ++ ) {
+
+			const [ x, g, z ] = railAt( 0.4 + ( SL - 0.8 ) * i / posts ), head = [ x, g + 0.92, z ];
+			ironBar( kit, [ x, g - 0.05, z ], head, 0.035 );
+			if ( prev ) ironBar( kit, prev, head, 0.045 );
+			prev = head;
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'santa-maria-steps';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
+
+		// the bush in the bottom corner, against the south wall
+		this.extraTrees = this.extraTrees || [];
+		this.extraTrees.push( { kind: 'garden', x: s1[ 0 ] - 0.8, z: s1[ 1 ] + 0.8, scale: 0.32 } );
 
 	}
 
