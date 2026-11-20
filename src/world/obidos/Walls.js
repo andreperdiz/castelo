@@ -3635,6 +3635,87 @@ export class Walls {
 
 		}
 
+		// on the terrace, three big square white parasols over the tables, open, their tops showing over the
+		// walls from the Largo (photo references/...-2241-...)
+		{
+
+			const back = [ - out[ 0 ], - out[ 1 ] ], P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
+			const F = top - 0.05, pyaw = Math.atan2( - su[ 1 ], su[ 0 ] );
+			for ( const u of [ 3.0, 6.6, 10.2 ] ) {
+
+				const C = P( u, 1.9 ), yR = F + 2.35, yA = F + 2.75, H = 1.55; // the rim, the apex, half the canopy
+				kit.vdata = [ 0.29, 0.2, 0, 0 ];
+				kit.color = [ 0.08, 0.08, 0.08 ];
+				kit.box( C[ 0 ], F + 0.06, C[ 1 ], 0.5, 0.12, 0.5, pyaw ); // the weighted base
+				kit.box( C[ 0 ], F + ( yA + 0.1 - F ) / 2, C[ 1 ], 0.05, yA + 0.1 - F, 0.05, pyaw ); // the pole
+				plaster.vdata = [ 0, 0, 0.53, 4 ];
+				plaster.color = lin( [ 0.93, 0.93, 0.91 ] );
+				const corner = ( a, b ) => [ C[ 0 ] + su[ 0 ] * H * a + back[ 0 ] * H * b, yR, C[ 1 ] + su[ 1 ] * H * a + back[ 1 ] * H * b ];
+				const apex = [ C[ 0 ], yA, C[ 1 ] ], cs = [ corner( - 1, - 1 ), corner( 1, - 1 ), corner( 1, 1 ), corner( - 1, 1 ) ];
+				for ( let i = 0; i < 4; i ++ ) {
+
+					// four sloping panels, seen from above and below, and the valance hanging round the rim
+					const a = cs[ i ], b = cs[ ( i + 1 ) % 4 ], m = [ ( a[ 0 ] + b[ 0 ] ) / 2 - C[ 0 ], 0, ( a[ 2 ] + b[ 2 ] ) / 2 - C[ 1 ] ];
+					plaster.quadFacing( a, b, apex, apex, [ m[ 0 ], 1.2, m[ 2 ] ] );
+					plaster.quadFacing( a, b, apex, apex, [ - m[ 0 ], - 1.2, - m[ 2 ] ] );
+					const a2 = [ a[ 0 ], yR - 0.2, a[ 2 ] ], b2 = [ b[ 0 ], yR - 0.2, b[ 2 ] ];
+					plaster.quadFacing( a2, b2, b, a, m );
+					plaster.quadFacing( a2, b2, b, a, [ - m[ 0 ], 0, - m[ 2 ] ] );
+
+				}
+
+			}
+
+		}
+
+		// at the foot of the cross's block, a small kerbed bed of stones with a straggling shrub growing up its
+		// black foot
+		{
+
+			const g = T.heightAt( X.x, X.z + X.d / 2 + 0.5 ), zf = X.z + X.d / 2 + 0.3, rb = mulberry32( 97 );
+			kit.vdata = [ 0.43, 0.55, 0, 0 ];
+			kit.color = [ 0.62, 0.6, 0.55 ];
+			kit.box( X.x, g + 0.08, zf + 0.28, 1.0, 0.22, 0.14, 0 );
+			for ( const sd of [ - 1, 1 ] ) kit.box( X.x + sd * 0.45, g + 0.08, zf + 0.12, 0.14, 0.22, 0.38, 0 );
+			const shrub = new MeshKit();
+			shrub.vdata = [ 0, 0, 0.53, 4 ];
+			for ( let i = 0; i < 140; i ++ ) {
+
+				const h = rb() * 1.0, x = X.x + ( rb() - 0.5 ) * ( 0.35 + h * 0.4 ), z = zf + 0.05 + rb() * 0.2, sz = 0.04 + rb() * 0.05;
+				shrub.color = lin( [ 0.15 + rb() * 0.08, 0.33 + rb() * 0.12, 0.1 ] );
+				shrub.box( x, g + 0.15 + h, z, sz, sz * 0.7, sz, rb() * 3 );
+
+			}
+
+			const sm = new Mesh( shrub.build(), materials.plaster );
+			sm.name = 'santa-maria-cross-shrub';
+			sm.staticVelocity = true;
+			this.group.add( sm );
+
+		}
+
+		// over the stair, a lantern on a curled iron bracket from the wall on its right (photo references/...-2241-...)
+		{
+
+			const lamps = new MeshKit(), z = - 8.6, wx = ST.x1 - 0.01, y0 = ST.y( z ) + 1.85, lx = ST.x1 - 0.55; // (under the wall's top)
+			lamps.vdata = [ 0, 0, 0, 0 ];
+			lamps.box( wx, y0 + 0.4, z, 0.06, 0.5, 0.24, 0 ); // the plate on the wall
+			lamps.box( ( wx + lx ) / 2, y0 + 0.62, z, wx - lx, 0.05, 0.05, 0 ); // the arm
+			lamps.box( ( wx + lx ) / 2 + 0.05, y0 + 0.42, z, 0.04, 0.4, 0.04, 0 ); // its curl
+			lamps.box( lx, y0 + 0.55, z, 0.04, 0.14, 0.04, 0 );
+			lamps.box( lx, y0 - 0.12, z, 0.18, 0.06, 0.18, 0 );
+			lamps.box( lx, y0 + 0.4, z, 0.36, 0.06, 0.36, 0 );
+			lamps.box( lx, y0 + 0.47, z, 0.14, 0.1, 0.14, 0 );
+			lamps.vdata = [ 1, 0, 0, 0 ];
+			lamps.box( lx, y0 + 0.13, z, 0.28, 0.46, 0.28, 0, 'top bottom' );
+			this.lights.push( { position: new Vector3( lx, y0 + 0.1, z ), color: new Color( 1.0, 0.66, 0.36 ), intensity: 10, range: 14, kind: 'lantern', flicker: 0.04 } );
+			const lm = new Mesh( lamps.build(), materials.lantern );
+			lm.name = 'santa-maria-lantern';
+			lm.staticVelocity = true;
+			this.group.add( lm );
+
+		}
+
 		const mesh = new Mesh( plaster.build(), materials.plaster );
 		mesh.name = 'santa-maria-steps';
 		mesh.castShadow = true;
