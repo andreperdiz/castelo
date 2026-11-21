@@ -1943,18 +1943,19 @@ Town.prototype._pieces = function ( b ) {
 // following the arch, a gabled tiled roof along it
 Town.prototype._passageBody = function ( p, rand ) {
 
-	const T = this.terrain, kit = this.walls, roof = this.roofs;
+	const T = this.terrain, stone = !! STONE_HOUSES[ p.id ], kit = stone ? this.stoneWalls : this.walls, roof = this.roofs;
 	const wings = this.buildings.filter( ( b ) => b.id === p.id );
 	if ( wings.length < 2 ) return;
 	const g = Math.max( T.heightAt( ...p.A ), T.heightAt( ...p.B ) );
 	const R = p.half, spring = g + 2.5, OVER = 0.3;
 	// (up to the lower wing's eave, and at least a storey's worth over the arch)
-	const top = Math.max( Math.min( ...wings.map( ( b ) => b.eave ) ), spring + R + 1.4 );
+	// (in stone, beside the house-tower: lower, one room over the arch; photo references/...-1912-3408fb6f-...)
+	const top = stone ? spring + R + 2.3 : Math.max( Math.min( ...wings.map( ( b ) => b.eave ) ), spring + R + 1.4 );
 	const c = [ ( p.A[ 0 ] + p.B[ 0 ] ) / 2, ( p.A[ 1 ] + p.B[ 1 ] ) / 2 ], L = Math.hypot( p.B[ 0 ] - p.A[ 0 ], p.B[ 1 ] - p.A[ 1 ] ) + 2 * OVER;
 	const at = ( s, a ) => [ c[ 0 ] + p.u[ 0 ] * s + p.n[ 0 ] * a, c[ 1 ] + p.u[ 1 ] * s + p.n[ 1 ] * a ];
 	const archY = ( a ) => spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
-	kit.color = srgbToLinear( [ 0.93, 0.92, 0.89 ] );
-	kit.vdata = [ L, 1, 0.31, 0 ];
+	kit.color = stone ? [ 1.3, 1.02, 0.68 ] : srgbToLinear( [ 0.93, 0.92, 0.89 ] );
+	kit.vdata = stone ? [ 17.3, 0.45, 0, 0 ] : [ L, 1, 0.31, 0 ];
 	const SUB = 8;
 	for ( const [ s, dir ] of [ [ - L / 2, - 1 ], [ L / 2, 1 ] ] ) {
 
@@ -1975,6 +1976,38 @@ Town.prototype._passageBody = function ( p, rand ) {
 		const a0 = - R + 2 * R * k / SUB, a1 = a0 + 2 * R / SUB;
 		const P0 = at( - L / 2, a0 ), P1 = at( - L / 2, a1 ), Q0 = at( L / 2, a0 ), Q1 = at( L / 2, a1 );
 		kit.quadFacing( [ P0[ 0 ], archY( a0 ), P0[ 1 ] ], [ P1[ 0 ], archY( a1 ), P1[ 1 ] ], [ Q1[ 0 ], archY( a1 ), Q1[ 1 ] ], [ Q0[ 0 ], archY( a0 ), Q0[ 1 ] ], [ 0, - 1, 0 ] );
+
+	}
+
+	if ( stone ) {
+
+		// a ring of paler dressed stone round each face's arch, and on the face toward the Largo (-u) a small
+		// pair of narrow openings under the eaves
+		kit.color = [ 1.45, 1.25, 0.95 ];
+		const ring = ( s, dir ) => {
+
+			for ( let k = 0; k < 12; k ++ ) {
+
+				const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, o = dir * 0.03;
+				const q = ( t, r ) => { const P = at( s + o, Math.cos( t ) * r ); return [ P[ 0 ], spring + Math.sin( t ) * r, P[ 1 ] ]; };
+				kit.quadFacing( q( t0, R ), q( t1, R ), q( t1, R + 0.32 ), q( t0, R + 0.32 ), [ p.u[ 0 ] * dir, 0, p.u[ 1 ] * dir ] );
+
+			}
+
+		};
+		ring( - L / 2, - 1 );
+		ring( L / 2, 1 );
+		const yaw = Math.atan2( - p.n[ 1 ], p.n[ 0 ] );
+		for ( const a of [ - 0.2, 0.2 ] ) {
+
+			const P = at( - L / 2 - 0.02, a ), y = top - 1.0;
+			kit.color = [ 1.45, 1.25, 0.95 ];
+			kit.box( P[ 0 ], y, P[ 1 ], 0.34, 0.75, 0.05, yaw );
+			kit.color = [ 0.04, 0.04, 0.04 ];
+			const Q = at( - L / 2 - 0.05, a );
+			kit.box( Q[ 0 ], y - 0.03, Q[ 1 ], 0.18, 0.55, 0.02, yaw );
+
+		}
 
 	}
 
