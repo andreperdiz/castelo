@@ -3598,6 +3598,18 @@ export class Walls {
 
 			kit.color = [ 0.66, 0.64, 0.6 ];
 			kit.box( X.x, y + 1.75, X.z - 0.2, 0.26, 3.5, 0.24, 0 ); // the shaft
+			// its fluting (photo references/...-2302-...): ribs standing out between shallow grooves on each face
+			kit.color = [ 0.7, 0.68, 0.64 ];
+			for ( const f of [ - 0.08, 0, 0.08 ] ) {
+
+				kit.box( X.x + f, y + 1.55, X.z - 0.2 - 0.125, 0.035, 3.0, 0.02, 0 );
+				kit.box( X.x + f, y + 1.55, X.z - 0.2 + 0.125, 0.035, 3.0, 0.02, 0 );
+				kit.box( X.x - 0.135, y + 1.55, X.z - 0.2 + f, 0.02, 3.0, 0.035, 0 );
+				kit.box( X.x + 0.135, y + 1.55, X.z - 0.2 + f, 0.02, 3.0, 0.035, 0 );
+
+			}
+
+			kit.color = [ 0.66, 0.64, 0.6 ];
 			kit.box( X.x, y + 2.95, X.z - 0.2, 1.75, 0.26, 0.22, 0 ); // the arms
 			this.colliders.addBox( new Vector3( X.x, y + 1.75, X.z - 0.2 ), new Vector3( 0.15, 1.75, 0.15 ), 0, { walkable: false, tag: 'wall' } );
 
@@ -3615,8 +3627,10 @@ export class Walls {
 
 				const z0 = ST.zb - tread * i, z1 = i < N - 1 ? z0 - tread - 0.02 : ST.zt - 0.3, top = ST.yB + rise * ( i + 1 ), bottom = ST.yB - 0.4;
 				kit.color = [ 0.7 - ( i % 3 ) * 0.02, 0.69 - ( i % 3 ) * 0.02, 0.64 - ( i % 2 ) * 0.02 ];
-				kit.box( xm, ( top + bottom ) / 2, ( z0 + z1 ) / 2, W, top - bottom, z0 - z1, 0 );
-				this.colliders.addBox( new Vector3( xm, ( top + bottom ) / 2, ( z0 + z1 ) / 2 ), new Vector3( W / 2, ( top - bottom ) / 2, ( z0 - z1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+				// (the lowest, out in front of the cross's block, longer: they run on to its side, photo -2302-)
+				const extra = z1 > X.z + X.d / 2 - 0.05 ? 0.55 : 0, sw = W + extra, sx = xm - extra / 2;
+				kit.box( sx, ( top + bottom ) / 2, ( z0 + z1 ) / 2, sw, top - bottom, z0 - z1, 0 );
+				this.colliders.addBox( new Vector3( sx, ( top + bottom ) / 2, ( z0 + z1 ) / 2 ), new Vector3( sw / 2, ( top - bottom ) / 2, ( z0 - z1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
 
 			}
 
