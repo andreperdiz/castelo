@@ -1997,15 +1997,27 @@ Town.prototype._passageBody = function ( p, rand ) {
 		};
 		ring( - L / 2, - 1 );
 		ring( L / 2, 1 );
-		const yaw = Math.atan2( - p.n[ 1 ], p.n[ 0 ] );
+		const facing = [ - p.u[ 0 ], 0, - p.u[ 1 ] ];
+		const roundHead = ( a, k, y0, ys, w ) => {
+
+			// an opening's flat shape, round-headed: from y0 up to its springing ys, a half disc over it
+			const q = ( da, y ) => { const P = at( - L / 2 - k, a + da ); return [ P[ 0 ], y, P[ 1 ] ]; };
+			kit.quadFacing( q( - w / 2, y0 ), q( w / 2, y0 ), q( w / 2, ys ), q( - w / 2, ys ), facing );
+			for ( let i = 0; i < 8; i ++ ) {
+
+				const t0 = Math.PI * i / 8, t1 = Math.PI * ( i + 1 ) / 8, e = q( Math.cos( t1 ) * w / 2, ys + Math.sin( t1 ) * w / 2 );
+				kit.quadFacing( q( 0, ys ), q( Math.cos( t0 ) * w / 2, ys + Math.sin( t0 ) * w / 2 ), e, e, facing );
+
+			}
+
+		};
 		for ( const a of [ - 0.2, 0.2 ] ) {
 
-			const P = at( - L / 2 - 0.02, a ), y = top - 1.0;
+			const y = top - 1.35;
 			kit.color = [ 1.45, 1.25, 0.95 ];
-			kit.box( P[ 0 ], y, P[ 1 ], 0.34, 0.75, 0.05, yaw );
+			roundHead( a, 0.03, y - 0.06, y + 0.5, 0.34 ); // the dressed stone round it
 			kit.color = [ 0.04, 0.04, 0.04 ];
-			const Q = at( - L / 2 - 0.05, a );
-			kit.box( Q[ 0 ], y - 0.03, Q[ 1 ], 0.18, 0.55, 0.02, yaw );
+			roundHead( a, 0.05, y, y + 0.48, 0.18 );
 
 		}
 

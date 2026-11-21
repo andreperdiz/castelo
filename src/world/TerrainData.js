@@ -154,7 +154,8 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
 // zb up to zt; photo references/...-2241-814e8453-...)
 export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
-	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.4, z: - 3.8, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 } };
+	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.4, z: - 3.8, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 },
+	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.1, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -1086,7 +1087,28 @@ export class TerrainData {
 		// ground would bank out over the walls' feet)
 		const top = y0 + 1.5, DEEP = 9.5;
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP,
+		// the lane from the Largo north under the arch beside the house-tower (Rua Padre António Almeida; photo
+		// references/...-1912-3408fb6f-...): one even climb, the walled garden's bank cut back behind its wall
+		// (Walls builds it along S.lane.wall)
+		const LN = S.lane, lc = [ 0 ];
+		for ( let i = 1; i < LN.pts.length; i ++ ) lc.push( lc[ i - 1 ] + Math.hypot( LN.pts[ i ][ 0 ] - LN.pts[ i - 1 ][ 0 ], LN.pts[ i ][ 1 ] - LN.pts[ i - 1 ][ 1 ] ) );
+		const yl0 = this.heightAt( ...LN.pts[ 0 ] ), yl1 = this.heightAt( ...LN.pts[ LN.pts.length - 1 ] ), LL = lc[ lc.length - 1 ];
+		for ( let i = 0; i + 1 < LN.pts.length; i ++ ) {
+
+			const a = LN.pts[ i ], c = LN.pts[ i + 1 ];
+			this._stroke( [ a, c ], LN.HALF, 1.2, ( k, w ) => {
+
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const [ , t ] = segmentDistance( x, z, a, c );
+				const yy = lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / LL );
+				heights[ k ] = lerp( heights[ k ], yy, w );
+				if ( w > 0.5 ) this.path[ k ] = 255;
+
+			} );
+
+		}
+
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN,
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY } };
 
 	}

@@ -254,6 +254,7 @@ export class Walls {
 		this._beneficiado( materials );
 		this._santaMariaSteps( materials );
 		this._torreLargo( materials );
+		this._torreLane( materials );
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
@@ -3783,6 +3784,78 @@ export class Walls {
 			}
 
 		}
+
+	}
+
+	// The lane from the Largo da Misericórdia north under the arch beside the house-tower (photo
+	// references/...-1912-3408fb6f-...; TerrainData evens it): on its left going up the walled garden's tall
+	// wall, white over a dark red foot, holding the garden up; on its right, before the tower's corner, three
+	// worn stone bollards with an iron chain swagged between them.
+	_torreLane( materials ) {
+
+		const S = this.terrain.santaMariaSteps;
+		if ( ! S || ! S.lane ) return;
+		const T = this.terrain, kit = this.kit, plaster = new MeshKit(), W = S.lane.wall;
+		// the wall, in short lengths so its top climbs evenly over the uneven lane: from the ramp's wall's end
+		// (as high) up to the garden's height at the arch
+		const pts = [];
+		for ( let i = 0; i + 1 < W.length; i ++ ) {
+
+			const n = Math.ceil( Math.hypot( W[ i + 1 ][ 0 ] - W[ i ][ 0 ], W[ i + 1 ][ 1 ] - W[ i ][ 1 ] ) / 1.5 );
+			for ( let k = 0; k < n; k ++ ) pts.push( [ W[ i ][ 0 ] + ( W[ i + 1 ][ 0 ] - W[ i ][ 0 ] ) * k / n, W[ i ][ 1 ] + ( W[ i + 1 ][ 1 ] - W[ i ][ 1 ] ) * k / n ] );
+
+		}
+
+		pts.push( W[ W.length - 1 ] );
+		const t0 = S.ramp.y( 1e3 ) + 3.4, t1 = 56.4;
+		for ( let i = 0; i + 1 < pts.length; i ++ ) {
+
+			const A = pts[ i ], B = pts[ i + 1 ], l = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+			const e = [ ( B[ 1 ] - A[ 1 ] ) / l, - ( B[ 0 ] - A[ 0 ] ) / l ]; // toward the lane (east)
+			const low = ( P ) => T.heightAt( P[ 0 ] + e[ 0 ] * 0.9, P[ 1 ] + e[ 1 ] * 0.9 );
+			const ta = t0 + ( t1 - t0 ) * i / ( pts.length - 1 ), tb = t0 + ( t1 - t0 ) * ( i + 1 ) / ( pts.length - 1 );
+			this._oldWall( plaster, A, B, 1, low, ta - low( A ), tb - low( B ), 101 + i, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
+
+		}
+
+		// the bollards and their chain, along the tower's corner
+		const bol = [ [ 21.75, 6.0 ], [ 21.45, 7.3 ], [ 21.15, 8.6 ] ], tops = [];
+		kit.vdata = [ 0.43, 0.6, 0, 0 ];
+		for ( const [ x, z ] of bol ) {
+
+			const g = T.heightAt( x, z );
+			kit.color = [ 0.7, 0.67, 0.6 ];
+			kit.box( x, g + 0.35, z, 0.3, 0.8, 0.3, 0.3 );
+			kit.box( x, g + 0.79, z, 0.24, 0.08, 0.24, 0.3 );
+			kit.box( x, g + 0.85, z, 0.15, 0.05, 0.15, 0.3 );
+			tops.push( [ x, g + 0.62, z ] );
+			this.colliders.addBox( new Vector3( x, g + 0.4, z ), new Vector3( 0.16, 0.45, 0.16 ), 0.3, { walkable: false, tag: 'wall' } );
+
+		}
+
+		kit.vdata = [ 0.29, 0.2, 0, 0 ];
+		kit.color = [ 0.05, 0.05, 0.05 ];
+		for ( let i = 0; i + 1 < tops.length; i ++ ) {
+
+			// each swag in short links, sagging
+			const a = tops[ i ], b = tops[ i + 1 ], n = 8;
+			let prev = a;
+			for ( let k = 1; k <= n; k ++ ) {
+
+				const f = k / n, P = [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * f - 0.22 * Math.sin( Math.PI * f ), a[ 2 ] + ( b[ 2 ] - a[ 2 ] ) * f ];
+				ironBar( kit, prev, P, 0.025 );
+				prev = P;
+
+			}
+
+		}
+
+		const mesh = new Mesh( plaster.build(), materials.plaster );
+		mesh.name = 'torre-lane';
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		mesh.staticVelocity = true;
+		this.group.add( mesh );
 
 	}
 
