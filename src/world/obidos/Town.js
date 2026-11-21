@@ -81,6 +81,8 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 // Ornelas, the long footprint holding the blue house and the white one beyond it, two low storeys, then a
 // lower one (photo references/...-img-4391; the street fronts: Town._ornelasFronts)
 const EAVE = { 299088554: 43.2, 299088587: 43.5,
+	// the stone house-tower on the Largo da Misericórdia: three storeys over the Largo (photo references/...-1912-3408fb6f-...)
+	299064346: 57.8,
 	// and the other way, down to the fork: the two-storey house, and the long low one past it behind the green
 	// gate (photo references/...-img-4390)
 	299088474: 40.6, 299088405: 39.2,
@@ -90,6 +92,9 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	// near the top, the tall house in the curtain's corner (photo references/...-img-4383): its ground behind the
 	// curtain is far higher than its street's
 	299072134: 57.6 };
+// houses of bare stone, not whitewashed (the part of the footprint holding the point): on the Largo da
+// Misericórdia, the medieval house-tower facing it (photo references/...-1912-3408fb6f-...)
+const STONE_HOUSES = { 299064346: [ 23, 12 ] };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -119,6 +124,7 @@ export class Town {
 		this.group = new Group();
 		this.group.name = 'Town';
 		this.walls = new MeshKit();
+		this.stoneWalls = new MeshKit(); // (STONE_HOUSES)
 		this.roofs = new MeshKit();
 		this.lights = []; // lamp positions for the night (LocalLights)
 		this.buildings = [];
@@ -265,7 +271,7 @@ export class Town {
 		this.edges = list;
 		this._lanterns( materials, rand );
 
-		for ( const [ kit, mat, name ] of [ [ this.walls, materials.plaster, 'town-walls' ], [ this.roofs, materials.roof, 'town-roofs' ] ] ) {
+		for ( const [ kit, mat, name ] of [ [ this.walls, materials.plaster, 'town-walls' ], [ this.stoneWalls, materials.stone, 'town-stone-walls' ], [ this.roofs, materials.roof, 'town-roofs' ] ] ) {
 
 			if ( kit.empty ) continue;
 			const mesh = new Mesh( kit.build(), mat );
@@ -1810,8 +1816,10 @@ export class Town {
 		this.walls.color = srgbToLinear( PAINT[ b.id ] || trim );
 		const seed = rand();
 
-		// walls
-		const kit = this.walls;
+		// walls (of bare golden stone for STONE_HOUSES: no painted openings, Walls sets its own in them)
+		const stoneAt = STONE_HOUSES[ b.id ], isStone = !! stoneAt && pointInPolygon( stoneAt[ 0 ], stoneAt[ 1 ], poly );
+		const kit = isStone ? this.stoneWalls : this.walls;
+		if ( isStone ) kit.color = [ 1.3, 1.02, 0.68 ];
 		for ( let i = 0; i < outline.length; i ++ ) {
 
 			const a = outline[ i ], c = outline[ ( i + 1 ) % outline.length ];
@@ -1827,7 +1835,7 @@ export class Town {
 			// in w (see TownMaterials) so the base band and the street-level doors follow the street
 			const st = isChurch ? 1 : Math.max( 1, Math.round( ( eave - gEdge ) / STOREY ) );
 			const slope = Math.max( - 0.95, Math.min( 0.95, ( gc - ga ) / L ) );
-			kit.vdata = [ L, st, seed + i * 0.137, facade + slope * 0.4 ];
+			kit.vdata = isStone ? [ seed * 50 + i, 0.45, 0, 0 ] : [ L, st, seed + i * 0.137, facade + slope * 0.4 ];
 			const ha = roofH( a[ 0 ], a[ 1 ] ), hc = roofH( c[ 0 ], c[ 1 ] );
 			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], hc, c[ 1 ] ], [ a[ 0 ], ha, a[ 1 ] ], [ nx, 0, nz ],
 				[ [ 0, base - gEdge ], [ L, base - gEdge ], [ L, hc - gEdge ], [ 0, ha - gEdge ] ] );

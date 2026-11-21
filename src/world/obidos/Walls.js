@@ -253,6 +253,7 @@ export class Walls {
 		this._portaEste( materials );
 		this._beneficiado( materials );
 		this._santaMariaSteps( materials );
+		this._torreLargo( materials );
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
@@ -3780,6 +3781,139 @@ export class Walls {
 				kit.box( Bk[ 0 ], g + 0.68, Bk[ 1 ], 0.03, 0.44, 0.4, cy ); // the back
 
 			}
+
+		}
+
+	}
+
+	// The medieval house-tower of bare stone facing the Largo da Misericórdia (photo
+	// references/...-1912-3408fb6f-...; Town builds it in stone, STONE_HOUSES): in its front a pointed doorway
+	// of dark boards in a ring of pale dressed stone, over it a tall pointed window of leaded panes in a moulded
+	// frame, and high up to the right a small round-headed window opening onto a balcony of dark wood on three
+	// brackets.
+	_torreLargo( materials ) {
+
+		const A = [ 21, 9.2 ], B = [ 26, 10.5 ], T = this.terrain, kit = this.kit, wood = new MeshKit();
+		const FL = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] ), U = [ ( B[ 0 ] - A[ 0 ] ) / FL, ( B[ 1 ] - A[ 1 ] ) / FL ], N = [ U[ 1 ], - U[ 0 ] ];
+		const yaw = Math.atan2( - U[ 1 ], U[ 0 ] );
+		const P = ( u, y, k = 0 ) => [ A[ 0 ] + U[ 0 ] * u + N[ 0 ] * k, y, A[ 1 ] + U[ 1 ] * u + N[ 1 ] * k ];
+		const box = ( K, u, y, w, h, k, d ) => {
+
+			const Q = P( u, y, k );
+			K.box( Q[ 0 ], Q[ 1 ], Q[ 2 ], w, h, d, yaw );
+
+		};
+		const face = [ N[ 0 ], 0, N[ 1 ] ];
+		// a pointed (or, ha = w / 2, round) arch's curve: points from the left springing over to the right, at
+		// offset o out from the opening's edge
+		const arch = ( uc, ys, w, ha, o, n = 10 ) => {
+
+			const h = w / 2, c = Math.abs( ha - h ) < 1e-3 ? 0 : ( ha * ha - h * h ) / ( 2 * h ), r = h + c, pts = [];
+			const top = Math.atan2( ha, - c ); // (the left arc, centred at +c, from angle pi up to the apex over uc)
+			for ( let i = 0; i <= n; i ++ ) {
+
+				const t = Math.PI + ( top - Math.PI ) * i / n;
+				pts.push( [ uc + c + Math.cos( t ) * ( r + o ), ys + Math.sin( t ) * ( r + o ) ] );
+
+			}
+
+			for ( let i = n - 1; i >= 0; i -- ) {
+
+				const [ x, y ] = pts[ i ];
+				pts.push( [ 2 * uc - x, y ] );
+
+			}
+
+			return pts;
+
+		};
+		// a flat ring in the wall's plane between two outlines (same count), k out
+		const ring = ( K, inner, outer, k ) => {
+
+			for ( let i = 0; i + 1 < inner.length; i ++ ) K.quadFacing( P( inner[ i ][ 0 ], inner[ i ][ 1 ], k ), P( inner[ i + 1 ][ 0 ], inner[ i + 1 ][ 1 ], k ), P( outer[ i + 1 ][ 0 ], outer[ i + 1 ][ 1 ], k ), P( outer[ i ][ 0 ], outer[ i ][ 1 ], k ), face );
+
+		};
+		// a pointed / round opening filled flat (its jambs from y0 to its springing ys), k out
+		const fill = ( K, uc, y0, ys, w, ha, k ) => {
+
+			const top = arch( uc, ys, w, ha, 0 );
+			K.quadFacing( P( uc - w / 2, y0, k ), P( uc + w / 2, y0, k ), P( uc + w / 2, ys, k ), P( uc - w / 2, ys, k ), face );
+			for ( let i = 0; i + 1 < top.length; i ++ ) {
+
+				const c = P( top[ i + 1 ][ 0 ], top[ i + 1 ][ 1 ], k );
+				K.quadFacing( P( uc, ys, k ), P( top[ i ][ 0 ], top[ i ][ 1 ], k ), c, c, face );
+
+			}
+
+		};
+		// a frame of dressed stone round an opening: jambs and the arch, width f, standing a little proud
+		const frame = ( uc, y0, ys, w, ha, f, k = 0.04 ) => {
+
+			ring( kit, arch( uc, ys, w, ha, 0 ), arch( uc, ys, w, ha, f ), k );
+			for ( const sd of [ - 1, 1 ] ) box( kit, uc + sd * ( w / 2 + f / 2 ), ( y0 + ys ) / 2, f, ys - y0, k / 2, k );
+
+		};
+
+		// the doorway, from the Largo's ground (u runs from the front's right-hand corner, seen from the Largo)
+		const uD = 2.87, gp = P( uD, 0, 0.6 ), g = T.heightAt( gp[ 0 ], gp[ 2 ] ) - 0.02;
+		kit.vdata = [ 0.43, 0.5, 0, 0 ];
+		kit.color = [ 0.95, 0.88, 0.74 ];
+		frame( uD, g, g + 1.5, 1.3, 1.1, 0.26 ); // (an equilateral arch: its two arcs from the opposite springings)
+		box( kit, uD, g + 0.06, 1.9, 0.12, 0.12, 0.24 ); // the threshold
+		wood.vdata = [ 0, 0, 0.53, 5 ];
+		wood.color = lin( [ 0.16, 0.1, 0.07 ] );
+		fill( wood, uD, g, g + 1.5, 1.3, 1.1, 0.02 );
+		wood.color = lin( [ 0.08, 0.05, 0.035 ] );
+		box( wood, uD, g + 1.2, 0.04, 2.3, 0.035, 0.03 ); // the doors' meeting
+
+		// the tall pointed window, to the left of the door and over it: a moulded frame (two rings), leaded panes
+		const uW = 3.6, yW0 = g + 3.45, yWs = g + 4.55, wW = 0.95, haW = 0.82;
+		kit.color = [ 0.9, 0.84, 0.72 ];
+		frame( uW, yW0, yWs, wW, haW, 0.14, 0.05 );
+		kit.color = [ 0.82, 0.77, 0.66 ];
+		frame( uW, yW0 - 0.04, yWs, wW + 0.28, haW + 0.14, 0.12, 0.08 );
+		box( kit, uW, yW0 - 0.1, wW + 0.7, 0.14, 0.09, 0.18 ); // the sill
+		const glass = new MeshKit();
+		glass.vdata = [ 0, 0, 0.53, 4 ];
+		glass.color = lin( [ 0.1, 0.12, 0.13 ] );
+		fill( glass, uW, yW0, yWs, wW, haW, 0.015 );
+		kit.color = [ 0.25, 0.25, 0.25 ];
+		for ( let y = yW0 + 0.27; y < yWs + haW - 0.15; y += 0.27 ) box( kit, uW, y, wW * ( y < yWs ? 1 : Math.max( 0.15, 1 - ( y - yWs ) / haW ) ), 0.02, 0.025, 0.01 );
+		for ( const du of [ - wW / 4, 0, wW / 4 ] ) box( kit, uW + du, ( yW0 + yWs + haW * 0.6 ) / 2, 0.02, yWs + haW * 0.6 - yW0, 0.025, 0.01 );
+
+		// high up to the right: a small round-headed window, set in, onto a wooden balcony
+		const uS = 1.85, yS0 = g + 6.05, wS = 0.72, ySs = yS0 + 1.05;
+		kit.color = [ 0.92, 0.86, 0.73 ];
+		frame( uS, yS0, ySs, wS + 0.3, wS / 2 + 0.15, 0.14, 0.04 );
+		glass.color = lin( [ 0.13, 0.12, 0.12 ] );
+		fill( glass, uS, yS0, ySs, wS, wS / 2, 0.01 );
+		wood.color = lin( [ 0.1, 0.07, 0.05 ] );
+		for ( const sd of [ - 1, 1 ] ) box( wood, uS + sd * ( wS / 2 + 0.06 ), ( yS0 + ySs ) / 2, 0.08, ySs - yS0, 0.04, 0.05 ); // its shutters, folded back
+		const bW = 1.9, bD = 0.72, yB = yS0 - 0.05;
+		box( wood, uS, yB - 0.04, bW, 0.08, bD / 2, bD ); // the floor
+		for ( const du of [ - 0.75, 0, 0.75 ] ) box( wood, uS + du, yB - 0.42, 0.08, 0.76, bD * 0.4, bD * 0.8 ); // the brackets
+		box( wood, uS, yB + 0.85, bW, 0.06, bD - 0.03, 0.06 ); // the rail, front
+		for ( const sd of [ - 1, 1 ] ) box( wood, uS + sd * ( bW / 2 - 0.03 ), yB + 0.85, 0.06, 0.06, bD / 2, bD ); // and sides
+		for ( let du = - bW / 2 + 0.03; du <= bW / 2; du += bW / 8 ) box( wood, uS + du, yB + 0.43, 0.05, 0.84, bD - 0.03, 0.05 );
+		for ( const sd of [ - 1, 1 ] ) for ( const dk of [ 0.25, 0.5 ] ) box( wood, uS + sd * ( bW / 2 - 0.03 ), yB + 0.43, 0.05, 0.84, dk, 0.05 );
+		// a little green in pots at its corners
+		wood.vdata = [ 0, 0, 0.53, 4 ];
+		const rp = mulberry32( 131 );
+		for ( const sd of [ - 1, 1 ] ) for ( let i = 0; i < 30; i ++ ) {
+
+			wood.color = lin( [ 0.15 + rp() * 0.08, 0.34 + rp() * 0.1, 0.1 ] );
+			box( wood, uS + sd * ( bW / 2 - 0.15 ) + ( rp() - 0.5 ) * 0.3, yB + 0.08 + rp() * 0.25, 0.06, 0.05, bD - 0.1 - rp() * 0.15, 0.06 );
+
+		}
+
+		for ( const [ K, mat, name ] of [ [ wood, materials.plaster, 'torre-largo-wood' ], [ glass, materials.plaster, 'torre-largo-glass' ] ] ) {
+
+			const mesh = new Mesh( K.build(), mat );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
 
 		}
 
