@@ -1156,26 +1156,95 @@ export class TerrainData {
 
 			}
 
-			const i0 = Math.floor( ( 21.8 - origin ) / texel ), i1 = Math.ceil( ( 31 - origin ) / texel );
-			const j0 = Math.floor( ( - 1.2 - origin ) / texel ), j1 = Math.ceil( ( 21 - origin ) / texel );
-			const w = i1 - i0 + 1, tmp = new Float32Array( w * ( j1 - j0 + 1 ) );
+			// the garden's wall (the ramp's, then the lane's): on its street side the ground is the streets', not the
+			// garden's bank. Each texel there no higher than the nearest street's line (the ramp, the lane, the
+			// Calçada), then the Largo smoothed on that side only, so the garden's height doesn't bleed through
+			const GW = [ S.north[ 1 ], ...LN.wall ];
+			const east = ( x, z ) => {
+
+				let best = Infinity, side = 0;
+				for ( let i = 0; i + 1 < GW.length; i ++ ) {
+
+					const [ d, t ] = segmentDistance( x, z, GW[ i ], GW[ i + 1 ] );
+					if ( d < best ) {
+
+						best = d;
+						const a = GW[ i ], b = GW[ i + 1 ];
+						side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) < 0 ? 1 : - 1;
+
+					}
+
+				}
+
+				return side * best; // (metres east of the wall's face; negative in the garden)
+
+			};
+			const lines = [
+				[ [ R.from, R.to ], ( i, t ) => rampY( t * RL ) ],
+				...LN.pts.slice( 0, - 1 ).map( ( a, i ) => [ [ a, LN.pts[ i + 1 ] ], ( k, t ) => lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / LL ) ] ),
+				...C.slice( 0, - 1 ).map( ( a, i ) => [ [ a, C[ i + 1 ] ], ( k, t ) => lerp( yc0, yc1, ( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) / CL ) ] ),
+			];
+			const streetY = ( x, z ) => {
+
+				let best = Infinity, y = 0;
+				for ( const [ [ a, b ], f ] of lines ) {
+
+					const [ d, t ] = segmentDistance( x, z, a, b );
+					if ( d < best ) {
+
+						best = d;
+						y = f( 0, t );
+
+					}
+
+				}
+
+				return y;
+
+			};
+			const i0 = Math.floor( ( 19.5 - origin ) / texel ), i1 = Math.ceil( ( 31 - origin ) / texel );
+			const j0 = Math.floor( ( - 3.5 - origin ) / texel ), j1 = Math.ceil( ( 21 - origin ) / texel );
+			const w = i1 - i0 + 1, street = new Uint8Array( w * ( j1 - j0 + 1 ) ), tmp = new Float32Array( street.length );
+			for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, e = east( x, z );
+				// (the Largo and the streets: east of the wall, not on the stair or the ramp above its foot)
+				const onStair = x > ST.x0 - 0.6 && z < ST.zb + 0.3, onRamp = z < R.to[ 1 ] - 0.5 && x < ST.x0 - 0.6;
+				if ( e < - 0.9 || onStair || onRamp ) continue;
+				// (the texels just behind the wall's face too, inside its body, or the garden's slope would still
+				// lean out over its foot from them)
+				const k = j * res + i;
+				if ( e < 4 ) heights[ k ] = Math.min( heights[ k ], streetY( x, z ) + 0.05 );
+				if ( e >= 0.3 ) street[ ( j - j0 ) * w + i - i0 ] = 1;
+
+			}
+
 			for ( let pass = 0; pass < 3; pass ++ ) {
 
 				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
+					const q = ( j - j0 ) * w + i - i0;
+					if ( ! street[ q ] ) continue;
 					let sum = 0, n = 0;
 					for ( let dj = - 1; dj <= 1; dj ++ ) for ( let di = - 1; di <= 1; di ++ ) {
 
-						sum += heights[ ( j + dj ) * res + i + di ];
+						const jj = j + dj, ii = i + di;
+						if ( jj < j0 || jj > j1 || ii < i0 || ii > i1 || ! street[ ( jj - j0 ) * w + ii - i0 ] ) continue;
+						sum += heights[ jj * res + ii ];
 						n ++;
 
 					}
 
-					tmp[ ( j - j0 ) * w + i - i0 ] = sum / n;
+					tmp[ q ] = sum / n;
 
 				}
 
-				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) heights[ j * res + i ] = tmp[ ( j - j0 ) * w + i - i0 ];
+				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+					const q = ( j - j0 ) * w + i - i0;
+					if ( street[ q ] ) heights[ j * res + i ] = tmp[ q ];
+
+				}
 
 			}
 
