@@ -3401,7 +3401,7 @@ export class Walls {
 		};
 		kit.vdata = [ 0.29, 0.2, 0, 0 ];
 		kit.color = [ 0.06, 0.06, 0.06 ];
-		const RAIL = Math.min( SL, 8.9 ), posts = Math.max( 2, Math.round( ( RAIL - 0.8 ) / 1.6 ) ); // (it stops short of the bush)
+		const RAIL = Math.min( SL, 7.4 ), posts = Math.max( 2, Math.round( ( RAIL - 0.8 ) / 1.6 ) ); // (it stops short of the bush)
 		let prev = null;
 		for ( let i = 0; i <= posts; i ++ ) {
 
@@ -3641,28 +3641,42 @@ export class Walls {
 			};
 			flightSteps( ST.zb, LD.z0, ST.yB, LD.y, true );
 			flightSteps( LD.zL, ST.zt - 0.3, LD.y, ST.yT, false ); // (from the L of the terrace's wall)
-			// the passage: big pale slabs from the ramp's middle across the stair, level
-			const px0 = LD.x0, px1 = ST.x1;
+			// the passage behind the cross: big pale slabs, level with the block's top and the stair's landing, from
+			// the corner at the alley's foot (four steps up to it, photo -1045-) across to the stair's far side and
+			// back to the L of the terrace's wall
+			const px0 = LD.x0, px1 = ST.x1, pz0 = LD.z0, pz1 = LD.zL;
 			kit.color = [ 0.72, 0.7, 0.65 ];
 			for ( let x = px0, k = 0; x < px1 - 0.05; k ++ ) {
 
 				const w = Math.min( px1 - x, 0.9 + ( k % 3 ) * 0.25 );
-				kit.box( x + w / 2, LD.y - 0.2, ( LD.z0 + LD.z1 ) / 2, w - 0.02, 0.4, LD.z0 - LD.z1, 0 );
+				for ( let z = pz0, m = 0; z > pz1 + 0.05; m ++ ) {
+
+					const d = Math.min( z - pz1, 0.9 + ( ( k + m ) % 3 ) * 0.3 );
+					kit.box( x + w / 2, LD.y - 0.2, z - d / 2, w - 0.02, 0.4, d - 0.02, 0 );
+					z -= d;
+
+				}
+
 				x += w;
 
 			}
 
-			this.colliders.addBox( new Vector3( ( px0 + px1 ) / 2, LD.y - 0.3, ( LD.z0 + LD.z1 ) / 2 ), new Vector3( ( px1 - px0 ) / 2, 0.3, ( LD.z0 - LD.z1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
-			// and on along the stair to the L of the terrace's wall, where the second flight starts
-			for ( let z = LD.z1, k = 0; z > LD.zL + 0.05; k ++ ) {
+			this.colliders.addBox( new Vector3( ( px0 + px1 ) / 2, LD.y - 0.3, ( pz0 + pz1 ) / 2 ), new Vector3( ( px1 - px0 ) / 2, 0.3, ( pz0 - pz1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+			{
 
-				const d = Math.min( z - LD.zL, 0.8 + ( k % 2 ) * 0.3 );
-				kit.box( xm, LD.y - 0.2, z - d / 2, W - 0.02, 0.4, d - 0.02, 0 );
-				z -= d;
+				// the four steps up from the corner
+				const N = 4, rise = ( LD.y - S.y( 1e3 ) ) / N, tr = LD.run / N, y0s = S.y( 1e3 );
+				for ( let i = 0; i < N; i ++ ) {
+
+					const xa = LD.x0 - LD.run + tr * i, top = y0s + rise * ( i + 1 ), bottom = y0s - 0.3;
+					kit.color = [ 0.7 - ( i % 2 ) * 0.03, 0.68 - ( i % 2 ) * 0.03, 0.63 ];
+					kit.box( ( xa + LD.x0 ) / 2, ( top + bottom ) / 2, ( pz0 + pz1 ) / 2, LD.x0 - xa, top - bottom, pz0 - pz1, 0 );
+					this.colliders.addBox( new Vector3( ( xa + LD.x0 ) / 2, ( top + bottom ) / 2, ( pz0 + pz1 ) / 2 ), new Vector3( ( LD.x0 - xa ) / 2, ( top - bottom ) / 2, ( pz0 - pz1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+
+				}
 
 			}
 
-			this.colliders.addBox( new Vector3( xm, LD.y - 0.3, ( LD.z1 + LD.zL ) / 2 ), new Vector3( W / 2, 0.3, ( LD.z1 - LD.zL ) / 2 ), 0, { walkable: true, tag: 'stair' } );
 			const flight = ( P ) => ST.y( P[ 1 ] );
 			// on its right, the Misericórdia's side right against the lower steps, white over its black foot,
 			// golden stone quoins up its corner (photo references/...-2302-...); past it, set back a little, a
@@ -3767,7 +3781,7 @@ export class Walls {
 		// person, small orange flowers; and on the terrace above, the café's tables and chairs by the wall
 		const bush = new MeshKit(), rnd = mulberry32( 61 );
 		bush.vdata = [ 0, 0, 0.53, 4 ];
-		const B = [ s0[ 0 ] + su[ 0 ] * ( SL - 2.9 ) + out[ 0 ] * 0.8, s0[ 1 ] + su[ 1 ] * ( SL - 2.9 ) + out[ 1 ] * 0.8 ], gB = alleyY( B );
+		const B = [ s0[ 0 ] + su[ 0 ] * ( SL - 4.7 ) + out[ 0 ] * 0.8, s0[ 1 ] + su[ 1 ] * ( SL - 4.7 ) + out[ 1 ] * 0.8 ], gB = alleyY( B );
 		for ( let i = 0; i < 2600; i ++ ) {
 
 			// a rounded mass, broad and full low down, narrowing to the top
