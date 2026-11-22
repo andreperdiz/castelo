@@ -154,9 +154,11 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
 // zb up to zt; photo references/...-2241-814e8453-...)
 export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
-	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 },
-	// a level passage from the ramp across the stair just behind the cross, splitting the stair in two flights
-	landing: { x0: 24.2, z0: - 8.9, z1: - 11.3 },
+	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 18.5 },
+	// a level passage from the ramp across the stair just behind the cross (z0..z1), level with the top of the
+	// cross's block and of the stair's first flight; along the stair it runs on to the L the terrace's wall makes
+	// (zL), where the second flight starts (photo references/...-1018-...)
+	landing: { x0: 24.2, z0: - 8.8, z1: - 11.3, zL: - 13.3 },
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
@@ -1035,12 +1037,12 @@ export class TerrainData {
 		const S = SANTA_MARIA_STEPS, { res, texel, origin, heights } = this;
 		const L = Math.hypot( S.to[ 0 ] - S.from[ 0 ], S.to[ 1 ] - S.from[ 1 ] );
 		const dir = [ ( S.to[ 0 ] - S.from[ 0 ] ) / L, ( S.to[ 1 ] - S.from[ 1 ] ) / L ];
-		const y0 = this.heightAt( ...S.from ), y1 = this.heightAt( ...S.to ) - 1.25;
+		const y0 = this.heightAt( ...S.from ), y1 = y0 - 1.75; // (down to the passage's level at its foot)
 		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
 		const HALF = 2.2;
 		// (the ground before any of it: the Largo's, at the ramp's foot and the stair's, and the stair's top)
 		const R = S.ramp, ST = S.stair, xm = ( ST.x0 + ST.x1 ) / 2;
-		const yR1 = this.heightAt( R.to[ 0 ], R.to[ 1 ] + 0.6 ), yB = this.heightAt( xm, ST.zb + 0.6 ), yT = this.heightAt( xm, ST.zt - 0.7 );
+		const yB = this.heightAt( xm, ST.zb + 0.6 ), yT = this.heightAt( xm, ST.zt - 0.7 ), yR1 = yB + 0.15; // (the ramp down to the Largo's level)
 		this._stroke( [ S.from, S.to ], HALF, 1.0, ( k, w ) => {
 
 			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
@@ -1075,9 +1077,9 @@ export class TerrainData {
 		// bulges over it)
 		// (two flights: up to the passage, level with the ramp beside it, and on from it to the top)
 		const LD = S.landing, zm = ( LD.z0 + LD.z1 ) / 2; // (the ramp runs north, so its t is z less its start's)
-		const yL = ( rampY( zm - R.from[ 1 ] ) + lerp( yB, yT, ( ST.zb - zm ) / ( ST.zb - ST.zt ) ) ) / 2;
+		const yL = rampY( zm - R.from[ 1 ] );
 		const stairY = ( z ) => z >= LD.z0 ? lerp( yB, yL, clamp( ( ST.zb - z ) / ( ST.zb - LD.z0 ), 0, 1 ) )
-			: z >= LD.z1 ? yL : lerp( yL, yT, clamp( ( LD.z1 - z ) / ( LD.z1 - ST.zt ), 0, 1 ) );
+			: z >= LD.zL ? yL : lerp( yL, yT, clamp( ( LD.zL - z ) / ( LD.zL - ST.zt ), 0, 1 ) );
 		const i0 = Math.floor( ( ST.x0 - 1 - origin ) / texel ), i1 = Math.ceil( ( ST.x1 + 1 - origin ) / texel );
 		const j0 = Math.floor( ( ST.zt - origin ) / texel ), j1 = Math.ceil( ( ST.zb + 1 - origin ) / texel );
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
@@ -1130,6 +1132,52 @@ export class TerrainData {
 				if ( w > 0.5 ) this.path[ k ] = 255;
 
 			} );
+
+		}
+
+		// the Calçada da Misericórdia from the stair's foot down past the church's front: one even, steep fall
+		// (the photos); then the Largo between it and the lane smoothed, so no humps are left between the strokes
+		{
+
+			const C = [ [ 25.6, - 0.6 ], [ 26.9, 8.1 ], [ 27.4, 10.2 ], [ 29.8, 21.5 ] ], cc = [ 0 ];
+			for ( let i = 1; i < C.length; i ++ ) cc.push( cc[ i - 1 ] + Math.hypot( C[ i ][ 0 ] - C[ i - 1 ][ 0 ], C[ i ][ 1 ] - C[ i - 1 ][ 1 ] ) );
+			const yc0 = yB + 0.05, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
+			for ( let i = 0; i + 1 < C.length; i ++ ) {
+
+				const a = C[ i ], c = C[ i + 1 ];
+				this._stroke( [ a, c ], 2.2, 1.6, ( k, w ) => {
+
+					const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+					const [ , t ] = segmentDistance( x, z, a, c );
+					heights[ k ] = lerp( heights[ k ], lerp( yc0, yc1, ( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) / CL ), w );
+					if ( w > 0.5 ) this.path[ k ] = 255;
+
+				} );
+
+			}
+
+			const i0 = Math.floor( ( 21.8 - origin ) / texel ), i1 = Math.ceil( ( 31 - origin ) / texel );
+			const j0 = Math.floor( ( - 1.2 - origin ) / texel ), j1 = Math.ceil( ( 21 - origin ) / texel );
+			const w = i1 - i0 + 1, tmp = new Float32Array( w * ( j1 - j0 + 1 ) );
+			for ( let pass = 0; pass < 3; pass ++ ) {
+
+				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+					let sum = 0, n = 0;
+					for ( let dj = - 1; dj <= 1; dj ++ ) for ( let di = - 1; di <= 1; di ++ ) {
+
+						sum += heights[ ( j + dj ) * res + i + di ];
+						n ++;
+
+					}
+
+					tmp[ ( j - j0 ) * w + i - i0 ] = sum / n;
+
+				}
+
+				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) heights[ j * res + i ] = tmp[ ( j - j0 ) * w + i - i0 ];
+
+			}
 
 		}
 

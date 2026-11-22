@@ -3578,7 +3578,8 @@ export class Walls {
 		// on a block between the ramp and the stair, whitewashed over a black foot, a stone slab on its top
 		{
 
-			const g = Math.min( T.heightAt( X.x, X.z + X.d / 2 + 0.3 ), T.heightAt( X.x - X.w / 2, X.z ) ), H = 1.75, y0 = g - 0.5, yt = g + H;
+			// (its top level with the passage behind it and the stair's first flight: photo -1018-)
+			const g = Math.min( T.heightAt( X.x, X.z + X.d / 2 + 0.3 ), T.heightAt( X.x - X.w / 2, X.z ) ), y0 = g - 0.5, yt = Math.max( g + 1.0, S.landing.y - 0.1 );
 			plaster.vdata = [ 0, 0, 0.53, 4 ];
 			plaster.color = lin( [ 0.9, 0.9, 0.88 ] );
 			plaster.box( X.x, ( g + 0.78 + yt ) / 2, X.z, X.w, yt - g - 0.78, X.d, 0 );
@@ -3618,7 +3619,7 @@ export class Walls {
 		// the stair up from the Largo: long stone steps from the foot of the Igreja da Misericórdia's wall up along
 		// the terrace's east wall, in two flights either side of a level passage of stone slabs that comes across
 		// from the ramp just behind the cross; a whitewashed wall with a blue foot on its right past the church's
-		// corner, and on its left past the passage a low parapet over the ramp
+		// corner; on its left the cross's block, then open to the passage and the ramp
 		{
 
 			const LD = S.landing, xm = ( ST.x0 + ST.x1 ) / 2, W = ST.x1 - ST.x0;
@@ -3639,7 +3640,7 @@ export class Walls {
 
 			};
 			flightSteps( ST.zb, LD.z0, ST.yB, LD.y, true );
-			flightSteps( LD.z1, ST.zt - 0.3, LD.y, ST.yT, false );
+			flightSteps( LD.zL, ST.zt - 0.3, LD.y, ST.yT, false ); // (from the L of the terrace's wall)
 			// the passage: big pale slabs from the ramp's middle across the stair, level
 			const px0 = LD.x0, px1 = ST.x1;
 			kit.color = [ 0.72, 0.7, 0.65 ];
@@ -3652,6 +3653,16 @@ export class Walls {
 			}
 
 			this.colliders.addBox( new Vector3( ( px0 + px1 ) / 2, LD.y - 0.3, ( LD.z0 + LD.z1 ) / 2 ), new Vector3( ( px1 - px0 ) / 2, 0.3, ( LD.z0 - LD.z1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+			// and on along the stair to the L of the terrace's wall, where the second flight starts
+			for ( let z = LD.z1, k = 0; z > LD.zL + 0.05; k ++ ) {
+
+				const d = Math.min( z - LD.zL, 0.8 + ( k % 2 ) * 0.3 );
+				kit.box( xm, LD.y - 0.2, z - d / 2, W - 0.02, 0.4, d - 0.02, 0 );
+				z -= d;
+
+			}
+
+			this.colliders.addBox( new Vector3( xm, LD.y - 0.3, ( LD.z1 + LD.zL ) / 2 ), new Vector3( W / 2, 0.3, ( LD.z1 - LD.zL ) / 2 ), 0, { walkable: true, tag: 'stair' } );
 			const flight = ( P ) => ST.y( P[ 1 ] );
 			// on its right, the Misericórdia's side right against the lower steps, white over its black foot,
 			// golden stone quoins up its corner (photo references/...-2302-...); past it, set back a little, a
@@ -3660,17 +3671,6 @@ export class Walls {
 			this._oldWall( plaster, [ ST.x1 + 0.02, ST.zb + 0.4 ], [ ST.x1 + 0.02, CZ ], 1, flight, 6.0, 6.0, 79, false, { foot: lin( [ 0.03, 0.03, 0.03 ] ), ivy: false } );
 			this._quoinCorner( [ ST.x1 + 0.02, CZ ], [ [ 0, 1 ], [ 1, 0 ] ], ST.y( CZ ) - 0.1, ST.y( CZ ) + 5.9 );
 			this._oldWall( plaster, [ ST.x1 + 0.27, CZ ], [ ST.x1 + 0.27, ST.zt ], 1, flight, 2.6, 2.0, 81, false, { foot: blue, ivy: false } );
-			// on its left, from the passage up to the terrace's corner, a low parapet a metre over the steps, its
-			// foot down to whichever side's ground is lower (in short lengths, so its top follows the flight)
-			const z0 = S.landing.z1, z1 = s1[ 1 ] - 0.02, n = Math.ceil( ( z0 - z1 ) / 1.2 );
-			for ( let i = 0; i < n; i ++ ) {
-
-				const za = z0 - ( z0 - z1 ) * i / n, zb = z0 - ( z0 - z1 ) * ( i + 1 ) / n;
-				const low = ( P ) => Math.min( ST.y( P[ 1 ] ), T.heightAt( ST.x0 - 0.9, P[ 1 ] ) );
-				const A = [ ST.x0 - 0.02, za ], B = [ ST.x0 - 0.02, zb ];
-				this._oldWall( plaster, A, B, - 1, low, ST.y( za ) + 1.0 - low( A ), ST.y( zb ) + 1.0 - low( B ), 83 + i, false, { foot: blue, ivy: false } );
-
-			}
 
 		}
 
