@@ -158,7 +158,9 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 	// a level passage from the ramp across the stair just behind the cross (z0..z1), level with the top of the
 	// cross's block and of the stair's first flight; along the stair it runs on to the L the terrace's wall makes
 	// (zL), where the second flight starts (photo references/...-1018-...)
-	landing: { x0: 24.2, z0: - 8.8, z1: - 11.3, zL: - 13.3, run: 1.4 },
+	// (the steps up to it from the corner run along the back of the cross's block, from its one corner to the
+	// other, reaching the top where they meet the stair: x0 - run .. x0)
+	landing: { x0: 26.3, z0: - 8.8, z1: - 11.3, zL: - 13.3, run: 1.9 },
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at

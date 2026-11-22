@@ -3664,7 +3664,7 @@ export class Walls {
 			this.colliders.addBox( new Vector3( ( px0 + px1 ) / 2, LD.y - 0.3, ( pz0 + pz1 ) / 2 ), new Vector3( ( px1 - px0 ) / 2, 0.3, ( pz0 - pz1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
 			{
 
-				// the four steps up from the corner
+				// the four steps up from the corner, along the back of the cross's block to its corner by the stair
 				const N = 4, rise = ( LD.y - S.y( 1e3 ) ) / N, tr = LD.run / N, y0s = S.y( 1e3 );
 				for ( let i = 0; i < N; i ++ ) {
 
