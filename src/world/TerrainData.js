@@ -155,8 +155,8 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // zb up to zt; photo references/...-2241-814e8453-...)
 export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
 	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 },
-	// a level passage from the ramp across the stair in front of the cross, splitting the stair in two flights
-	landing: { x0: 24.2, z0: - 4.0, z1: - 6.4 },
+	// a level passage from the ramp across the stair just behind the cross, splitting the stair in two flights
+	landing: { x0: 24.2, z0: - 8.9, z1: - 11.3 },
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at

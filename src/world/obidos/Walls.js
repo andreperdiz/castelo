@@ -3617,8 +3617,8 @@ export class Walls {
 
 		// the stair up from the Largo: long stone steps from the foot of the Igreja da Misericórdia's wall up along
 		// the terrace's east wall, in two flights either side of a level passage of stone slabs that comes across
-		// from the ramp in front of the cross; a whitewashed wall with a blue foot on its right past the church's
-		// corner, and on its left behind the cross a low parapet over the ramp
+		// from the ramp just behind the cross; a whitewashed wall with a blue foot on its right past the church's
+		// corner, and on its left past the passage a low parapet over the ramp
 		{
 
 			const LD = S.landing, xm = ( ST.x0 + ST.x1 ) / 2, W = ST.x1 - ST.x0;
@@ -3630,8 +3630,8 @@ export class Walls {
 
 					const z0 = zFrom - tread * i, z1 = z0 - tread - ( i < N - 1 ? 0.02 : 0 ), top = y0 + rise * ( i + 1 ), bottom = y0 - 0.4;
 					kit.color = [ 0.7 - ( i % 3 ) * 0.02, 0.69 - ( i % 3 ) * 0.02, 0.64 - ( i % 2 ) * 0.02 ];
-					// (the lower flight runs on a little to its left, out to the passage's ramp end: photo -2302-)
-					const extra = first ? 0.55 : 0, sw = W + extra, sx = xm - extra / 2, zz1 = i === N - 1 ? ( first ? z0 - tread : zTo ) : z1;
+					// (the lower flight's steps out in front of the cross's block run on a little to its left: photo -2302-)
+					const extra = first && z0 - tread > X.z + X.d / 2 ? 0.55 : 0, sw = W + extra, sx = xm - extra / 2, zz1 = i === N - 1 ? ( first ? z0 - tread : zTo ) : z1;
 					kit.box( sx, ( top + bottom ) / 2, ( z0 + zz1 ) / 2, sw, top - bottom, z0 - zz1, 0 );
 					this.colliders.addBox( new Vector3( sx, ( top + bottom ) / 2, ( z0 + zz1 ) / 2 ), new Vector3( sw / 2, ( top - bottom ) / 2, ( z0 - zz1 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
 
@@ -3660,9 +3660,9 @@ export class Walls {
 			this._oldWall( plaster, [ ST.x1 + 0.02, ST.zb + 0.4 ], [ ST.x1 + 0.02, CZ ], 1, flight, 6.0, 6.0, 79, false, { foot: lin( [ 0.03, 0.03, 0.03 ] ), ivy: false } );
 			this._quoinCorner( [ ST.x1 + 0.02, CZ ], [ [ 0, 1 ], [ 1, 0 ] ], ST.y( CZ ) - 0.1, ST.y( CZ ) + 5.9 );
 			this._oldWall( plaster, [ ST.x1 + 0.27, CZ ], [ ST.x1 + 0.27, ST.zt ], 1, flight, 2.6, 2.0, 81, false, { foot: blue, ivy: false } );
-			// on its left, from behind the cross up to the terrace's corner, a low parapet a metre over the steps,
-			// its foot down to whichever side's ground is lower (in short lengths, so its top follows the flight)
-			const z0 = X.z - X.d / 2 + 0.3, z1 = s1[ 1 ] - 0.02, n = Math.ceil( ( z0 - z1 ) / 1.2 );
+			// on its left, from the passage up to the terrace's corner, a low parapet a metre over the steps, its
+			// foot down to whichever side's ground is lower (in short lengths, so its top follows the flight)
+			const z0 = S.landing.z1, z1 = s1[ 1 ] - 0.02, n = Math.ceil( ( z0 - z1 ) / 1.2 );
 			for ( let i = 0; i < n; i ++ ) {
 
 				const za = z0 - ( z0 - z1 ) * i / n, zb = z0 - ( z0 - z1 ) * ( i + 1 ) / n;
