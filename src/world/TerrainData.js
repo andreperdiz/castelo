@@ -1156,6 +1156,9 @@ export class TerrainData {
 			const C = [ [ ( ST.x0 + ST.x1 ) / 2, ST.zb + 0.5 ], [ 27.3, - 0.6 ], [ 28.0, 8.1 ], [ 28.2, 10.6 ], [ 29.8, 21.5 ] ], cc = [ 0 ]; // (clear of the tower's forecourt)
 			for ( let i = 1; i < C.length; i ++ ) cc.push( cc[ i - 1 ] + Math.hypot( C[ i ][ 0 ] - C[ i - 1 ][ 0 ], C[ i ][ 1 ] - C[ i - 1 ][ 1 ] ) );
 			const yc0 = yB - 0.02, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
+			// (gently down across the Largo to the house-tower's front, about the lane's level there; the steep fall
+			// only from there on, past the tower: photo -1750-)
+			const yK = yl0 - 0.05, calY = ( s ) => s <= cc[ 2 ] ? lerp( yc0, yK, s / cc[ 2 ] ) : lerp( yK, yc1, ( s - cc[ 2 ] ) / ( CL - cc[ 2 ] ) );
 			for ( let i = 0; i + 1 < C.length; i ++ ) {
 
 				const a = C[ i ], c = C[ i + 1 ];
@@ -1163,7 +1166,7 @@ export class TerrainData {
 
 					const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
 					const [ , t ] = segmentDistance( x, z, a, c );
-					heights[ k ] = lerp( heights[ k ], lerp( yc0, yc1, ( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) / CL ), w );
+					heights[ k ] = lerp( heights[ k ], calY( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ), w );
 					if ( w > 0.5 ) this.path[ k ] = 255;
 
 				} );
@@ -1196,7 +1199,7 @@ export class TerrainData {
 			const lines = [
 				[ [ R.from, R.to ], ( i, t ) => rampY( t * RL ) ],
 				...LN.pts.slice( 0, - 1 ).map( ( a, i ) => [ [ a, LN.pts[ i + 1 ] ], ( k, t ) => lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / LL ) ] ),
-				...C.slice( 0, - 1 ).map( ( a, i ) => [ [ a, C[ i + 1 ] ], ( k, t ) => lerp( yc0, yc1, ( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) / CL ) ] ),
+				...C.slice( 0, - 1 ).map( ( a, i ) => [ [ a, C[ i + 1 ] ], ( k, t ) => calY( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) ] ),
 			];
 			const streetY = ( x, z ) => {
 
@@ -1269,8 +1272,8 @@ export class TerrainData {
 		const FC = S.forecourt, FL = Math.hypot( FC.B[ 0 ] - FC.A[ 0 ], FC.B[ 1 ] - FC.A[ 1 ] );
 		const fu = [ ( FC.B[ 0 ] - FC.A[ 0 ] ) / FL, ( FC.B[ 1 ] - FC.A[ 1 ] ) / FL ], fn = [ fu[ 1 ], - fu[ 0 ] ];
 		const fcAt = ( u, k ) => [ FC.A[ 0 ] + fu[ 0 ] * u + fn[ 0 ] * k, FC.A[ 1 ] + fu[ 1 ] * u + fn[ 1 ] * k ];
-		// (between the lane at its front corner and the Largo at its other, a low kerb's height over the lower)
-		const yF = Math.max( this.heightAt( ...fcAt( 0.4, FC.depth - 0.3 ) ) + 0.04, this.heightAt( ...fcAt( FL - 0.4, FC.depth + 0.4 ) ) + 0.45 );
+		// (level with the lane at its front corner, a low kerb's height over the Largo at its other)
+		const yF = Math.max( this.heightAt( ...fcAt( 0.4, FC.depth - 0.3 ) ) + 0.04, this.heightAt( ...fcAt( FL - 0.4, FC.depth + 0.4 ) ) + 0.2 );
 		{
 
 			const i0 = Math.floor( ( Math.min( FC.A[ 0 ], FC.B[ 0 ] ) - 1 - origin ) / texel ), i1 = Math.ceil( ( Math.max( FC.A[ 0 ], FC.B[ 0 ] ) + FC.depth + 4 - origin ) / texel );
