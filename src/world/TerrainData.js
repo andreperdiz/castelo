@@ -154,7 +154,9 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
 // zb up to zt; photo references/...-2241-814e8453-...)
 export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
-	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.4, z: - 3.8, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 },
+	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 16.5 },
+	// a level passage from the ramp across the stair in front of the cross, splitting the stair in two flights
+	landing: { x0: 24.2, z0: - 4.0, z1: - 6.4 },
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
@@ -1071,13 +1073,35 @@ export class TerrainData {
 
 		// the stair: Walls builds its steps; the ground under them kept a little below their line (here it
 		// bulges over it)
-		const stairY = ( z ) => lerp( yB, yT, clamp( ( ST.zb - z ) / ( ST.zb - ST.zt ), 0, 1 ) );
+		// (two flights: up to the passage, level with the ramp beside it, and on from it to the top)
+		const LD = S.landing, zm = ( LD.z0 + LD.z1 ) / 2; // (the ramp runs north, so its t is z less its start's)
+		const yL = ( rampY( zm - R.from[ 1 ] ) + lerp( yB, yT, ( ST.zb - zm ) / ( ST.zb - ST.zt ) ) ) / 2;
+		const stairY = ( z ) => z >= LD.z0 ? lerp( yB, yL, clamp( ( ST.zb - z ) / ( ST.zb - LD.z0 ), 0, 1 ) )
+			: z >= LD.z1 ? yL : lerp( yL, yT, clamp( ( LD.z1 - z ) / ( LD.z1 - ST.zt ), 0, 1 ) );
 		const i0 = Math.floor( ( ST.x0 - 1 - origin ) / texel ), i1 = Math.ceil( ( ST.x1 + 1 - origin ) / texel );
 		const j0 = Math.floor( ( ST.zt - origin ) / texel ), j1 = Math.ceil( ( ST.zb + 1 - origin ) / texel );
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
 			const z = origin + ( j + 0.5 ) * texel, k = j * res + i;
 			heights[ k ] = Math.min( heights[ k ], stairY( z ) - 0.15 );
+
+		}
+
+		// the passage: level from the ramp's middle across under the stair's landing
+		{
+
+			const xa = R.from[ 0 ], xb = ST.x1, F = 0.8;
+			const pi0 = Math.floor( ( xa - F - origin ) / texel ), pi1 = Math.ceil( ( xb - origin ) / texel );
+			const pj0 = Math.floor( ( LD.z1 - F - origin ) / texel ), pj1 = Math.ceil( ( LD.z0 + F - origin ) / texel );
+			for ( let j = pj0; j <= pj1; j ++ ) for ( let i = pi0; i <= pi1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+				const d = Math.max( 0, xa - x, z - LD.z0, LD.z1 - z );
+				if ( d >= F ) continue;
+				const w = 1 - smoothstep( 0, F, d );
+				heights[ k ] = lerp( heights[ k ], x > ST.x0 - 0.3 ? Math.min( heights[ k ], yL - 0.1 ) : yL - 0.02, w );
+
+			}
 
 		}
 
@@ -1110,7 +1134,7 @@ export class TerrainData {
 		}
 
 		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN,
-			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY } };
+			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}
 
