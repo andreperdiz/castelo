@@ -154,7 +154,7 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
 // zb up to zt; photo references/...-2241-814e8453-...)
 export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
-	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 1.2, zt: - 18.5 },
+	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 5.1, zt: - 18.5 }, // (zb: three steps out in front of the cross's block, photo -1018-)
 	// a level passage from the ramp across the stair just behind the cross (z0..z1), level with the top of the
 	// cross's block and of the stair's first flight; along the stair it runs on to the L the terrace's wall makes
 	// (zL), where the second flight starts (photo references/...-1018-...)
@@ -1042,7 +1042,7 @@ export class TerrainData {
 		const HALF = 2.2;
 		// (the ground before any of it: the Largo's, at the ramp's foot and the stair's, and the stair's top)
 		const R = S.ramp, ST = S.stair, xm = ( ST.x0 + ST.x1 ) / 2;
-		const yB = this.heightAt( xm, ST.zb + 0.6 ), yT = this.heightAt( xm, ST.zt - 0.7 ), yR1 = yB + 0.15; // (the ramp down to the Largo's level)
+		const yFoot = this.heightAt( xm, - 0.6 ), yT = this.heightAt( xm, ST.zt - 0.7 ), yR1 = yFoot + 0.15; // (the ramp down to the Largo's level)
 		this._stroke( [ S.from, S.to ], HALF, 1.0, ( k, w ) => {
 
 			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
@@ -1078,6 +1078,8 @@ export class TerrainData {
 		// (two flights: up to the passage, level with the ramp beside it, and on from it to the top)
 		const LD = S.landing, zm = ( LD.z0 + LD.z1 ) / 2; // (the ramp runs north, so its t is z less its start's)
 		const yL = rampY( zm - R.from[ 1 ] );
+		// (the stair's foot: some ten steps under the landing; the Largo climbs to it, the Calçada's fall below)
+		const yB = yL - 1.65;
 		const stairY = ( z ) => z >= LD.z0 ? lerp( yB, yL, clamp( ( ST.zb - z ) / ( ST.zb - LD.z0 ), 0, 1 ) )
 			: z >= LD.zL ? yL : lerp( yL, yT, clamp( ( LD.zL - z ) / ( LD.zL - ST.zt ), 0, 1 ) );
 		const i0 = Math.floor( ( ST.x0 - 1 - origin ) / texel ), i1 = Math.ceil( ( ST.x1 + 1 - origin ) / texel );
@@ -1135,13 +1137,14 @@ export class TerrainData {
 
 		}
 
-		// the Calçada da Misericórdia from the stair's foot down past the church's front: one even, steep fall
+		// the Calçada da Misericórdia from the stair's foot down across the Largo and past the church's front: one
+		// even, steep fall
 		// (the photos); then the Largo between it and the lane smoothed, so no humps are left between the strokes
 		{
 
-			const C = [ [ 25.6, - 0.6 ], [ 26.9, 8.1 ], [ 27.4, 10.2 ], [ 29.8, 21.5 ] ], cc = [ 0 ];
+			const C = [ [ ( ST.x0 + ST.x1 ) / 2, ST.zb + 0.5 ], [ 26.6, - 0.6 ], [ 26.9, 8.1 ], [ 27.4, 10.2 ], [ 29.8, 21.5 ] ], cc = [ 0 ];
 			for ( let i = 1; i < C.length; i ++ ) cc.push( cc[ i - 1 ] + Math.hypot( C[ i ][ 0 ] - C[ i - 1 ][ 0 ], C[ i ][ 1 ] - C[ i - 1 ][ 1 ] ) );
-			const yc0 = yB + 0.05, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
+			const yc0 = yB - 0.02, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
 			for ( let i = 0; i + 1 < C.length; i ++ ) {
 
 				const a = C[ i ], c = C[ i + 1 ];
