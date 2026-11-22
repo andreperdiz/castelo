@@ -3374,7 +3374,7 @@ export class Walls {
 		// the steps' edges: long worn stones, standing a hand's breadth over the cobbles below them
 		kit.vdata = [ 0.43, 0.55, 0, 0 ];
 		kit.color = [ 0.74, 0.73, 0.69 ];
-		for ( let t = 1.4; t < S.length - 0.8; t += 2.9 ) {
+		for ( let t = 1.4; t < S.length - 3.0; t += 2.9 ) { // (none on the level corner at its foot)
 
 			const [ x, z ] = at( t ), y = S.y( t );
 			kit.box( x, y + 0.01, z, 0.32, 0.2, 2 * S.HALF + 0.3, yaw ); // its top a short riser over the tread below

@@ -154,7 +154,7 @@ export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ 
 // that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
 // zb up to zt; photo references/...-2241-814e8453-...)
 export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.1 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
-	ramp: { from: [ 23.1, - 11.2 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 5.1, zt: - 18.5 }, // (zb: three steps out in front of the cross's block, photo -1018-)
+	ramp: { from: [ 23.1, - 8.8 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 7.6, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 5.1, zt: - 18.5 }, // (zb: three steps out in front of the cross's block, photo -1018-)
 	// a level passage from the ramp across the stair just behind the cross (z0..z1), level with the top of the
 	// cross's block and of the stair's first flight; along the stair it runs on to the L the terrace's wall makes
 	// (zL), where the second flight starts (photo references/...-1018-...)
@@ -1037,8 +1037,10 @@ export class TerrainData {
 		const S = SANTA_MARIA_STEPS, { res, texel, origin, heights } = this;
 		const L = Math.hypot( S.to[ 0 ] - S.from[ 0 ], S.to[ 1 ] - S.from[ 1 ] );
 		const dir = [ ( S.to[ 0 ] - S.from[ 0 ] ) / L, ( S.to[ 1 ] - S.from[ 1 ] ) / L ];
-		const y0 = this.heightAt( ...S.from ), y1 = y0 - 1.75; // (down to the passage's level at its foot)
-		const y = ( t ) => lerp( y0, y1, clamp( t / L, 0, 1 ) );
+		// (down to the corner at its foot: one level landing there with the ramp's top and the passage, from a
+		// couple of metres before the alley's end)
+		const y0 = this.heightAt( ...S.from ), y1 = y0 - 2.4, LF = L - 2.2;
+		const y = ( t ) => lerp( y0, y1, clamp( t / LF, 0, 1 ) );
 		const HALF = 2.2;
 		// (the ground before any of it: the Largo's, at the ramp's foot and the stair's, and the stair's top)
 		const R = S.ramp, ST = S.stair, xm = ( ST.x0 + ST.x1 ) / 2;
@@ -1077,7 +1079,7 @@ export class TerrainData {
 		// bulges over it)
 		// (two flights: up to the passage, level with the ramp beside it, and on from it to the top)
 		const LD = S.landing, zm = ( LD.z0 + LD.z1 ) / 2; // (the ramp runs north, so its t is z less its start's)
-		const yL = rampY( zm - R.from[ 1 ] );
+		const yL = y1; // (the corner's landing: the passage is level with it)
 		// (the stair's foot: some ten steps under the landing; the Largo climbs to it, the Calçada's fall below)
 		const yB = yL - 1.65;
 		const stairY = ( z ) => z >= LD.z0 ? lerp( yB, yL, clamp( ( ST.zb - z ) / ( ST.zb - LD.z0 ), 0, 1 ) )
@@ -1091,16 +1093,17 @@ export class TerrainData {
 
 		}
 
-		// the passage: level from the ramp's middle across under the stair's landing
+		// the corner: the alley's foot, the ramp's top and the passage across to the stair, one level landing from
+		// the garden's wall to the stair and from the terrace's wall to the ramp's start (eased onto the ramp)
 		{
 
-			const xa = R.from[ 0 ], xb = ST.x1, F = 0.8;
-			const pi0 = Math.floor( ( xa - F - origin ) / texel ), pi1 = Math.ceil( ( xb - origin ) / texel );
-			const pj0 = Math.floor( ( LD.z1 - F - origin ) / texel ), pj1 = Math.ceil( ( LD.z0 + F - origin ) / texel );
+			const xa = S.north[ 1 ][ 0 ] - 0.8, xb = ST.x1, za = S.south[ 1 ][ 1 ] - 0.6, F = 0.8;
+			const pi0 = Math.floor( ( xa - origin ) / texel ), pi1 = Math.ceil( ( xb - origin ) / texel );
+			const pj0 = Math.floor( ( za - origin ) / texel ), pj1 = Math.ceil( ( LD.z0 + F - origin ) / texel );
 			for ( let j = pj0; j <= pj1; j ++ ) for ( let i = pi0; i <= pi1; i ++ ) {
 
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
-				const d = Math.max( 0, xa - x, z - LD.z0, LD.z1 - z );
+				const d = Math.max( 0, z - LD.z0 );
 				if ( d >= F ) continue;
 				const w = 1 - smoothstep( 0, F, d );
 				heights[ k ] = lerp( heights[ k ], x > ST.x0 - 0.3 ? Math.min( heights[ k ], yL - 0.1 ) : yL - 0.02, w );
