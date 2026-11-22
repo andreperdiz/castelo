@@ -3681,7 +3681,7 @@ export class Walls {
 			// on its right, the Misericórdia's side right against the lower steps, white over its black foot,
 			// golden stone quoins up its corner (photo references/...-2302-...); past it, set back a little, a
 			// lower wall with a blue foot up to the top
-			const CZ = - 6.4, blue = lin( [ 0.2, 0.34, 0.8 ] );
+			const CZ = ST.zb - 1.8, blue = lin( [ 0.2, 0.34, 0.8 ] ); // (the church's side along the first few steps)
 			this._oldWall( plaster, [ ST.x1 + 0.02, ST.zb + 0.4 ], [ ST.x1 + 0.02, CZ ], 1, flight, 6.0, 6.0, 79, false, { foot: lin( [ 0.03, 0.03, 0.03 ] ), ivy: false } );
 			this._quoinCorner( [ ST.x1 + 0.02, CZ ], [ [ 0, 1 ], [ 1, 0 ] ], ST.y( CZ ) - 0.1, ST.y( CZ ) + 5.9 );
 			this._oldWall( plaster, [ ST.x1 + 0.27, CZ ], [ ST.x1 + 0.27, ST.zt ], 1, flight, 2.6, 2.0, 81, false, { foot: blue, ivy: false } );
