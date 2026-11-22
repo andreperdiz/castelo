@@ -3832,8 +3832,8 @@ export class Walls {
 
 	// The lane from the Largo da Misericórdia north under the arch beside the house-tower (photo
 	// references/...-1912-3408fb6f-...; TerrainData evens it): on its left going up the walled garden's tall
-	// wall, white over a dark red foot, holding the garden up; on its right, before the tower's corner, three
-	// worn stone bollards with an iron chain swagged between them.
+	// wall, white over a dark red foot, holding the garden up (the tower's forecourt and its bollards on its right:
+	// _torreLargo).
 	_torreLane( materials ) {
 
 		const S = this.terrain.santaMariaSteps;
@@ -3858,38 +3858,6 @@ export class Walls {
 			const low = ( P ) => T.heightAt( P[ 0 ] + e[ 0 ] * 0.9, P[ 1 ] + e[ 1 ] * 0.9 );
 			const ta = t0 + ( t1 - t0 ) * i / ( pts.length - 1 ), tb = t0 + ( t1 - t0 ) * ( i + 1 ) / ( pts.length - 1 );
 			this._oldWall( plaster, A, B, 1, low, ta - low( A ), tb - low( B ), 101 + i, false, { foot: lin( [ 0.66, 0.16, 0.16 ] ), ivy: false } );
-
-		}
-
-		// the bollards and their chain, along the tower's corner
-		const bol = [ [ 21.75, 6.0 ], [ 21.45, 7.3 ], [ 21.15, 8.6 ] ], tops = [];
-		kit.vdata = [ 0.43, 0.6, 0, 0 ];
-		for ( const [ x, z ] of bol ) {
-
-			const g = T.heightAt( x, z );
-			kit.color = [ 0.7, 0.67, 0.6 ];
-			kit.box( x, g + 0.35, z, 0.3, 0.8, 0.3, 0.3 );
-			kit.box( x, g + 0.79, z, 0.24, 0.08, 0.24, 0.3 );
-			kit.box( x, g + 0.85, z, 0.15, 0.05, 0.15, 0.3 );
-			tops.push( [ x, g + 0.62, z ] );
-			this.colliders.addBox( new Vector3( x, g + 0.4, z ), new Vector3( 0.16, 0.45, 0.16 ), 0.3, { walkable: false, tag: 'wall' } );
-
-		}
-
-		kit.vdata = [ 0.29, 0.2, 0, 0 ];
-		kit.color = [ 0.05, 0.05, 0.05 ];
-		for ( let i = 0; i + 1 < tops.length; i ++ ) {
-
-			// each swag in short links, sagging
-			const a = tops[ i ], b = tops[ i + 1 ], n = 8;
-			let prev = a;
-			for ( let k = 1; k <= n; k ++ ) {
-
-				const f = k / n, P = [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * f - 0.22 * Math.sin( Math.PI * f ), a[ 2 ] + ( b[ 2 ] - a[ 2 ] ) * f ];
-				ironBar( kit, prev, P, 0.025 );
-				prev = P;
-
-			}
 
 		}
 
@@ -3971,7 +3939,69 @@ export class Walls {
 		};
 
 		// the doorway, from the Largo's ground (u runs from the front's right-hand corner, seen from the Largo)
-		const uD = 2.87, gp = P( uD, 0, 0.6 ), g = T.heightAt( gp[ 0 ], gp[ 2 ] ) - 0.02;
+		// its forecourt (photo references/...-1750-...): a level floor of big grey slabs in front of it, the whole
+		// width of its front and three metres out, kerbed, standing over the Calçada as it falls away on the left;
+		// worn stone bollards at its front corners and along its side on the lane, an iron chain swagged between
+		const FW = FL, FD = this.terrain.santaMariaSteps.forecourt.depth, yP = this.terrain.santaMariaSteps.forecourt.y; // (TerrainData levels it)
+		kit.vdata = [ 0.43, 0.6, 0, 0 ];
+		for ( let u = 0, a = 0; u < FW - 0.05; a ++ ) {
+
+			const w = Math.min( FW - u, 0.8 + ( a % 3 ) * 0.25 );
+			for ( let k = 0, b = 0; k < FD - 0.05; b ++ ) {
+
+				const d = Math.min( FD - k, 0.6 + ( ( a + b ) % 3 ) * 0.2 );
+				kit.color = [ 0.66 - ( ( a + b ) % 2 ) * 0.04, 0.65 - ( ( a + b ) % 2 ) * 0.04, 0.62 - ( ( a * b ) % 3 ) * 0.02 ];
+				box( kit, u + w / 2, yP - 0.8, w - 0.02, 1.6, k + d / 2, d - 0.02 );
+				k += d;
+
+			}
+
+			u += w;
+
+		}
+
+		kit.color = [ 0.58, 0.56, 0.52 ];
+		box( kit, FW / 2, yP - 0.78, FW + 0.2, 1.6, FD + 0.1, 0.22 ); // the kerb along its front
+		box( kit, - 0.1, yP - 0.78, 0.22, 1.6, FD / 2, FD + 0.2 ); // and its side on the lane
+		{
+
+			const C = P( FW / 2, 0, FD / 2 );
+			this.colliders.addBox( new Vector3( C[ 0 ], yP - 0.4, C[ 2 ] ), new Vector3( FW / 2 + 0.1, 0.4, FD / 2 + 0.1 ), yaw, { walkable: true, tag: 'stair' } );
+
+		}
+
+		// the bollards: back along the lane side to its front corner, then across the front to the far corner
+		const tops = [];
+		for ( const [ u, k ] of [ [ - 0.15, 0.45 ], [ - 0.15, 1.75 ], [ - 0.15, FD + 0.25 ], [ FW - 0.45, FD + 0.35 ] ] ) {
+
+			const Q = P( u, 0, k ), gq = Math.min( yP, T.heightAt( Q[ 0 ], Q[ 2 ] ) ), x = Q[ 0 ], z = Q[ 2 ];
+			kit.color = [ 0.7, 0.67, 0.6 ];
+			for ( const r of [ 0, Math.PI / 4 ] ) kit.box( x, gq + 0.4, z, 0.32, 0.86, 0.32, yaw + r ); // (octagonal)
+			kit.box( x, gq + 0.87, z, 0.24, 0.1, 0.24, yaw );
+			kit.box( x, gq + 0.94, z, 0.14, 0.05, 0.14, yaw + Math.PI / 4 );
+			tops.push( [ x, gq + 0.7, z ] );
+			this.colliders.addBox( new Vector3( x, gq + 0.45, z ), new Vector3( 0.17, 0.5, 0.17 ), yaw, { walkable: false, tag: 'wall' } );
+
+		}
+
+		kit.vdata = [ 0.29, 0.2, 0, 0 ];
+		kit.color = [ 0.12, 0.07, 0.05 ];
+		for ( let i = 0; i + 1 < tops.length; i ++ ) {
+
+			// each swag in short links, sagging (the long one across the front lower)
+			const a = tops[ i ], b = tops[ i + 1 ], n = 12, sag = Math.min( 0.45, 0.12 * Math.hypot( b[ 0 ] - a[ 0 ], b[ 2 ] - a[ 2 ] ) );
+			let prev = a;
+			for ( let k = 1; k <= n; k ++ ) {
+
+				const f = k / n, Q = [ a[ 0 ] + ( b[ 0 ] - a[ 0 ] ) * f, a[ 1 ] + ( b[ 1 ] - a[ 1 ] ) * f - sag * Math.sin( Math.PI * f ), a[ 2 ] + ( b[ 2 ] - a[ 2 ] ) * f ];
+				ironBar( kit, prev, Q, 0.035 );
+				prev = Q;
+
+			}
+
+		}
+
+		const uD = 2.87, g = yP; // (the doorway from the forecourt's floor)
 		kit.vdata = [ 0.43, 0.5, 0, 0 ];
 		kit.color = [ 0.95, 0.88, 0.74 ];
 		frame( uD, g, g + 1.5, 1.3, 1.1, 0.26 ); // (an equilateral arch: its two arcs from the opposite springings)

@@ -161,6 +161,7 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 	// (the steps up to it from the corner run along the back of the cross's block, from its one corner to the
 	// other, reaching the top where they meet the stair: x0 - run .. x0)
 	landing: { x0: 26.3, z0: - 10.6, z1: - 11.3, zL: - 13.3, run: 1.9 },
+	forecourt: { A: [ 21, 9.2 ], B: [ 26, 10.5 ], depth: 3.0 },
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
@@ -1152,7 +1153,7 @@ export class TerrainData {
 		// (the photos); then the Largo between it and the lane smoothed, so no humps are left between the strokes
 		{
 
-			const C = [ [ ( ST.x0 + ST.x1 ) / 2, ST.zb + 0.5 ], [ 26.6, - 0.6 ], [ 26.9, 8.1 ], [ 27.4, 10.2 ], [ 29.8, 21.5 ] ], cc = [ 0 ];
+			const C = [ [ ( ST.x0 + ST.x1 ) / 2, ST.zb + 0.5 ], [ 27.3, - 0.6 ], [ 28.0, 8.1 ], [ 28.2, 10.6 ], [ 29.8, 21.5 ] ], cc = [ 0 ]; // (clear of the tower's forecourt)
 			for ( let i = 1; i < C.length; i ++ ) cc.push( cc[ i - 1 ] + Math.hypot( C[ i ][ 0 ] - C[ i - 1 ][ 0 ], C[ i ][ 1 ] - C[ i - 1 ][ 1 ] ) );
 			const yc0 = yB - 0.02, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
 			for ( let i = 0; i + 1 < C.length; i ++ ) {
@@ -1263,7 +1264,32 @@ export class TerrainData {
 
 		}
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN,
+		// the house-tower's forecourt (photo references/...-1750-...): level with the lane at its front corner, the
+		// ground under it kept below its slabs (Walls lays them: S.forecourt)
+		const FC = S.forecourt, FL = Math.hypot( FC.B[ 0 ] - FC.A[ 0 ], FC.B[ 1 ] - FC.A[ 1 ] );
+		const fu = [ ( FC.B[ 0 ] - FC.A[ 0 ] ) / FL, ( FC.B[ 1 ] - FC.A[ 1 ] ) / FL ], fn = [ fu[ 1 ], - fu[ 0 ] ];
+		const fcAt = ( u, k ) => [ FC.A[ 0 ] + fu[ 0 ] * u + fn[ 0 ] * k, FC.A[ 1 ] + fu[ 1 ] * u + fn[ 1 ] * k ];
+		// (between the lane at its front corner and the Largo at its other, a low kerb's height over the lower)
+		const yF = Math.max( this.heightAt( ...fcAt( 0.4, FC.depth - 0.3 ) ) + 0.04, this.heightAt( ...fcAt( FL - 0.4, FC.depth + 0.4 ) ) + 0.45 );
+		{
+
+			const i0 = Math.floor( ( Math.min( FC.A[ 0 ], FC.B[ 0 ] ) - 1 - origin ) / texel ), i1 = Math.ceil( ( Math.max( FC.A[ 0 ], FC.B[ 0 ] ) + FC.depth + 4 - origin ) / texel );
+			const j0 = Math.floor( ( Math.min( FC.A[ 1 ], FC.B[ 1 ] ) - FC.depth - 4 - origin ) / texel ), j1 = Math.ceil( ( Math.max( FC.A[ 1 ], FC.B[ 1 ] ) + 1 - origin ) / texel );
+			for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
+				const u = ( x - FC.A[ 0 ] ) * fu[ 0 ] + ( z - FC.A[ 1 ] ) * fu[ 1 ], k = ( x - FC.A[ 0 ] ) * fn[ 0 ] + ( z - FC.A[ 1 ] ) * fn[ 1 ];
+				if ( u < - 0.6 || u > FL + 0.6 || k < - 1 ) continue;
+				const q = j * res + i;
+				if ( k <= FC.depth + 0.6 ) heights[ q ] = Math.min( heights[ q ], yF - 0.08 );
+				// just in front of it the cobbles rise to a low kerb's height under its edge (the photo)
+				else if ( k < FC.depth + 1.6 && u < FL * 0.55 ) heights[ q ] = Math.max( heights[ q ], lerp( yF - 0.35, heights[ q ], smoothstep( FC.depth + 0.6, FC.depth + 1.6, k ) ) );
+
+			}
+
+		}
+
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: { ...FC, y: yF },
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}
