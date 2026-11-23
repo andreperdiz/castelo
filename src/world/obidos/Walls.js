@@ -3953,10 +3953,10 @@ export class Walls {
 
 			}
 
-			// the flagstones: a draped floor in cells, each just over the ground at its corners
-			const CELL = 0.5, hy = ( x, z ) => T.heightAt( x, z ) + 0.03;
+			// the bedding between the flags: a dark draped floor in cells, just over the ground
+			const CELL = 0.5, hy = ( x, z ) => T.heightAt( x, z ) + 0.02;
 			kit.vdata = [ 0.71, 0.3, 0, 0 ];
-			kit.color = [ 0.8, 0.79, 0.75 ];
+			kit.color = [ 0.42, 0.41, 0.38 ];
 			for ( let z = z0; z < z1; z += CELL ) for ( let x = x0; x < x1; x += CELL ) {
 
 				if ( ! pointInPolygon( x + CELL / 2, z + CELL / 2, FP ) ) continue;
@@ -3965,11 +3965,60 @@ export class Walls {
 
 			}
 
+			// the flags themselves (the photo -1506-): big worn rectangles in courses parallel to the tower's front,
+			// each a quad a touch over the bedding, its own grey, with a fine gap round it
+			const rf = mulberry32( 151 ), FH = ( x, z ) => T.heightAt( x, z ) + 0.04;
+			let kk = 0.05, row = 0;
+			while ( kk < 9 ) {
+
+				const depth = 0.55 + rf() * 0.2;
+				let uu = - 1 + ( row % 2 ) * 0.4;
+				while ( uu < FL + 1 ) {
+
+					const w = 0.7 + rf() * 0.35, c = P( uu + w / 2, 0, kk + depth / 2 );
+					if ( pointInPolygon( c[ 0 ], c[ 2 ], FP ) ) {
+
+						const g = 0.02, corners = [ [ uu + g, kk + g ], [ uu + w - g, kk + g ], [ uu + w - g, kk + depth - g ], [ uu + g, kk + depth - g ] ].map( ( [ u, k ] ) => {
+
+							const Q = P( u, 0, k );
+							return [ Q[ 0 ], FH( Q[ 0 ], Q[ 2 ] ), Q[ 2 ] ];
+
+						} );
+						const t = 0.72 + rf() * 0.1;
+						kit.color = [ t, t - 0.01, t - 0.04 - rf() * 0.03 ];
+						kit.quadFacing( ...corners, [ 0, 1, 0 ], corners.map( ( v ) => [ c[ 0 ] + ( v[ 0 ] - c[ 0 ] ) * 0.15, c[ 2 ] + ( v[ 2 ] - c[ 2 ] ) * 0.15 ] ) );
+
+					}
+
+					uu += w;
+
+				}
+
+				kk += depth;
+				row ++;
+
+			}
+
+			// and along its open side to the Calçada a kerb of long stones, the flags a hand over the setts
+			{
+
+				const K0 = FP[ 1 ], K1 = FP[ 2 ], KL = Math.hypot( K1[ 0 ] - K0[ 0 ], K1[ 1 ] - K0[ 1 ] ), kyaw = Math.atan2( - ( K1[ 1 ] - K0[ 1 ] ), K1[ 0 ] - K0[ 0 ] );
+				for ( let k = 0, n = Math.ceil( KL / 1.1 ); k < n; k ++ ) {
+
+					const f = ( k + 0.5 ) / n, x = K0[ 0 ] + ( K1[ 0 ] - K0[ 0 ] ) * f, z = K0[ 1 ] + ( K1[ 1 ] - K0[ 1 ] ) * f;
+					const top = T.heightAt( x, z ) + 0.05, bottom = top - 0.4, t = 0.7 + ( k % 2 ) * 0.04;
+					kit.color = [ t, t - 0.01, t - 0.05 ];
+					kit.box( x, ( top + bottom ) / 2, z, KL / n - 0.02, top - bottom, 0.3, kyaw );
+
+				}
+
+			}
+
 		}
 
-		// a low wall round its open sides, from the tower's west corner down the lane and across the tip: its face to
-		// the Largo, its top a hand or two over the street outside and climbing with it (the drawing); the stone
-		// bollards stand on it, the chain swagged between them
+		// a low wall of grey rubble round its open sides, from the tower's west corner down the lane and across the
+		// tip: its face to the Largo; along the lane its top the lane's own level, across the tip a hand over the
+		// street and climbing with it (the drawing); the stone bollards stand on it, the chain swagged between them
 		const WP = [ FP[ 0 ], FP[ 3 ], FP[ 2 ] ];
 		let cx = 0, cz = 0;
 		for ( const [ x, z ] of FP ) {
@@ -3979,7 +4028,7 @@ export class Walls {
 		}
 
 		kit.vdata = [ 0.43, 0.6, 0, 0 ];
-		kit.color = [ 0.64, 0.62, 0.58 ];
+		kit.color = [ 0.6, 0.6, 0.58 ]; // (grey rubble)
 		// its top: at each corner a hand or two over the higher of the Largo's floor and the street outside; one
 		// straight slope from corner to corner (low at the tip's corner on the Calçada, climbing to the lane)
 		const outN = ( a, b ) => {
@@ -3998,7 +4047,9 @@ export class Walls {
 			return y + 0.22;
 
 		};
-		const tops3 = [ cornerTop( WP[ 0 ], [ nLaneSide ] ), cornerTop( WP[ 1 ], [ nLaneSide, nFront ] ), cornerTop( WP[ 2 ], [ nFront ] ) ];
+		// (along the lane its top is the lane's own level, the lane running on over it to its edge: photo -1506-)
+		const LY = this.terrain.santaMariaSteps.laneY;
+		const tops3 = [ LY( ...WP[ 0 ] ) + 0.03, Math.max( LY( ...WP[ 1 ] ), cornerTop( WP[ 1 ], [ nFront ] ) - 0.1 ) + 0.03, cornerTop( WP[ 2 ], [ nFront ] ) ];
 		tops3[ 2 ] = Math.min( tops3[ 2 ], tops3[ 1 ] - 0.15 ); // (the tip's Calçada corner the lowest)
 		const wallPts = []; // [ x, z, top ] along it, for the bollards
 		for ( let sgi = 0; sgi + 1 < WP.length; sgi ++ ) {
