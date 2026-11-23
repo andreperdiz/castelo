@@ -3880,9 +3880,9 @@ export class Walls {
 	_misericordiaPortal( materials ) {
 
 		const T = this.terrain, kit = this.kit, wood = new MeshKit(), paint = new MeshKit();
-		const P0 = [ 27.1, 2.3 ], P1 = [ 29.9, - 6.9 ], FL = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] );
+		const P0 = [ 27.1, 2.3 ], P1 = [ 28.25, - 6.55 ], FL = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] ); // (Town's OUTLINE)
 		const U = [ ( P1[ 0 ] - P0[ 0 ] ) / FL, ( P1[ 1 ] - P0[ 1 ] ) / FL ], N = [ U[ 1 ], - U[ 0 ] ]; // (N: out, to the Largo)
-		const yaw = Math.atan2( - U[ 1 ], U[ 0 ] ), uC = 4.1, face = [ N[ 0 ], 0, N[ 1 ] ];
+		const yaw = Math.atan2( - U[ 1 ], U[ 0 ] ), uC = FL - 2.6, face = [ N[ 0 ], 0, N[ 1 ] ]; // (the portal close by the stair)
 		const W = ( s, y, k ) => [ P0[ 0 ] + U[ 0 ] * ( uC + s ) + N[ 0 ] * k, y, P0[ 1 ] + U[ 1 ] * ( uC + s ) + N[ 1 ] * k ];
 		const box = ( K, s, y0, y1, w, k0, k1 ) => {
 
