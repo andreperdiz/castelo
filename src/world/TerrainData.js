@@ -1300,11 +1300,28 @@ export class TerrainData {
 
 			}
 
-			for ( let j = Math.floor( ( z0 - 1 - origin ) / texel ); j <= Math.ceil( ( z1 + 1 - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( x0 - 1 - origin ) / texel ); i <= Math.ceil( ( x1 + 1 - origin ) / texel ); i ++ ) {
+			// the plane y = pa x + pb z + pc through ( P4[ 1 ], P4[ 2 ], P4[ 3 ] ) at the Calçada's level there
+			const Q = [ P4[ 1 ], P4[ 2 ], P4[ 3 ] ].map( ( [ x, z ] ) => [ x, z, calRef( x, z ) ] );
+			const ux = Q[ 1 ][ 0 ] - Q[ 0 ][ 0 ], uz = Q[ 1 ][ 1 ] - Q[ 0 ][ 1 ], uy = Q[ 1 ][ 2 ] - Q[ 0 ][ 2 ];
+			const vx = Q[ 2 ][ 0 ] - Q[ 0 ][ 0 ], vz = Q[ 2 ][ 1 ] - Q[ 0 ][ 1 ], vy = Q[ 2 ][ 2 ] - Q[ 0 ][ 2 ];
+			const det = ux * vz - uz * vx, pa = ( uy * vz - uz * vy ) / det, pb = ( ux * vy - uy * vx ) / det, pc = Q[ 0 ][ 2 ] - pa * Q[ 0 ][ 0 ] - pb * Q[ 0 ][ 1 ];
+			for ( let j = Math.floor( ( z0 - 2 - origin ) / texel ); j <= Math.ceil( ( z1 + 2 - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( x0 - 2 - origin ) / texel ); i <= Math.ceil( ( x1 + 2 - origin ) / texel ); i ++ ) {
 
-				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
-				if ( ! pointInPolygon( x, z, P4 ) ) continue;
-				heights[ j * res + i ] = calRef( x, z );
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+				// (one even slope: the plane through the Calçada's level at the tower's east corner and the tip's two
+				// corners; eased into the ground round it over a metre and a half, not across the lane's wall)
+				const yPl = pa * x + pb * z + pc;
+				if ( pointInPolygon( x, z, P4 ) ) {
+
+					heights[ k ] = yPl;
+					continue;
+
+				}
+
+				let d = Infinity;
+				for ( let e = 0; e < P4.length; e ++ ) d = Math.min( d, segmentDistance( x, z, P4[ e ], P4[ ( e + 1 ) % P4.length ] )[ 0 ] );
+				const W = P4[ 0 ], Wt = P4[ 3 ], laneSide = ( Wt[ 0 ] - W[ 0 ] ) * ( z - W[ 1 ] ) - ( Wt[ 1 ] - W[ 1 ] ) * ( x - W[ 0 ] ) < 0; // (west of the wall's line)
+				if ( d < 1.5 && ! laneSide ) heights[ k ] = lerp( yPl, heights[ k ], smoothstep( 0, 1.5, d ) );
 
 			}
 
