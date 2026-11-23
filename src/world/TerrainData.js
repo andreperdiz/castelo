@@ -1321,10 +1321,12 @@ export class TerrainData {
 
 				}
 
-				let d = Infinity;
-				for ( let e = 0; e < P4.length; e ++ ) d = Math.min( d, segmentDistance( x, z, P4[ e ], P4[ ( e + 1 ) % P4.length ] )[ 0 ] );
-				const W = P4[ 0 ], Wt = P4[ 3 ], laneSide = ( Wt[ 0 ] - W[ 0 ] ) * ( z - W[ 1 ] ) - ( Wt[ 1 ] - W[ 1 ] ) * ( x - W[ 0 ] ) < 0; // (west of the wall's line)
-				if ( d < 1.5 && ! laneSide ) heights[ k ] = lerp( yPl, heights[ k ], smoothstep( 0, 1.5, d ) );
+				// (under its low wall, along the lane and across the tip, and a little past it, still the plane, so the
+				// floor stays flat right up to the wall; on the open side to the Calçada, eased into it)
+				const dWall = Math.min( segmentDistance( x, z, P4[ 0 ], P4[ 3 ] )[ 0 ], segmentDistance( x, z, P4[ 3 ], P4[ 2 ] )[ 0 ] );
+				const dOpen = segmentDistance( x, z, P4[ 1 ], P4[ 2 ] )[ 0 ];
+				if ( dWall < 0.9 ) heights[ k ] = yPl;
+				else if ( dOpen < 1.5 && dOpen < dWall ) heights[ k ] = lerp( yPl, heights[ k ], smoothstep( 0, 1.5, dOpen ) );
 
 			}
 

@@ -3979,24 +3979,52 @@ export class Walls {
 		}
 
 		kit.vdata = [ 0.43, 0.6, 0, 0 ];
+		kit.color = [ 0.64, 0.62, 0.58 ];
+		// its top: at each corner a hand or two over the higher of the Largo's floor and the street outside; one
+		// straight slope from corner to corner (low at the tip's corner on the Calçada, climbing to the lane)
+		const outN = ( a, b ) => {
+
+			const l = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			let no = [ ( b[ 1 ] - a[ 1 ] ) / l, - ( b[ 0 ] - a[ 0 ] ) / l ];
+			if ( ( ( a[ 0 ] + b[ 0 ] ) / 2 - cx ) * no[ 0 ] + ( ( a[ 1 ] + b[ 1 ] ) / 2 - cz ) * no[ 1 ] < 0 ) no = [ - no[ 0 ], - no[ 1 ] ];
+			return no;
+
+		};
+		const nLaneSide = outN( WP[ 0 ], WP[ 1 ] ), nFront = outN( WP[ 1 ], WP[ 2 ] );
+		const cornerTop = ( P, ns ) => {
+
+			let y = T.heightAt( P[ 0 ] - ( ns[ 0 ][ 0 ] + ns[ ns.length - 1 ][ 0 ] ) * 0.6, P[ 1 ] - ( ns[ 0 ][ 1 ] + ns[ ns.length - 1 ][ 1 ] ) * 0.6 );
+			for ( const n of ns ) y = Math.max( y, T.heightAt( P[ 0 ] + n[ 0 ] * 1.5, P[ 1 ] + n[ 1 ] * 1.5 ) );
+			return y + 0.22;
+
+		};
+		const tops3 = [ cornerTop( WP[ 0 ], [ nLaneSide ] ), cornerTop( WP[ 1 ], [ nLaneSide, nFront ] ), cornerTop( WP[ 2 ], [ nFront ] ) ];
+		tops3[ 2 ] = Math.min( tops3[ 2 ], tops3[ 1 ] - 0.15 ); // (the tip's Calçada corner the lowest)
 		const wallPts = []; // [ x, z, top ] along it, for the bollards
 		for ( let sgi = 0; sgi + 1 < WP.length; sgi ++ ) {
 
-			const A0 = WP[ sgi ], A1 = WP[ sgi + 1 ], SL = Math.hypot( A1[ 0 ] - A0[ 0 ], A1[ 1 ] - A0[ 1 ] );
-			const du = [ ( A1[ 0 ] - A0[ 0 ] ) / SL, ( A1[ 1 ] - A0[ 1 ] ) / SL ];
-			let no = [ du[ 1 ], - du[ 0 ] ];
-			const mx = ( A0[ 0 ] + A1[ 0 ] ) / 2, mz = ( A0[ 1 ] + A1[ 1 ] ) / 2;
-			if ( ( mx - cx ) * no[ 0 ] + ( mz - cz ) * no[ 1 ] < 0 ) no = [ - no[ 0 ], - no[ 1 ] ]; // (outward)
-			const wyaw = Math.atan2( - du[ 1 ], du[ 0 ] );
+			const A0 = WP[ sgi ], A1 = WP[ sgi + 1 ], no = sgi === 0 ? nLaneSide : nFront, TH = 0.36;
+			const yt0 = tops3[ sgi ], yt1 = tops3[ sgi + 1 ];
+			const g0 = Math.min( T.heightAt( ...A0 ), T.heightAt( A0[ 0 ] + no[ 0 ] * 1.2, A0[ 1 ] + no[ 1 ] * 1.2 ) ) - 0.4;
+			const g1 = Math.min( T.heightAt( ...A1 ), T.heightAt( A1[ 0 ] + no[ 0 ] * 1.2, A1[ 1 ] + no[ 1 ] * 1.2 ) ) - 0.4;
+			const p = ( Q, k, y ) => [ Q[ 0 ] + no[ 0 ] * k, y, Q[ 1 ] + no[ 1 ] * k ];
+			// a prism along the edge, its top one straight slope: the Largo's face, the street's, the top, the ends
+			kit.quadFacing( p( A0, 0, g0 ), p( A1, 0, g1 ), p( A1, 0, yt1 ), p( A0, 0, yt0 ), [ - no[ 0 ], 0, - no[ 1 ] ] );
+			kit.quadFacing( p( A0, TH, g0 ), p( A1, TH, g1 ), p( A1, TH, yt1 ), p( A0, TH, yt0 ), [ no[ 0 ], 0, no[ 1 ] ] );
+			kit.quadFacing( p( A0, 0, yt0 ), p( A1, 0, yt1 ), p( A1, TH, yt1 ), p( A0, TH, yt0 ), [ 0, 1, 0 ] );
+			for ( const [ Q, g, yt, sg ] of [ [ A0, g0, yt0, - 1 ], [ A1, g1, yt1, 1 ] ] ) {
+
+				const du = [ ( A1[ 0 ] - A0[ 0 ] ) * sg, 0, ( A1[ 1 ] - A0[ 1 ] ) * sg ];
+				kit.quadFacing( p( Q, 0, g ), p( Q, TH, g ), p( Q, TH, yt ), p( Q, 0, yt ), du );
+
+			}
+
+			const SL = Math.hypot( A1[ 0 ] - A0[ 0 ], A1[ 1 ] - A0[ 1 ] ), wyaw = Math.atan2( - ( A1[ 1 ] - A0[ 1 ] ), A1[ 0 ] - A0[ 0 ] );
 			for ( let k = 0, n = Math.ceil( SL / 0.6 ); k < n; k ++ ) {
 
-				const t0 = SL * k / n, t1 = SL * ( k + 1 ) / n, tm = ( t0 + t1 ) / 2;
-				const M = [ A0[ 0 ] + du[ 0 ] * tm + no[ 0 ] * 0.18, A0[ 1 ] + du[ 1 ] * tm + no[ 1 ] * 0.18 ];
-				const inside = T.heightAt( M[ 0 ] - no[ 0 ] * 0.7, M[ 1 ] - no[ 1 ] * 0.7 ), outside = T.heightAt( M[ 0 ] + no[ 0 ] * 0.9, M[ 1 ] + no[ 1 ] * 0.9 );
-				const top = Math.max( inside, outside ) + 0.25, bottom = Math.min( inside, outside ) - 0.3;
-				kit.color = [ 0.66 - ( k % 2 ) * 0.03, 0.64 - ( k % 2 ) * 0.03, 0.6 ];
-				kit.box( M[ 0 ], ( top + bottom ) / 2, M[ 1 ], t1 - t0 + 0.02, top - bottom, 0.36, wyaw );
-				this.colliders.addBox( new Vector3( M[ 0 ], ( top + bottom ) / 2, M[ 1 ] ), new Vector3( ( t1 - t0 ) / 2, ( top - bottom ) / 2, 0.18 ), wyaw, { walkable: true, tag: 'stair' } );
+				const f = ( k + 0.5 ) / n, M = [ A0[ 0 ] + ( A1[ 0 ] - A0[ 0 ] ) * f + no[ 0 ] * TH / 2, A0[ 1 ] + ( A1[ 1 ] - A0[ 1 ] ) * f + no[ 1 ] * TH / 2 ];
+				const top = yt0 + ( yt1 - yt0 ) * f, bottom = g0 + ( g1 - g0 ) * f;
+				this.colliders.addBox( new Vector3( M[ 0 ], ( top + bottom ) / 2, M[ 1 ] ), new Vector3( SL / n / 2, ( top - bottom ) / 2, TH / 2 ), wyaw, { walkable: true, tag: 'stair' } );
 				wallPts.push( [ M[ 0 ], M[ 1 ], top ] );
 
 			}
