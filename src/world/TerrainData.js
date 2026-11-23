@@ -146,6 +146,23 @@ export const BENEFICIADO = { from: [ 39.9, 39.3 ], to: [ 20.6, 41.2 ], wall: [ [
 // references/...-whatsapp-image-2026-10-21-at-10-05-24): an even cobbled climb between the same walled garden
 // (west) and a house (east); the garden's east wall, and the house's corner with its faces
 export const MISERICORDIA = { from: [ 39.9, 39.3 ], to: [ 29.8, 21.5 ], wall: [ [ 37.4, 38.2 ], [ 32.5, 30.3 ] ], corner: [ 37.8, 33.5 ] };
+// the top of the Calçada da Misericórdia, going down east from the corner of Praça de Santa Maria by the
+// museum toward the Igreja da Misericórdia (photo references/...-2fa087ec-...): a wide alley in long cobbled
+// steps, a white wall with a blue foot and an iron handrail on its right going down (south), a tall white
+// wall with a red foot on its left (the walled garden's, OSM), down to the corner where it turns north (ramp)
+// in long steps down to the Largo da Misericórdia; beside it the wayside cross on its block (cross), and past
+// that the straight flight of stone steps up from the Largo along the terrace's east wall (stair, x0..x1, from
+// zb up to zt; photo references/...-2241-814e8453-...)
+export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], north: [ [ 8.6, - 8.4 ], [ 21.7, - 9.6 ] ], south: [ [ 13.0, - 13.6 ], [ 26.3, - 13.3 ] ],
+	ramp: { from: [ 23.1, - 10.6 ], to: [ 23.1, - 1.6 ], HALF: 1.4 }, cross: { x: 25.3, z: - 9.4, w: 1.8, d: 2.4 }, stair: { x0: 26.3, x1: 28.2, zb: - 7.0, zt: - 18.5 }, // (zb: three steps out in front of the cross's block, photo -1018-)
+	// a level passage from the ramp across the stair just behind the cross (z0..z1), level with the top of the
+	// cross's block and of the stair's first flight; along the stair it runs on to the L the terrace's wall makes
+	// (zL), where the second flight starts (photo references/...-1018-...)
+	// (the steps up to it from the corner run along the back of the cross's block, from its one corner to the
+	// other, reaching the top where they meet the stair: x0 - run .. x0)
+	landing: { x0: 26.3, z0: - 10.6, z1: - 11.3, zL: - 13.3, run: 1.9 },
+	forecourt: { poly: [ [ 21, 9.2 ], [ 26, 10.5 ], [ 24.65, 2.6 ], [ 22.95, 2.25 ] ] }, // (the tower's west and east corners, then the tip)
+	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -196,6 +213,7 @@ export class TerrainData {
 		this._senhoraDaGraca();
 		this._beneficiado();
 		this._misericordia();
+		this._santaMariaSteps();
 		this._escadariaBiblioteca();
 		this._pvLaneLevel();
 		this._pvClimb();
@@ -1010,6 +1028,353 @@ export class TerrainData {
 
 		} );
 		this.beneficiado = { from: B.from, to: B.to, wall: B.wall, dir, length: L, y, HALF };
+
+	}
+
+	// the steps down from Praça de Santa Maria (SANTA_MARIA_STEPS): one even fall, steeper than the ground's
+	// (the photos: the alley drops near three metres to the corner, the terrace wall four high there), paved;
+	// Walls lays the steps' stone edges on it
+	// and builds its walls. this.santaMariaSteps tells Walls where.
+	_santaMariaSteps() {
+
+		const S = SANTA_MARIA_STEPS, { res, texel, origin, heights } = this;
+		const L = Math.hypot( S.to[ 0 ] - S.from[ 0 ], S.to[ 1 ] - S.from[ 1 ] );
+		const dir = [ ( S.to[ 0 ] - S.from[ 0 ] ) / L, ( S.to[ 1 ] - S.from[ 1 ] ) / L ];
+		// (down to the corner at its foot: one level landing there with the ramp's top and the passage, from a
+		// couple of metres before the alley's end)
+		const y0 = this.heightAt( ...S.from ), y1 = y0 - 2.4, LF = L - 2.2;
+		const y = ( t ) => lerp( y0, y1, clamp( t / LF, 0, 1 ) );
+		const HALF = 2.2;
+		// (the ground before any of it: the Largo's, at the ramp's foot and the stair's, and the stair's top)
+		const R = S.ramp, ST = S.stair, xm = ( ST.x0 + ST.x1 ) / 2;
+		const yFoot = this.heightAt( xm, - 0.6 ), yT = this.heightAt( xm, ST.zt - 0.7 ), yR1 = yFoot + 0.15; // (the ramp down to the Largo's level)
+		this._stroke( [ S.from, S.to ], HALF, 1.0, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - S.from[ 0 ] ) * dir[ 0 ] + ( z - S.from[ 1 ] ) * dir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], y( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+		// the ramp down to the Largo: one even fall from the alley's foot, paved; Walls lays its steps' edges
+		const RL = Math.hypot( R.to[ 0 ] - R.from[ 0 ], R.to[ 1 ] - R.from[ 1 ] ), rdir = [ ( R.to[ 0 ] - R.from[ 0 ] ) / RL, ( R.to[ 1 ] - R.from[ 1 ] ) / RL ];
+		const rampY = ( t ) => lerp( y1, yR1, clamp( t / RL, 0, 1 ) );
+		this._stroke( [ R.from, R.to ], R.HALF, 1.0, ( k, w ) => {
+
+			const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+			const t = ( x - R.from[ 0 ] ) * rdir[ 0 ] + ( z - R.from[ 1 ] ) * rdir[ 1 ];
+			heights[ k ] = lerp( heights[ k ], rampY( t ), w );
+			if ( w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		} );
+
+		// the stair: Walls builds its steps; the ground under them kept a little below their line (here it
+		// bulges over it)
+		// (two flights: up to the passage, level with the ramp beside it, and on from it to the top)
+		const LD = S.landing, zm = ( LD.z0 + LD.z1 ) / 2; // (the ramp runs north, so its t is z less its start's)
+		// (the passage behind the cross and the stair's landing: four steps up from the corner, level with the top of
+		// the cross's block, photo -1045-)
+		const yL = y1 + 0.68;
+		// (the stair's foot: some ten steps under the landing; the Largo climbs to it, the Calçada's fall below)
+		const yB = yL - 1.85;
+		const stairY = ( z ) => z >= LD.z0 ? lerp( yB, yL, clamp( ( ST.zb - z ) / ( ST.zb - LD.z0 ), 0, 1 ) )
+			: z >= LD.zL ? yL : lerp( yL, yT, clamp( ( LD.zL - z ) / ( LD.zL - ST.zt ), 0, 1 ) );
+		const i0 = Math.floor( ( ST.x0 - 1 - origin ) / texel ), i1 = Math.ceil( ( ST.x1 + 1 - origin ) / texel );
+		const j0 = Math.floor( ( ST.zt - origin ) / texel ), j1 = Math.ceil( ( ST.zb + 1 - origin ) / texel );
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+			heights[ k ] = Math.min( heights[ k ], stairY( z ) - 0.15 );
+
+		}
+
+		// the corner: the alley's foot, the ramp's top and the passage across to the stair, one level landing from
+		// the garden's wall to the stair and from the terrace's wall to the ramp's start (eased onto the ramp)
+		{
+
+			const xa = S.north[ 1 ][ 0 ] - 0.8, xb = ST.x1, za = S.south[ 1 ][ 1 ] - 0.6, F = 0.8;
+			const pi0 = Math.floor( ( xa - origin ) / texel ), pi1 = Math.ceil( ( xb - origin ) / texel );
+			const pj0 = Math.floor( ( za - origin ) / texel ), pj1 = Math.ceil( ( LD.z0 + F - origin ) / texel );
+			for ( let j = pj0; j <= pj1; j ++ ) for ( let i = pi0; i <= pi1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+				const d = Math.max( 0, z - LD.z0 );
+				if ( d >= F ) continue;
+				const w = 1 - smoothstep( 0, F, d );
+				// (the corner at y1; the steps up east to the passage, LD.x0 less STEPS_RUN to LD.x0; the passage
+				// and the stair's landing at yL, the steps' ground kept under them)
+				const up = clamp( ( x - ( LD.x0 - LD.run ) ) / LD.run, 0, 1 ), yy = lerp( y1, yL, up ) - ( up > 0 && up < 1 ? 0.15 : 0.02 );
+				heights[ k ] = lerp( heights[ k ], x > ST.x0 - 0.3 ? Math.min( heights[ k ], yL - 0.1 ) : d > 0 ? y1 - 0.02 : yy, w ); // (north of it, the ramp's top: the corner's level)
+
+			}
+
+		}
+
+		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge),
+		// from the wall's face back 9.5 m along the way down from the square (photo references/...-814e8453-...):
+		// Walls builds it, walls round it and a paved floor over the ground, which is left as it is (a raised
+		// ground would bank out over the walls' feet)
+		const top = y0 + 1.5, DEEP = 9.5;
+
+		// the lane from the Largo north under the arch beside the house-tower (Rua Padre António Almeida; photo
+		// references/...-1912-3408fb6f-...): one even climb right across to the walls each side, the walled garden's
+		// bank cut back behind its wall
+		// (Walls builds it along S.lane.wall)
+		const LN = S.lane, lc = [ 0 ];
+		for ( let i = 1; i < LN.pts.length; i ++ ) lc.push( lc[ i - 1 ] + Math.hypot( LN.pts[ i ][ 0 ] - LN.pts[ i - 1 ][ 0 ], LN.pts[ i ][ 1 ] - LN.pts[ i - 1 ][ 1 ] ) );
+		// (it starts at the Largo's own level, on the even fall from the stair's foot to the tower's front, so the
+		// two streets meet in one smooth slope and the lane climbs steadily from there to the arch)
+		const ylPre = this.heightAt( ...LN.pts[ 0 ] ), yl1 = this.heightAt( ...LN.pts[ LN.pts.length - 1 ] ), LL = lc[ lc.length - 1 ];
+		const yl0 = lerp( yB, ylPre - 0.05, clamp( ( LN.pts[ 0 ][ 1 ] - ( ST.zb + 0.5 ) ) / ( 8.1 - ( ST.zb + 0.5 ) ), 0, 1 ) );
+		// (the lane's level at the nearest point of its line)
+		const laneY = ( x, z ) => {
+
+			let best = Infinity, y = yl0;
+			for ( let i = 0; i + 1 < LN.pts.length; i ++ ) {
+
+				const [ d, t ] = segmentDistance( x, z, LN.pts[ i ], LN.pts[ i + 1 ] );
+				if ( d < best ) {
+
+					best = d;
+					y = lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / lc[ lc.length - 1 ] );
+
+				}
+
+			}
+
+			return y;
+
+		};
+		for ( let i = 0; i + 1 < LN.pts.length; i ++ ) {
+
+			const a = LN.pts[ i ], c = LN.pts[ i + 1 ];
+			this._stroke( [ a, c ], LN.HALF, 0.7, ( k, w ) => {
+
+				const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+				const [ , t ] = segmentDistance( x, z, a, c );
+				const yy = lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / LL );
+				heights[ k ] = lerp( heights[ k ], yy, w );
+				if ( w > 0.5 ) this.path[ k ] = 255;
+
+			} );
+
+		}
+
+		let calRef = null; // (the Calçada's level at the nearest point of its line)
+		// the Calçada da Misericórdia from the stair's foot down across the Largo and past the church's front: one
+		// even, steep fall
+		// (the photos); then the Largo between it and the lane smoothed, so no humps are left between the strokes
+		{
+
+			const C = [ [ ( ST.x0 + ST.x1 ) / 2, ST.zb + 0.5 ], [ 27.3, - 0.6 ], [ 28.0, 8.1 ], [ 28.2, 10.6 ], [ 29.8, 21.5 ] ], cc = [ 0 ]; // (clear of the tower's forecourt)
+			for ( let i = 1; i < C.length; i ++ ) cc.push( cc[ i - 1 ] + Math.hypot( C[ i ][ 0 ] - C[ i - 1 ][ 0 ], C[ i ][ 1 ] - C[ i - 1 ][ 1 ] ) );
+			const yc0 = yB - 0.02, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
+			// (gently down across the Largo to the house-tower's front, about the lane's level there; the steep fall
+			// only from there on, past the tower: photo -1750-)
+			const yK = ylPre - 0.05, calY = ( s ) => s <= cc[ 2 ] ? lerp( yc0, yK, s / cc[ 2 ] ) : lerp( yK, yc1, ( s - cc[ 2 ] ) / ( CL - cc[ 2 ] ) );
+			for ( let i = 0; i + 1 < C.length; i ++ ) {
+
+				const a = C[ i ], c = C[ i + 1 ];
+				this._stroke( [ a, c ], 2.2, 1.6, ( k, w ) => {
+
+					const x = origin + ( k % res + 0.5 ) * texel, z = origin + ( Math.floor( k / res ) + 0.5 ) * texel;
+					const [ , t ] = segmentDistance( x, z, a, c );
+					heights[ k ] = lerp( heights[ k ], calY( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ), w );
+					if ( w > 0.5 ) this.path[ k ] = 255;
+
+				} );
+
+			}
+
+			// the garden's wall (the ramp's, then the lane's): on its street side the ground is the streets', not the
+			// garden's bank. Each texel there no higher than the nearest street's line (the ramp, the lane, the
+			// Calçada), then the Largo smoothed on that side only, so the garden's height doesn't bleed through
+			const GW = [ S.north[ 1 ], ...LN.wall ];
+			const east = ( x, z ) => {
+
+				let best = Infinity, side = 0;
+				for ( let i = 0; i + 1 < GW.length; i ++ ) {
+
+					const [ d, t ] = segmentDistance( x, z, GW[ i ], GW[ i + 1 ] );
+					if ( d < best ) {
+
+						best = d;
+						const a = GW[ i ], b = GW[ i + 1 ];
+						side = ( b[ 0 ] - a[ 0 ] ) * ( z - a[ 1 ] ) - ( b[ 1 ] - a[ 1 ] ) * ( x - a[ 0 ] ) < 0 ? 1 : - 1;
+
+					}
+
+				}
+
+				return side * best; // (metres east of the wall's face; negative in the garden)
+
+			};
+			const lines = [
+				[ [ R.from, R.to ], ( i, t ) => rampY( t * RL ) ],
+				...LN.pts.slice( 0, - 1 ).map( ( a, i ) => [ [ a, LN.pts[ i + 1 ] ], ( k, t ) => lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / LL ) ] ),
+				...C.slice( 0, - 1 ).map( ( a, i ) => [ [ a, C[ i + 1 ] ], ( k, t ) => calY( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) ] ),
+			];
+			calRef = ( x, z ) => {
+
+				let best = Infinity, y = 0;
+				for ( const [ [ a, b ], f ] of lines.slice( - ( C.length - 1 ) ) ) {
+
+					const [ d, t ] = segmentDistance( x, z, a, b );
+					if ( d < best ) {
+
+						best = d;
+						y = f( 0, t );
+
+					}
+
+				}
+
+				return y;
+
+			};
+			const nLane = LN.pts.length - 1;
+			let nearLane = false; // (set by streetY: whether the nearest street is the lane to the arch)
+			const streetY = ( x, z ) => {
+
+				let best = Infinity, y = 0;
+				lines.forEach( ( [ [ a, b ], f ], li ) => {
+
+					const [ d, t ] = segmentDistance( x, z, a, b );
+					if ( d < best ) {
+
+						best = d;
+						y = f( 0, t );
+						nearLane = li >= 1 && li <= nLane;
+
+					}
+
+				} );
+
+				return y;
+
+			};
+			const i0 = Math.floor( ( 15.5 - origin ) / texel ), i1 = Math.ceil( ( 31 - origin ) / texel );
+			const j0 = Math.floor( ( - 3.5 - origin ) / texel ), j1 = Math.ceil( ( 21 - origin ) / texel );
+			const w = i1 - i0 + 1, street = new Uint8Array( w * ( j1 - j0 + 1 ) ), tmp = new Float32Array( street.length );
+			for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, e = east( x, z );
+				// (the Largo and the streets: east of the wall, not on the stair or the ramp above its foot)
+				const onStair = x > ST.x0 - 0.6 && z < ST.zb + 0.3, onRamp = z < R.to[ 1 ] - 0.5 && x < ST.x0 - 0.6;
+				if ( e < - 1.6 || onStair || onRamp ) continue;
+				// (the texels just behind the wall's face too, inside its body, or the garden's slope would still
+				// lean out over its foot from them)
+				const k = j * res + i, ys = streetY( x, z );
+				if ( nearLane && e < 4 ) {
+
+					// the lane to the arch: level across from wall to wall, only its even climb along it
+					heights[ k ] = ys;
+					continue;
+
+				}
+
+				if ( e < - 0.9 ) continue;
+				if ( e < 4 ) heights[ k ] = Math.min( heights[ k ], ys + 0.05 );
+				if ( e >= 0.3 ) street[ ( j - j0 ) * w + i - i0 ] = 1;
+
+			}
+
+			for ( let pass = 0; pass < 3; pass ++ ) {
+
+				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+					const q = ( j - j0 ) * w + i - i0;
+					if ( ! street[ q ] ) continue;
+					let sum = 0, n = 0;
+					for ( let dj = - 1; dj <= 1; dj ++ ) for ( let di = - 1; di <= 1; di ++ ) {
+
+						const jj = j + dj, ii = i + di;
+						if ( jj < j0 || jj > j1 || ii < i0 || ii > i1 || ! street[ ( jj - j0 ) * w + ii - i0 ] ) continue;
+						sum += heights[ jj * res + ii ];
+						n ++;
+
+					}
+
+					tmp[ q ] = sum / n;
+
+				}
+
+				for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+					const q = ( j - j0 ) * w + i - i0;
+					if ( street[ q ] ) heights[ j * res + i ] = tmp[ q ];
+
+				}
+
+			}
+
+		}
+
+		// the little Largo before the house-tower (photo references/...-1750-..., and the outline drawn on the map):
+		// a wedge between the lane to the arch and the Calçada, the tower's front its wide end; the Calçada's own
+		// ground carried on over it (only the paving differs: Walls lays its slabs), the lane standing a little over
+		// it along its west side (Walls' low wall there)
+		const FC = S.forecourt, P4 = FC.poly;
+		{
+
+			let x0 = Infinity, x1 = - Infinity, z0 = Infinity, z1 = - Infinity;
+			for ( const [ x, z ] of P4 ) {
+
+				x0 = Math.min( x0, x ); x1 = Math.max( x1, x ); z0 = Math.min( z0, z ); z1 = Math.max( z1, z );
+
+			}
+
+			// the plane y = pa x + pb z + pc through ( P4[ 1 ], P4[ 2 ], P4[ 3 ] ) at the Calçada's level there
+			const Q = [ P4[ 1 ], P4[ 2 ], P4[ 3 ] ].map( ( [ x, z ] ) => [ x, z, calRef( x, z ) ] );
+			const ux = Q[ 1 ][ 0 ] - Q[ 0 ][ 0 ], uz = Q[ 1 ][ 1 ] - Q[ 0 ][ 1 ], uy = Q[ 1 ][ 2 ] - Q[ 0 ][ 2 ];
+			const vx = Q[ 2 ][ 0 ] - Q[ 0 ][ 0 ], vz = Q[ 2 ][ 1 ] - Q[ 0 ][ 1 ], vy = Q[ 2 ][ 2 ] - Q[ 0 ][ 2 ];
+			const det = ux * vz - uz * vx, pa = ( uy * vz - uz * vy ) / det, pb = ( ux * vy - uy * vx ) / det, pc = Q[ 0 ][ 2 ] - pa * Q[ 0 ][ 0 ] - pb * Q[ 0 ][ 1 ];
+			for ( let j = Math.floor( ( z0 - 2 - origin ) / texel ); j <= Math.ceil( ( z1 + 2 - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( x0 - 2 - origin ) / texel ); i <= Math.ceil( ( x1 + 2 - origin ) / texel ); i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+				// (one even slope: the plane through the Calçada's level at the tower's east corner and the tip's two
+				// corners; eased into the ground round it over a metre and a half, not across the lane's wall)
+				const yPl = pa * x + pb * z + pc;
+				if ( pointInPolygon( x, z, P4 ) ) {
+
+					heights[ k ] = yPl;
+					continue;
+
+				}
+
+				// (under its low wall, along the lane and across the tip, and a little past it, still the plane, so the
+				// floor stays flat right up to the wall; on the open side to the Calçada, eased into it)
+				const dWall = Math.min( segmentDistance( x, z, P4[ 0 ], P4[ 3 ] )[ 0 ], segmentDistance( x, z, P4[ 3 ], P4[ 2 ] )[ 0 ] );
+				const dOpen = segmentDistance( x, z, P4[ 1 ], P4[ 2 ] )[ 0 ];
+				const laneSide = ( P4[ 3 ][ 0 ] - P4[ 0 ][ 0 ] ) * ( z - P4[ 0 ][ 1 ] ) - ( P4[ 3 ][ 1 ] - P4[ 0 ][ 1 ] ) * ( x - P4[ 0 ][ 0 ] ) < 0 && z > P4[ 3 ][ 1 ] - 0.5;
+				// (on the lane's side, just past the wall, still the Largo's plane, so its floor stays flat to the wall:
+				// Walls paves the lane over the step there, LANE_APRON wide)
+				if ( laneSide ) {
+
+					if ( segmentDistance( x, z, P4[ 0 ], P4[ 3 ] )[ 0 ] < 0.7 ) heights[ k ] = Math.min( heights[ k ], yPl );
+					continue;
+
+				}
+
+				if ( dWall < 0.9 ) heights[ k ] = yPl;
+				else if ( dOpen < 1.5 && dOpen < dWall ) heights[ k ] = lerp( yPl, heights[ k ], smoothstep( 0, 1.5, dOpen ) );
+
+			}
+
+		}
+
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: FC, laneY,
+			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}
 

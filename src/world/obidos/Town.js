@@ -5,6 +5,15 @@ import { orientedBox } from './Walls.js';
 import { mulberry32 } from '../../util/Noise.js';
 import { ORNELAS_MARKERS } from '../TerrainData.js';
 
+// distance from ( x, z ) to the segment a-b
+const segDist = ( x, z, a, b ) => {
+
+	const dx = b[ 0 ] - a[ 0 ], dz = b[ 1 ] - a[ 1 ], l2 = dx * dx + dz * dz;
+	const t = l2 > 0 ? Math.max( 0, Math.min( 1, ( ( x - a[ 0 ] ) * dx + ( z - a[ 1 ] ) * dz ) / l2 ) ) : 0;
+	return Math.hypot( x - a[ 0 ] - dx * t, z - a[ 1 ] - dz * t );
+
+};
+
 // The houses of Óbidos (and the suburbs round the walls) from the OpenStreetMap footprints:
 // whitewashed walls with a painted base band and window / door surrounds (blue, yellow or ochre),
 // terracotta canudo-tile roofs, chimneys. Every footprint gets one gable roof: its ridge runs along
@@ -52,9 +61,14 @@ const PASSAGES = { 299064346: { street: 1177937020, half: 1.3 } };
 const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 197.3 ], [ - 75, 206.1 ], [ - 72, 214 ], [ - 70.5, 214.5 ], [ - 60.2, 214.5 ], [ - 64.4, 195.6 ] ],
 	// the tall house in the curtain's corner near the top of Rua Dom João de Ornelas (photo references/...-img-4383):
 	// outside the walls, its front on the street where OSM has it, its back against the curtain's outer faces
-	299072134: [ [ - 35.3, 225.4 ], [ - 38.7, 223.96 ], [ - 39.83, 225.62 ], [ - 45.6, 226.35 ], [ - 45.6, 236.6 ], [ - 39.5, 239 ], [ - 38.2, 234.7 ], [ - 35.3, 225.4 ] ] };
+	299072134: [ [ - 35.3, 225.4 ], [ - 38.7, 223.96 ], [ - 39.83, 225.62 ], [ - 45.6, 226.35 ], [ - 45.6, 236.6 ], [ - 39.5, 239 ], [ - 38.2, 234.7 ], [ - 35.3, 225.4 ] ],
+	// the Igreja da Misericórdia: its front to the Largo from the stone corner over the stair's lower steps (the
+	// black-footed wall beside them is its own), the portal in the middle of it (photos references/...-1512-, -1526-)
+	299064033: [ [ 28.24, - 8.8 ], [ 27.1, 2.3 ], [ 41.7, 7 ], [ 53.7, 10.9 ], [ 55.7, 4.8 ], [ 57, 0.6 ], [ 34.7, - 5.6 ], [ 28.24, - 8.8 ] ] };
 // (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
-const KEEP_OUTLINE = new Set( [ 299072134 ] );
+const KEEP_OUTLINE = new Set( [ 299072134, 299064033 ] );
+// (and these keep their corners on OSM's street lines too: the Misericórdia's on the old Praça line by the stair)
+const KEEP_STREET_CORNERS = new Set( [ 299064033 ] );
 // as in the photos: the Casa da Música is white with strong blue trim, two storeys
 const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the left going up Travessa do Beneficiado: yellow (photo references/...-ruaperpendiculara)
@@ -62,6 +76,11 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	// the house on the right going up the Calçada da Misericórdia: a charcoal foot (photo
 	// references/...-whatsapp-image-2026-10-21-at-10-05-24)
 	299064166: [ 0.27, 0.27, 0.28 ],
+	// the Museu Municipal, along the way down from Praça de Santa Maria to the steps: a red foot (photo
+	// references/...-814e8453-...)
+	299063768: [ 0.62, 0.13, 0.1 ],
+	// the Igreja da Misericórdia, along the stair up from its Largo: a black foot (photo references/...-2241-...)
+	299064033: [ 0.03, 0.03, 0.03 ],
 	// down Rua Porta do Vale from the tower by the gate (photo references/...-img-4397): on the right, between
 	// it and Rua da Porta da Senhora da Graça, red; on the left a yellow foot, then blue
 	299086795: [ 0.62, 0.13, 0.1 ],
@@ -76,6 +95,10 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 // Ornelas, the long footprint holding the blue house and the white one beyond it, two low storeys, then a
 // lower one (photo references/...-img-4391; the street fronts: Town._ornelasFronts)
 const EAVE = { 299088554: 43.2, 299088587: 43.5,
+	// the stone house-tower on the Largo da Misericórdia: three storeys over the Largo (photo references/...-1912-3408fb6f-...)
+	299064346: 57.8,
+	// the Igreja da Misericórdia: its front's gable over the big barred window (photo references/...-1526-)
+	299064033: 61.0,
 	// and the other way, down to the fork: the two-storey house, and the long low one past it behind the green
 	// gate (photo references/...-img-4390)
 	299088474: 40.6, 299088405: 39.2,
@@ -85,6 +108,12 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	// near the top, the tall house in the curtain's corner (photo references/...-img-4383): its ground behind the
 	// curtain is far higher than its street's
 	299072134: 57.6 };
+// houses of bare stone, not whitewashed (the part of the footprint holding the point): on the Largo da
+// Misericórdia, the medieval house-tower facing it (photo references/...-1912-3408fb6f-...)
+const STONE_HOUSES = { 299064346: [ 23, 12 ] };
+// fronts with no painted doors or windows (Walls builds what is on them): the Igreja da Misericórdia's front to its
+// Largo, the baroque portal (photo references/...-1512-...), by a point on that front
+const BLANK_FRONTS = { 299064033: [ [ 27.3, 0.3 ], [ 27.7, - 2.3 ], [ 27.95, - 5.0 ], [ 28.15, - 7.8 ] ] }; // (along it: its roof's crease splits it)
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -114,6 +143,7 @@ export class Town {
 		this.group = new Group();
 		this.group.name = 'Town';
 		this.walls = new MeshKit();
+		this.stoneWalls = new MeshKit(); // (STONE_HOUSES)
 		this.roofs = new MeshKit();
 		this.lights = []; // lamp positions for the night (LocalLights)
 		this.buildings = [];
@@ -138,7 +168,7 @@ export class Town {
 			if ( poly.length < 3 ) continue;
 			poly = poly.map( ( q ) => {
 
-				const near = streetIndex.nearest( q[ 0 ], q[ 1 ], 3.6 );
+				const near = KEEP_STREET_CORNERS.has( b.id ) ? null : streetIndex.nearest( q[ 0 ], q[ 1 ], 3.6 );
 				if ( ! near || near.d >= near.seg.line.clear ) return q;
 				const { a, b: e } = near.seg;
 				const px = a[ 0 ] + ( e[ 0 ] - a[ 0 ] ) * near.t, pz = a[ 1 ] + ( e[ 1 ] - a[ 1 ] ) * near.t;
@@ -260,7 +290,7 @@ export class Town {
 		this.edges = list;
 		this._lanterns( materials, rand );
 
-		for ( const [ kit, mat, name ] of [ [ this.walls, materials.plaster, 'town-walls' ], [ this.roofs, materials.roof, 'town-roofs' ] ] ) {
+		for ( const [ kit, mat, name ] of [ [ this.walls, materials.plaster, 'town-walls' ], [ this.stoneWalls, materials.stone, 'town-stone-walls' ], [ this.roofs, materials.roof, 'town-roofs' ] ] ) {
 
 			if ( kit.empty ) continue;
 			const mesh = new Mesh( kit.build(), mat );
@@ -1805,8 +1835,10 @@ export class Town {
 		this.walls.color = srgbToLinear( PAINT[ b.id ] || trim );
 		const seed = rand();
 
-		// walls
-		const kit = this.walls;
+		// walls (of bare golden stone for STONE_HOUSES: no painted openings, Walls sets its own in them)
+		const stoneAt = STONE_HOUSES[ b.id ], isStone = !! stoneAt && pointInPolygon( stoneAt[ 0 ], stoneAt[ 1 ], poly );
+		const kit = isStone ? this.stoneWalls : this.walls;
+		if ( isStone ) kit.color = [ 1.3, 1.02, 0.68 ];
 		for ( let i = 0; i < outline.length; i ++ ) {
 
 			const a = outline[ i ], c = outline[ ( i + 1 ) % outline.length ];
@@ -1817,12 +1849,13 @@ export class Town {
 			// a party wall (another house right against it) gets no windows
 			const party = this._inOther( mx + nx * 0.8, mz + nz * 0.8, f );
 			const ga = T.heightAt( a[ 0 ], a[ 1 ] ), gc = T.heightAt( c[ 0 ], c[ 1 ] ), gEdge = Math.min( ga, gc );
-			const facade = ! party && L > 1.6 ? 1 : 0;
+			const blank = ( BLANK_FRONTS[ b.id ] || [] ).some( ( q ) => segDist( q[ 0 ], q[ 1 ], a, c ) < 0.6 );
+			const facade = ! party && ! blank && L > 1.6 ? 1 : 0;
 			// openings: in storeys above the lowest ground at this edge; the ground's slope along it rides
 			// in w (see TownMaterials) so the base band and the street-level doors follow the street
 			const st = isChurch ? 1 : Math.max( 1, Math.round( ( eave - gEdge ) / STOREY ) );
 			const slope = Math.max( - 0.95, Math.min( 0.95, ( gc - ga ) / L ) );
-			kit.vdata = [ L, st, seed + i * 0.137, facade + slope * 0.4 ];
+			kit.vdata = isStone ? [ seed * 50 + i, 0.45, 0, 0 ] : [ L, st, seed + i * 0.137, facade + slope * 0.4 ];
 			const ha = roofH( a[ 0 ], a[ 1 ] ), hc = roofH( c[ 0 ], c[ 1 ] );
 			kit.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ c[ 0 ], base, c[ 1 ] ], [ c[ 0 ], hc, c[ 1 ] ], [ a[ 0 ], ha, a[ 1 ] ], [ nx, 0, nz ],
 				[ [ 0, base - gEdge ], [ L, base - gEdge ], [ L, hc - gEdge ], [ 0, ha - gEdge ] ] );
@@ -1870,6 +1903,8 @@ export class Town {
 			const L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
 			if ( L < 0.05 ) continue;
 			const nx = ( c[ 1 ] - a[ 1 ] ) / L, nz = - ( c[ 0 ] - a[ 0 ] ) / L;
+			// (not along a BLANK_FRONTS front: Walls carries that one up into its own gable)
+			if ( ( BLANK_FRONTS[ b.id ] || [] ).some( ( q ) => segDist( q[ 0 ], q[ 1 ], a, c ) < 0.6 ) ) continue;
 			const ha = roofH( a[ 0 ], a[ 1 ] ) + 0.02, hc = roofH( c[ 0 ], c[ 1 ] ) + 0.02;
 			const o = 0.28, d = 0.14;
 			kit.color = [ 0.93, 0.92, 0.9 ];
@@ -1930,18 +1965,19 @@ Town.prototype._pieces = function ( b ) {
 // following the arch, a gabled tiled roof along it
 Town.prototype._passageBody = function ( p, rand ) {
 
-	const T = this.terrain, kit = this.walls, roof = this.roofs;
+	const T = this.terrain, stone = !! STONE_HOUSES[ p.id ], kit = stone ? this.stoneWalls : this.walls, roof = this.roofs;
 	const wings = this.buildings.filter( ( b ) => b.id === p.id );
 	if ( wings.length < 2 ) return;
 	const g = Math.max( T.heightAt( ...p.A ), T.heightAt( ...p.B ) );
 	const R = p.half, spring = g + 2.5, OVER = 0.3;
 	// (up to the lower wing's eave, and at least a storey's worth over the arch)
-	const top = Math.max( Math.min( ...wings.map( ( b ) => b.eave ) ), spring + R + 1.4 );
+	// (in stone, beside the house-tower: lower, one room over the arch; photo references/...-1912-3408fb6f-...)
+	const top = stone ? spring + R + 2.3 : Math.max( Math.min( ...wings.map( ( b ) => b.eave ) ), spring + R + 1.4 );
 	const c = [ ( p.A[ 0 ] + p.B[ 0 ] ) / 2, ( p.A[ 1 ] + p.B[ 1 ] ) / 2 ], L = Math.hypot( p.B[ 0 ] - p.A[ 0 ], p.B[ 1 ] - p.A[ 1 ] ) + 2 * OVER;
 	const at = ( s, a ) => [ c[ 0 ] + p.u[ 0 ] * s + p.n[ 0 ] * a, c[ 1 ] + p.u[ 1 ] * s + p.n[ 1 ] * a ];
 	const archY = ( a ) => spring + Math.sqrt( Math.max( 0, R * R - a * a ) );
-	kit.color = srgbToLinear( [ 0.93, 0.92, 0.89 ] );
-	kit.vdata = [ L, 1, 0.31, 0 ];
+	kit.color = stone ? [ 1.3, 1.02, 0.68 ] : srgbToLinear( [ 0.93, 0.92, 0.89 ] );
+	kit.vdata = stone ? [ 17.3, 0.45, 0, 0 ] : [ L, 1, 0.31, 0 ];
 	const SUB = 8;
 	for ( const [ s, dir ] of [ [ - L / 2, - 1 ], [ L / 2, 1 ] ] ) {
 
@@ -1962,6 +1998,50 @@ Town.prototype._passageBody = function ( p, rand ) {
 		const a0 = - R + 2 * R * k / SUB, a1 = a0 + 2 * R / SUB;
 		const P0 = at( - L / 2, a0 ), P1 = at( - L / 2, a1 ), Q0 = at( L / 2, a0 ), Q1 = at( L / 2, a1 );
 		kit.quadFacing( [ P0[ 0 ], archY( a0 ), P0[ 1 ] ], [ P1[ 0 ], archY( a1 ), P1[ 1 ] ], [ Q1[ 0 ], archY( a1 ), Q1[ 1 ] ], [ Q0[ 0 ], archY( a0 ), Q0[ 1 ] ], [ 0, - 1, 0 ] );
+
+	}
+
+	if ( stone ) {
+
+		// a ring of paler dressed stone round each face's arch, and on the face toward the Largo (-u) a small
+		// pair of narrow openings under the eaves
+		kit.color = [ 1.45, 1.25, 0.95 ];
+		const ring = ( s, dir ) => {
+
+			for ( let k = 0; k < 12; k ++ ) {
+
+				const t0 = Math.PI * k / 12, t1 = Math.PI * ( k + 1 ) / 12, o = dir * 0.03;
+				const q = ( t, r ) => { const P = at( s + o, Math.cos( t ) * r ); return [ P[ 0 ], spring + Math.sin( t ) * r, P[ 1 ] ]; };
+				kit.quadFacing( q( t0, R ), q( t1, R ), q( t1, R + 0.32 ), q( t0, R + 0.32 ), [ p.u[ 0 ] * dir, 0, p.u[ 1 ] * dir ] );
+
+			}
+
+		};
+		ring( - L / 2, - 1 );
+		ring( L / 2, 1 );
+		const facing = [ - p.u[ 0 ], 0, - p.u[ 1 ] ];
+		const roundHead = ( a, k, y0, ys, w ) => {
+
+			// an opening's flat shape, round-headed: from y0 up to its springing ys, a half disc over it
+			const q = ( da, y ) => { const P = at( - L / 2 - k, a + da ); return [ P[ 0 ], y, P[ 1 ] ]; };
+			kit.quadFacing( q( - w / 2, y0 ), q( w / 2, y0 ), q( w / 2, ys ), q( - w / 2, ys ), facing );
+			for ( let i = 0; i < 8; i ++ ) {
+
+				const t0 = Math.PI * i / 8, t1 = Math.PI * ( i + 1 ) / 8, e = q( Math.cos( t1 ) * w / 2, ys + Math.sin( t1 ) * w / 2 );
+				kit.quadFacing( q( 0, ys ), q( Math.cos( t0 ) * w / 2, ys + Math.sin( t0 ) * w / 2 ), e, e, facing );
+
+			}
+
+		};
+		for ( const a of [ - 0.2, 0.2 ] ) {
+
+			const y = top - 1.35;
+			kit.color = [ 1.45, 1.25, 0.95 ];
+			roundHead( a, 0.03, y - 0.06, y + 0.5, 0.34 ); // the dressed stone round it
+			kit.color = [ 0.04, 0.04, 0.04 ];
+			roundHead( a, 0.05, y, y + 0.48, 0.18 );
+
+		}
 
 	}
 
