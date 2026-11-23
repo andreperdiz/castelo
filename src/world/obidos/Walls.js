@@ -3967,49 +3967,50 @@ export class Walls {
 
 		}
 
-		// the low wall along the lane: from the tower's west corner to the tip, its face to the Largo, its top a
-		// little over the lane's ground behind it
-		const WA = FP[ 0 ], WB = FP[ 3 ], WL = Math.hypot( WB[ 0 ] - WA[ 0 ], WB[ 1 ] - WA[ 1 ] );
-		const wu = [ ( WB[ 0 ] - WA[ 0 ] ) / WL, ( WB[ 1 ] - WA[ 1 ] ) / WL ], wl = [ wu[ 1 ], - wu[ 0 ] ]; // (wl: toward the lane, west)
-		const wyaw = Math.atan2( - wu[ 1 ], wu[ 0 ] );
-		kit.vdata = [ 0.43, 0.6, 0, 0 ];
-		const wallTop = [];
-		for ( let k = 0, n = Math.ceil( WL / 0.7 ); k < n; k ++ ) {
+		// a low wall round its open sides, from the tower's west corner down the lane and across the tip: its face to
+		// the Largo, its top a hand or two over the street outside and climbing with it (the drawing); the stone
+		// bollards stand on it, the chain swagged between them
+		const WP = [ FP[ 0 ], FP[ 3 ], FP[ 2 ] ];
+		let cx = 0, cz = 0;
+		for ( const [ x, z ] of FP ) {
 
-			const t0 = WL * k / n, t1 = WL * ( k + 1 ) / n, tm = ( t0 + t1 ) / 2;
-			const M = [ WA[ 0 ] + wu[ 0 ] * tm + wl[ 0 ] * 0.18, WA[ 1 ] + wu[ 1 ] * tm + wl[ 1 ] * 0.18 ];
-			const low = T.heightAt( M[ 0 ] - wl[ 0 ] * 0.7, M[ 1 ] - wl[ 1 ] * 0.7 ), lane = T.heightAt( M[ 0 ] + wl[ 0 ] * 1.0, M[ 1 ] + wl[ 1 ] * 1.0 );
-			const top = Math.max( lane, low ) + 0.12, bottom = low - 0.3;
-			kit.color = [ 0.66 - ( k % 2 ) * 0.03, 0.64 - ( k % 2 ) * 0.03, 0.6 ];
-			kit.box( M[ 0 ], ( top + bottom ) / 2, M[ 1 ], t1 - t0 + 0.01, top - bottom, 0.36, wyaw );
-			this.colliders.addBox( new Vector3( M[ 0 ], ( top + bottom ) / 2, M[ 1 ] ), new Vector3( ( t1 - t0 ) / 2, ( top - bottom ) / 2, 0.18 ), wyaw, { walkable: true, tag: 'stair' } );
-			wallTop.push( [ tm, top ] );
+			cx += x / FP.length; cz += z / FP.length;
 
 		}
 
-		const topAt = ( t ) => {
+		kit.vdata = [ 0.43, 0.6, 0, 0 ];
+		const wallPts = []; // [ x, z, top ] along it, for the bollards
+		for ( let sgi = 0; sgi + 1 < WP.length; sgi ++ ) {
 
-			let best = wallTop[ 0 ];
-			for ( const w of wallTop ) if ( Math.abs( w[ 0 ] - t ) < Math.abs( best[ 0 ] - t ) ) best = w;
-			return best[ 1 ];
+			const A0 = WP[ sgi ], A1 = WP[ sgi + 1 ], SL = Math.hypot( A1[ 0 ] - A0[ 0 ], A1[ 1 ] - A0[ 1 ] );
+			const du = [ ( A1[ 0 ] - A0[ 0 ] ) / SL, ( A1[ 1 ] - A0[ 1 ] ) / SL ];
+			let no = [ du[ 1 ], - du[ 0 ] ];
+			const mx = ( A0[ 0 ] + A1[ 0 ] ) / 2, mz = ( A0[ 1 ] + A1[ 1 ] ) / 2;
+			if ( ( mx - cx ) * no[ 0 ] + ( mz - cz ) * no[ 1 ] < 0 ) no = [ - no[ 0 ], - no[ 1 ] ]; // (outward)
+			const wyaw = Math.atan2( - du[ 1 ], du[ 0 ] );
+			for ( let k = 0, n = Math.ceil( SL / 0.6 ); k < n; k ++ ) {
 
-		};
-		// the bollards: on the wall near the tower, halfway, at the tip's west corner, then across the tip
-		const tops = [];
-		const tip2 = FP[ 2 ];
-		for ( const B of [ [ WL * 0.15, true ], [ WL * 0.55, true ], [ WL - 0.15, true ], [ tip2, false ] ] ) {
-
-			let x, z, gq;
-			if ( B[ 1 ] ) {
-
-				x = WA[ 0 ] + wu[ 0 ] * B[ 0 ] + wl[ 0 ] * 0.18; z = WA[ 1 ] + wu[ 1 ] * B[ 0 ] + wl[ 1 ] * 0.18; gq = topAt( B[ 0 ] );
-
-			} else {
-
-				x = B[ 0 ][ 0 ] - 0.15; z = B[ 0 ][ 1 ] + 0.2; gq = T.heightAt( x, z );
+				const t0 = SL * k / n, t1 = SL * ( k + 1 ) / n, tm = ( t0 + t1 ) / 2;
+				const M = [ A0[ 0 ] + du[ 0 ] * tm + no[ 0 ] * 0.18, A0[ 1 ] + du[ 1 ] * tm + no[ 1 ] * 0.18 ];
+				const inside = T.heightAt( M[ 0 ] - no[ 0 ] * 0.7, M[ 1 ] - no[ 1 ] * 0.7 ), outside = T.heightAt( M[ 0 ] + no[ 0 ] * 0.9, M[ 1 ] + no[ 1 ] * 0.9 );
+				const top = Math.max( inside, outside ) + 0.25, bottom = Math.min( inside, outside ) - 0.3;
+				kit.color = [ 0.66 - ( k % 2 ) * 0.03, 0.64 - ( k % 2 ) * 0.03, 0.6 ];
+				kit.box( M[ 0 ], ( top + bottom ) / 2, M[ 1 ], t1 - t0 + 0.02, top - bottom, 0.36, wyaw );
+				this.colliders.addBox( new Vector3( M[ 0 ], ( top + bottom ) / 2, M[ 1 ] ), new Vector3( ( t1 - t0 ) / 2, ( top - bottom ) / 2, 0.18 ), wyaw, { walkable: true, tag: 'stair' } );
+				wallPts.push( [ M[ 0 ], M[ 1 ], top ] );
 
 			}
 
+		}
+
+		// the bollards: near the tower, halfway down the lane, at the tip's two corners
+		const tops = [];
+		const along = ( f ) => wallPts[ Math.min( wallPts.length - 1, Math.max( 0, Math.round( f * ( wallPts.length - 1 ) ) ) ) ];
+		const nLane = Math.ceil( Math.hypot( FP[ 3 ][ 0 ] - FP[ 0 ][ 0 ], FP[ 3 ][ 1 ] - FP[ 0 ][ 1 ] ) / 0.6 );
+		for ( const q of [ wallPts[ 1 ], wallPts[ Math.round( nLane * 0.55 ) ], wallPts[ nLane - 1 ], along( 1 ) ] ) {
+
+			const [ x, z, gq ] = q;
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
 			kit.color = [ 0.7, 0.67, 0.6 ];
 			for ( const r of [ 0, Math.PI / 4 ] ) kit.box( x, gq + 0.4, z, 0.32, 0.86, 0.32, yaw + r ); // (octagonal)
 			kit.box( x, gq + 0.87, z, 0.24, 0.1, 0.24, yaw );

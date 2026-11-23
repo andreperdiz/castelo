@@ -1132,7 +1132,10 @@ export class TerrainData {
 		// (Walls builds it along S.lane.wall)
 		const LN = S.lane, lc = [ 0 ];
 		for ( let i = 1; i < LN.pts.length; i ++ ) lc.push( lc[ i - 1 ] + Math.hypot( LN.pts[ i ][ 0 ] - LN.pts[ i - 1 ][ 0 ], LN.pts[ i ][ 1 ] - LN.pts[ i - 1 ][ 1 ] ) );
-		const yl0 = this.heightAt( ...LN.pts[ 0 ] ), yl1 = this.heightAt( ...LN.pts[ LN.pts.length - 1 ] ), LL = lc[ lc.length - 1 ];
+		// (it starts at the Largo's own level, on the even fall from the stair's foot to the tower's front, so the
+		// two streets meet in one smooth slope and the lane climbs steadily from there to the arch)
+		const ylPre = this.heightAt( ...LN.pts[ 0 ] ), yl1 = this.heightAt( ...LN.pts[ LN.pts.length - 1 ] ), LL = lc[ lc.length - 1 ];
+		const yl0 = lerp( yB, ylPre - 0.05, clamp( ( LN.pts[ 0 ][ 1 ] - ( ST.zb + 0.5 ) ) / ( 8.1 - ( ST.zb + 0.5 ) ), 0, 1 ) );
 		for ( let i = 0; i + 1 < LN.pts.length; i ++ ) {
 
 			const a = LN.pts[ i ], c = LN.pts[ i + 1 ];
@@ -1159,7 +1162,7 @@ export class TerrainData {
 			const yc0 = yB - 0.02, yc1 = this.heightAt( ...C[ C.length - 1 ] ), CL = cc[ cc.length - 1 ];
 			// (gently down across the Largo to the house-tower's front, about the lane's level there; the steep fall
 			// only from there on, past the tower: photo -1750-)
-			const yK = yl0 - 0.05, calY = ( s ) => s <= cc[ 2 ] ? lerp( yc0, yK, s / cc[ 2 ] ) : lerp( yK, yc1, ( s - cc[ 2 ] ) / ( CL - cc[ 2 ] ) );
+			const yK = ylPre - 0.05, calY = ( s ) => s <= cc[ 2 ] ? lerp( yc0, yK, s / cc[ 2 ] ) : lerp( yK, yc1, ( s - cc[ 2 ] ) / ( CL - cc[ 2 ] ) );
 			for ( let i = 0; i + 1 < C.length; i ++ ) {
 
 				const a = C[ i ], c = C[ i + 1 ];
