@@ -62,9 +62,9 @@ const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 1
 	// the tall house in the curtain's corner near the top of Rua Dom João de Ornelas (photo references/...-img-4383):
 	// outside the walls, its front on the street where OSM has it, its back against the curtain's outer faces
 	299072134: [ [ - 35.3, 225.4 ], [ - 38.7, 223.96 ], [ - 39.83, 225.62 ], [ - 45.6, 226.35 ], [ - 45.6, 236.6 ], [ - 39.5, 239 ], [ - 38.2, 234.7 ], [ - 35.3, 225.4 ] ],
-	// the Igreja da Misericórdia: its front to the Largo running on from the black-footed wall beside the stone stair
-	// (its south-west corner there, not set back), the portal close by the stair (photo references/...-1512-)
-	299064033: [ [ 28.25, - 6.55 ], [ 27.1, 2.3 ], [ 41.7, 7 ], [ 53.7, 10.9 ], [ 55.7, 4.8 ], [ 57, 0.6 ], [ 34.7, - 5.6 ], [ 28.25, - 6.55 ] ] };
+	// the Igreja da Misericórdia: its front to the Largo from the stone corner over the stair's lower steps (the
+	// black-footed wall beside them is its own), the portal in the middle of it (photos references/...-1512-, -1526-)
+	299064033: [ [ 28.24, - 8.8 ], [ 27.1, 2.3 ], [ 41.7, 7 ], [ 53.7, 10.9 ], [ 55.7, 4.8 ], [ 57, 0.6 ], [ 34.7, - 5.6 ], [ 28.24, - 8.8 ] ] };
 // (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
 const KEEP_OUTLINE = new Set( [ 299072134, 299064033 ] );
 // (and these keep their corners on OSM's street lines too: the Misericórdia's on the old Praça line by the stair)
@@ -113,7 +113,7 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 const STONE_HOUSES = { 299064346: [ 23, 12 ] };
 // fronts with no painted doors or windows (Walls builds what is on them): the Igreja da Misericórdia's front to its
 // Largo, the baroque portal (photo references/...-1512-...), by a point on that front
-const BLANK_FRONTS = { 299064033: [ [ 27.7, - 2.3 ] ] };
+const BLANK_FRONTS = { 299064033: [ [ 27.3, 0.3 ], [ 27.7, - 2.3 ], [ 27.95, - 5.0 ], [ 28.15, - 7.8 ] ] }; // (along it: its roof's crease splits it)
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
