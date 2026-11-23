@@ -4031,6 +4031,36 @@ export class Walls {
 
 		}
 
+		// along the lane's side of the wall, the lane's own setts carried right to it at its level (the Largo's
+		// floor runs on under the wall, lower: this covers the step), in short lengths climbing with it
+		{
+
+			const S2 = this.terrain.santaMariaSteps, A0 = WP[ 0 ], A1 = WP[ 1 ], SL = Math.hypot( A1[ 0 ] - A0[ 0 ], A1[ 1 ] - A0[ 1 ] );
+			const du = [ ( A1[ 0 ] - A0[ 0 ] ) / SL, ( A1[ 1 ] - A0[ 1 ] ) / SL ], no = nLaneSide, APRON = 1.85, ayaw = Math.atan2( - du[ 1 ], du[ 0 ] );
+			kit.vdata = [ 0.37, 0.4, 0, 1 ];
+			kit.color = [ 0.9, 0.88, 0.84 ];
+			const fA = - 1.4 / SL; // (on a little past the tower's corner, where the step still is)
+			for ( let k = 0, n = Math.ceil( ( SL + 1.4 ) / 0.5 ); k < n; k ++ ) {
+
+				const f = fA + ( 1 - fA ) * ( k + 0.5 ) / n, M = [ A0[ 0 ] + ( A1[ 0 ] - A0[ 0 ] ) * f + no[ 0 ] * ( 0.36 + APRON / 2 ), A0[ 1 ] + ( A1[ 1 ] - A0[ 1 ] ) * f + no[ 1 ] * ( 0.36 + APRON / 2 ) ];
+				const top = S2.laneY( M[ 0 ], M[ 1 ] ) + 0.02, bottom = Math.min( top, T.heightAt( A0[ 0 ] + ( A1[ 0 ] - A0[ 0 ] ) * f, A0[ 1 ] + ( A1[ 1 ] - A0[ 1 ] ) * f ) ) - 0.4;
+				// (its surface one even slope: a quad from this length's start to its end, each corner at the lane's
+				// level there; the collider under it in short level lengths)
+				const f0 = fA + ( 1 - fA ) * k / n, f1 = fA + ( 1 - fA ) * ( k + 1 ) / n;
+				const cnr = ( ff, kk ) => {
+
+					const X = A0[ 0 ] + ( A1[ 0 ] - A0[ 0 ] ) * ff + no[ 0 ] * kk, Z = A0[ 1 ] + ( A1[ 1 ] - A0[ 1 ] ) * ff + no[ 1 ] * kk;
+					return [ X, S2.laneY( X, Z ) + 0.02, Z ];
+
+				};
+				const q = [ cnr( f0, 0.3 ), cnr( f1, 0.3 ), cnr( f1, 0.36 + APRON ), cnr( f0, 0.36 + APRON ) ];
+				kit.quadFacing( ...q, [ 0, 1, 0 ], q.map( ( v ) => [ v[ 0 ], v[ 2 ] ] ) );
+				this.colliders.addBox( new Vector3( M[ 0 ], ( top + bottom ) / 2, M[ 1 ] ), new Vector3( ( SL + 1.4 ) / n / 2, ( top - bottom ) / 2, APRON / 2 ), ayaw, { walkable: true, tag: 'stair' } );
+
+			}
+
+		}
+
 		// the bollards: near the tower, halfway down the lane, at the tip's two corners
 		const tops = [];
 		const along = ( f ) => wallPts[ Math.min( wallPts.length - 1, Math.max( 0, Math.round( f * ( wallPts.length - 1 ) ) ) ) ];

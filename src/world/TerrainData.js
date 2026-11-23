@@ -1136,6 +1136,25 @@ export class TerrainData {
 		// two streets meet in one smooth slope and the lane climbs steadily from there to the arch)
 		const ylPre = this.heightAt( ...LN.pts[ 0 ] ), yl1 = this.heightAt( ...LN.pts[ LN.pts.length - 1 ] ), LL = lc[ lc.length - 1 ];
 		const yl0 = lerp( yB, ylPre - 0.05, clamp( ( LN.pts[ 0 ][ 1 ] - ( ST.zb + 0.5 ) ) / ( 8.1 - ( ST.zb + 0.5 ) ), 0, 1 ) );
+		// (the lane's level at the nearest point of its line)
+		const laneY = ( x, z ) => {
+
+			let best = Infinity, y = yl0;
+			for ( let i = 0; i + 1 < LN.pts.length; i ++ ) {
+
+				const [ d, t ] = segmentDistance( x, z, LN.pts[ i ], LN.pts[ i + 1 ] );
+				if ( d < best ) {
+
+					best = d;
+					y = lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / lc[ lc.length - 1 ] );
+
+				}
+
+			}
+
+			return y;
+
+		};
 		for ( let i = 0; i + 1 < LN.pts.length; i ++ ) {
 
 			const a = LN.pts[ i ], c = LN.pts[ i + 1 ];
@@ -1223,25 +1242,28 @@ export class TerrainData {
 				return y;
 
 			};
+			const nLane = LN.pts.length - 1;
+			let nearLane = false; // (set by streetY: whether the nearest street is the lane to the arch)
 			const streetY = ( x, z ) => {
 
 				let best = Infinity, y = 0;
-				for ( const [ [ a, b ], f ] of lines ) {
+				lines.forEach( ( [ [ a, b ], f ], li ) => {
 
 					const [ d, t ] = segmentDistance( x, z, a, b );
 					if ( d < best ) {
 
 						best = d;
 						y = f( 0, t );
+						nearLane = li >= 1 && li <= nLane;
 
 					}
 
-				}
+				} );
 
 				return y;
 
 			};
-			const i0 = Math.floor( ( 19.5 - origin ) / texel ), i1 = Math.ceil( ( 31 - origin ) / texel );
+			const i0 = Math.floor( ( 15.5 - origin ) / texel ), i1 = Math.ceil( ( 31 - origin ) / texel );
 			const j0 = Math.floor( ( - 3.5 - origin ) / texel ), j1 = Math.ceil( ( 21 - origin ) / texel );
 			const w = i1 - i0 + 1, street = new Uint8Array( w * ( j1 - j0 + 1 ) ), tmp = new Float32Array( street.length );
 			for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
@@ -1249,11 +1271,20 @@ export class TerrainData {
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, e = east( x, z );
 				// (the Largo and the streets: east of the wall, not on the stair or the ramp above its foot)
 				const onStair = x > ST.x0 - 0.6 && z < ST.zb + 0.3, onRamp = z < R.to[ 1 ] - 0.5 && x < ST.x0 - 0.6;
-				if ( e < - 0.9 || onStair || onRamp ) continue;
+				if ( e < - 1.6 || onStair || onRamp ) continue;
 				// (the texels just behind the wall's face too, inside its body, or the garden's slope would still
 				// lean out over its foot from them)
-				const k = j * res + i;
-				if ( e < 4 ) heights[ k ] = Math.min( heights[ k ], streetY( x, z ) + 0.05 );
+				const k = j * res + i, ys = streetY( x, z );
+				if ( nearLane && e < 4 ) {
+
+					// the lane to the arch: level across from wall to wall, only its even climb along it
+					heights[ k ] = ys;
+					continue;
+
+				}
+
+				if ( e < - 0.9 ) continue;
+				if ( e < 4 ) heights[ k ] = Math.min( heights[ k ], ys + 0.05 );
 				if ( e >= 0.3 ) street[ ( j - j0 ) * w + i - i0 ] = 1;
 
 			}
@@ -1325,6 +1356,16 @@ export class TerrainData {
 				// floor stays flat right up to the wall; on the open side to the Calçada, eased into it)
 				const dWall = Math.min( segmentDistance( x, z, P4[ 0 ], P4[ 3 ] )[ 0 ], segmentDistance( x, z, P4[ 3 ], P4[ 2 ] )[ 0 ] );
 				const dOpen = segmentDistance( x, z, P4[ 1 ], P4[ 2 ] )[ 0 ];
+				const laneSide = ( P4[ 3 ][ 0 ] - P4[ 0 ][ 0 ] ) * ( z - P4[ 0 ][ 1 ] ) - ( P4[ 3 ][ 1 ] - P4[ 0 ][ 1 ] ) * ( x - P4[ 0 ][ 0 ] ) < 0 && z > P4[ 3 ][ 1 ] - 0.5;
+				// (on the lane's side, just past the wall, still the Largo's plane, so its floor stays flat to the wall:
+				// Walls paves the lane over the step there, LANE_APRON wide)
+				if ( laneSide ) {
+
+					if ( segmentDistance( x, z, P4[ 0 ], P4[ 3 ] )[ 0 ] < 0.7 ) heights[ k ] = Math.min( heights[ k ], yPl );
+					continue;
+
+				}
+
 				if ( dWall < 0.9 ) heights[ k ] = yPl;
 				else if ( dOpen < 1.5 && dOpen < dWall ) heights[ k ] = lerp( yPl, heights[ k ], smoothstep( 0, 1.5, dOpen ) );
 
@@ -1332,7 +1373,7 @@ export class TerrainData {
 
 		}
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: FC,
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: FC, laneY,
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}
