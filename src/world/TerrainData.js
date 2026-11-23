@@ -161,7 +161,7 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 	// (the steps up to it from the corner run along the back of the cross's block, from its one corner to the
 	// other, reaching the top where they meet the stair: x0 - run .. x0)
 	landing: { x0: 26.3, z0: - 10.6, z1: - 11.3, zL: - 13.3, run: 1.9 },
-	forecourt: { A: [ 21, 9.2 ], B: [ 26, 10.5 ], depth: 3.0 },
+	forecourt: { poly: [ [ 21, 9.2 ], [ 26, 10.5 ], [ 24.65, 2.6 ], [ 22.95, 2.25 ] ] }, // (the tower's west and east corners, then the tip)
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
@@ -1148,6 +1148,7 @@ export class TerrainData {
 
 		}
 
+		let calRef = null; // (the Calçada's level at the nearest point of its line)
 		// the Calçada da Misericórdia from the stair's foot down across the Largo and past the church's front: one
 		// even, steep fall
 		// (the photos); then the Largo between it and the lane smoothed, so no humps are left between the strokes
@@ -1201,6 +1202,24 @@ export class TerrainData {
 				...LN.pts.slice( 0, - 1 ).map( ( a, i ) => [ [ a, LN.pts[ i + 1 ] ], ( k, t ) => lerp( yl0, yl1, ( lc[ i ] + t * ( lc[ i + 1 ] - lc[ i ] ) ) / LL ) ] ),
 				...C.slice( 0, - 1 ).map( ( a, i ) => [ [ a, C[ i + 1 ] ], ( k, t ) => calY( cc[ i ] + t * ( cc[ i + 1 ] - cc[ i ] ) ) ] ),
 			];
+			calRef = ( x, z ) => {
+
+				let best = Infinity, y = 0;
+				for ( const [ [ a, b ], f ] of lines.slice( - ( C.length - 1 ) ) ) {
+
+					const [ d, t ] = segmentDistance( x, z, a, b );
+					if ( d < best ) {
+
+						best = d;
+						y = f( 0, t );
+
+					}
+
+				}
+
+				return y;
+
+			};
 			const streetY = ( x, z ) => {
 
 				let best = Infinity, y = 0;
@@ -1267,32 +1286,31 @@ export class TerrainData {
 
 		}
 
-		// the house-tower's forecourt (photo references/...-1750-...): level with the lane at its front corner, the
-		// ground under it kept below its slabs (Walls lays them: S.forecourt)
-		const FC = S.forecourt, FL = Math.hypot( FC.B[ 0 ] - FC.A[ 0 ], FC.B[ 1 ] - FC.A[ 1 ] );
-		const fu = [ ( FC.B[ 0 ] - FC.A[ 0 ] ) / FL, ( FC.B[ 1 ] - FC.A[ 1 ] ) / FL ], fn = [ fu[ 1 ], - fu[ 0 ] ];
-		const fcAt = ( u, k ) => [ FC.A[ 0 ] + fu[ 0 ] * u + fn[ 0 ] * k, FC.A[ 1 ] + fu[ 1 ] * u + fn[ 1 ] * k ];
-		// (level with the lane at its front corner, a low kerb's height over the Largo at its other)
-		const yF = Math.max( this.heightAt( ...fcAt( 0.4, FC.depth - 0.3 ) ) + 0.04, this.heightAt( ...fcAt( FL - 0.4, FC.depth + 0.4 ) ) + 0.2 );
+		// the little Largo before the house-tower (photo references/...-1750-..., and the outline drawn on the map):
+		// a wedge between the lane to the arch and the Calçada, the tower's front its wide end; the Calçada's own
+		// ground carried on over it (only the paving differs: Walls lays its slabs), the lane standing a little over
+		// it along its west side (Walls' low wall there)
+		const FC = S.forecourt, P4 = FC.poly;
 		{
 
-			const i0 = Math.floor( ( Math.min( FC.A[ 0 ], FC.B[ 0 ] ) - 1 - origin ) / texel ), i1 = Math.ceil( ( Math.max( FC.A[ 0 ], FC.B[ 0 ] ) + FC.depth + 4 - origin ) / texel );
-			const j0 = Math.floor( ( Math.min( FC.A[ 1 ], FC.B[ 1 ] ) - FC.depth - 4 - origin ) / texel ), j1 = Math.ceil( ( Math.max( FC.A[ 1 ], FC.B[ 1 ] ) + 1 - origin ) / texel );
-			for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+			let x0 = Infinity, x1 = - Infinity, z0 = Infinity, z1 = - Infinity;
+			for ( const [ x, z ] of P4 ) {
+
+				x0 = Math.min( x0, x ); x1 = Math.max( x1, x ); z0 = Math.min( z0, z ); z1 = Math.max( z1, z );
+
+			}
+
+			for ( let j = Math.floor( ( z0 - 1 - origin ) / texel ); j <= Math.ceil( ( z1 + 1 - origin ) / texel ); j ++ ) for ( let i = Math.floor( ( x0 - 1 - origin ) / texel ); i <= Math.ceil( ( x1 + 1 - origin ) / texel ); i ++ ) {
 
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel;
-				const u = ( x - FC.A[ 0 ] ) * fu[ 0 ] + ( z - FC.A[ 1 ] ) * fu[ 1 ], k = ( x - FC.A[ 0 ] ) * fn[ 0 ] + ( z - FC.A[ 1 ] ) * fn[ 1 ];
-				if ( u < - 0.6 || u > FL + 0.6 || k < - 1 ) continue;
-				const q = j * res + i;
-				if ( k <= FC.depth + 0.6 ) heights[ q ] = Math.min( heights[ q ], yF - 0.08 );
-				// just in front of it the cobbles rise to a low kerb's height under its edge (the photo)
-				else if ( k < FC.depth + 1.6 && u < FL * 0.55 ) heights[ q ] = Math.max( heights[ q ], lerp( yF - 0.35, heights[ q ], smoothstep( FC.depth + 0.6, FC.depth + 1.6, k ) ) );
+				if ( ! pointInPolygon( x, z, P4 ) ) continue;
+				heights[ j * res + i ] = calRef( x, z );
 
 			}
 
 		}
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: { ...FC, y: yF },
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: FC,
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}

@@ -3939,42 +3939,77 @@ export class Walls {
 		};
 
 		// the doorway, from the Largo's ground (u runs from the front's right-hand corner, seen from the Largo)
-		// its forecourt (photo references/...-1750-...): a level floor of big grey slabs in front of it, the whole
-		// width of its front and three metres out, kerbed, standing over the Calçada as it falls away on the left;
-		// worn stone bollards at its front corners and along its side on the lane, an iron chain swagged between
-		const FW = FL, FD = this.terrain.santaMariaSteps.forecourt.depth, yP = this.terrain.santaMariaSteps.forecourt.y; // (TerrainData levels it)
-		kit.vdata = [ 0.43, 0.6, 0, 0 ];
-		for ( let u = 0, a = 0; u < FW - 0.05; a ++ ) {
+		// the little Largo before it (photo references/...-1750-...; TerrainData gives it the Calçada's ground): a
+		// wedge paved in big grey flagstones laid on the ground, between the Calçada and the lane to the arch; along
+		// the lane, which stands a little higher, a low stone wall; worn stone bollards on it and at the wedge's
+		// tip, an iron chain swagged between them
+		const FP = this.terrain.santaMariaSteps.forecourt.poly;
+		{
 
-			const w = Math.min( FW - u, 0.8 + ( a % 3 ) * 0.25 );
-			for ( let k = 0, b = 0; k < FD - 0.05; b ++ ) {
+			let x0 = Infinity, x1 = - Infinity, z0 = Infinity, z1 = - Infinity;
+			for ( const [ x, z ] of FP ) {
 
-				const d = Math.min( FD - k, 0.6 + ( ( a + b ) % 3 ) * 0.2 );
-				kit.color = [ 0.66 - ( ( a + b ) % 2 ) * 0.04, 0.65 - ( ( a + b ) % 2 ) * 0.04, 0.62 - ( ( a * b ) % 3 ) * 0.02 ];
-				box( kit, u + w / 2, yP - 0.8, w - 0.02, 1.6, k + d / 2, d - 0.02 );
-				k += d;
+				x0 = Math.min( x0, x ); x1 = Math.max( x1, x ); z0 = Math.min( z0, z ); z1 = Math.max( z1, z );
 
 			}
 
-			u += w;
+			// the flagstones: a draped floor in cells, each just over the ground at its corners
+			const CELL = 0.5, hy = ( x, z ) => T.heightAt( x, z ) + 0.03;
+			kit.vdata = [ 0.71, 0.3, 0, 0 ];
+			kit.color = [ 0.8, 0.79, 0.75 ];
+			for ( let z = z0; z < z1; z += CELL ) for ( let x = x0; x < x1; x += CELL ) {
+
+				if ( ! pointInPolygon( x + CELL / 2, z + CELL / 2, FP ) ) continue;
+				const q = [ [ x, z ], [ x + CELL, z ], [ x + CELL, z + CELL ], [ x, z + CELL ] ];
+				kit.quadFacing( ...q.map( ( [ a, b ] ) => [ a, hy( a, b ), b ] ), [ 0, 1, 0 ], q.map( ( [ a, b ] ) => [ a, b ] ) );
+
+			}
 
 		}
 
-		kit.color = [ 0.58, 0.56, 0.52 ];
-		box( kit, FW / 2, yP - 0.78, FW + 0.2, 1.6, FD + 0.1, 0.22 ); // the kerb along its front
-		box( kit, - 0.1, yP - 0.78, 0.22, 1.6, FD / 2, FD + 0.2 ); // and its side on the lane
-		{
+		// the low wall along the lane: from the tower's west corner to the tip, its face to the Largo, its top a
+		// little over the lane's ground behind it
+		const WA = FP[ 0 ], WB = FP[ 3 ], WL = Math.hypot( WB[ 0 ] - WA[ 0 ], WB[ 1 ] - WA[ 1 ] );
+		const wu = [ ( WB[ 0 ] - WA[ 0 ] ) / WL, ( WB[ 1 ] - WA[ 1 ] ) / WL ], wl = [ wu[ 1 ], - wu[ 0 ] ]; // (wl: toward the lane, west)
+		const wyaw = Math.atan2( - wu[ 1 ], wu[ 0 ] );
+		kit.vdata = [ 0.43, 0.6, 0, 0 ];
+		const wallTop = [];
+		for ( let k = 0, n = Math.ceil( WL / 0.7 ); k < n; k ++ ) {
 
-			const C = P( FW / 2, 0, FD / 2 );
-			this.colliders.addBox( new Vector3( C[ 0 ], yP - 0.4, C[ 2 ] ), new Vector3( FW / 2 + 0.1, 0.4, FD / 2 + 0.1 ), yaw, { walkable: true, tag: 'stair' } );
+			const t0 = WL * k / n, t1 = WL * ( k + 1 ) / n, tm = ( t0 + t1 ) / 2;
+			const M = [ WA[ 0 ] + wu[ 0 ] * tm + wl[ 0 ] * 0.18, WA[ 1 ] + wu[ 1 ] * tm + wl[ 1 ] * 0.18 ];
+			const low = T.heightAt( M[ 0 ] - wl[ 0 ] * 0.7, M[ 1 ] - wl[ 1 ] * 0.7 ), lane = T.heightAt( M[ 0 ] + wl[ 0 ] * 1.0, M[ 1 ] + wl[ 1 ] * 1.0 );
+			const top = Math.max( lane, low ) + 0.12, bottom = low - 0.3;
+			kit.color = [ 0.66 - ( k % 2 ) * 0.03, 0.64 - ( k % 2 ) * 0.03, 0.6 ];
+			kit.box( M[ 0 ], ( top + bottom ) / 2, M[ 1 ], t1 - t0 + 0.01, top - bottom, 0.36, wyaw );
+			this.colliders.addBox( new Vector3( M[ 0 ], ( top + bottom ) / 2, M[ 1 ] ), new Vector3( ( t1 - t0 ) / 2, ( top - bottom ) / 2, 0.18 ), wyaw, { walkable: true, tag: 'stair' } );
+			wallTop.push( [ tm, top ] );
 
 		}
 
-		// the bollards: back along the lane side to its front corner, then across the front to the far corner
+		const topAt = ( t ) => {
+
+			let best = wallTop[ 0 ];
+			for ( const w of wallTop ) if ( Math.abs( w[ 0 ] - t ) < Math.abs( best[ 0 ] - t ) ) best = w;
+			return best[ 1 ];
+
+		};
+		// the bollards: on the wall near the tower, halfway, at the tip's west corner, then across the tip
 		const tops = [];
-		for ( const [ u, k ] of [ [ - 0.15, 0.45 ], [ - 0.15, 1.75 ], [ - 0.15, FD + 0.25 ], [ FW - 0.45, FD + 0.35 ] ] ) {
+		const tip2 = FP[ 2 ];
+		for ( const B of [ [ WL * 0.15, true ], [ WL * 0.55, true ], [ WL - 0.15, true ], [ tip2, false ] ] ) {
 
-			const Q = P( u, 0, k ), gq = Math.min( yP, T.heightAt( Q[ 0 ], Q[ 2 ] ) ), x = Q[ 0 ], z = Q[ 2 ];
+			let x, z, gq;
+			if ( B[ 1 ] ) {
+
+				x = WA[ 0 ] + wu[ 0 ] * B[ 0 ] + wl[ 0 ] * 0.18; z = WA[ 1 ] + wu[ 1 ] * B[ 0 ] + wl[ 1 ] * 0.18; gq = topAt( B[ 0 ] );
+
+			} else {
+
+				x = B[ 0 ][ 0 ] - 0.15; z = B[ 0 ][ 1 ] + 0.2; gq = T.heightAt( x, z );
+
+			}
+
 			kit.color = [ 0.7, 0.67, 0.6 ];
 			for ( const r of [ 0, Math.PI / 4 ] ) kit.box( x, gq + 0.4, z, 0.32, 0.86, 0.32, yaw + r ); // (octagonal)
 			kit.box( x, gq + 0.87, z, 0.24, 0.1, 0.24, yaw );
@@ -3988,7 +4023,7 @@ export class Walls {
 		kit.color = [ 0.12, 0.07, 0.05 ];
 		for ( let i = 0; i + 1 < tops.length; i ++ ) {
 
-			// each swag in short links, sagging (the long one across the front lower)
+			// each swag in short links, sagging
 			const a = tops[ i ], b = tops[ i + 1 ], n = 12, sag = Math.min( 0.45, 0.12 * Math.hypot( b[ 0 ] - a[ 0 ], b[ 2 ] - a[ 2 ] ) );
 			let prev = a;
 			for ( let k = 1; k <= n; k ++ ) {
@@ -4001,7 +4036,7 @@ export class Walls {
 
 		}
 
-		const uD = 2.87, g = yP; // (the doorway from the forecourt's floor)
+		const uD = 2.87, gd = P( uD, 0, 0.6 ), g = T.heightAt( gd[ 0 ], gd[ 2 ] ) + 0.03; // (the doorway from the Largo's floor)
 		kit.vdata = [ 0.43, 0.5, 0, 0 ];
 		kit.color = [ 0.95, 0.88, 0.74 ];
 		frame( uD, g, g + 1.5, 1.3, 1.1, 0.26 ); // (an equilateral arch: its two arcs from the opposite springings)
