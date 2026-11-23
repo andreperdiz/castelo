@@ -97,6 +97,8 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	// the stone house-tower on the Largo da Misericórdia: three storeys over the Largo (photo references/...-1912-3408fb6f-...)
 	299064346: 57.8,
+	// the Igreja da Misericórdia: its front's gable over the big barred window (photo references/...-1526-)
+	299064033: 61.0,
 	// and the other way, down to the fork: the two-storey house, and the long low one past it behind the green
 	// gate (photo references/...-img-4390)
 	299088474: 40.6, 299088405: 39.2,
@@ -1901,6 +1903,8 @@ export class Town {
 			const L = Math.hypot( c[ 0 ] - a[ 0 ], c[ 1 ] - a[ 1 ] );
 			if ( L < 0.05 ) continue;
 			const nx = ( c[ 1 ] - a[ 1 ] ) / L, nz = - ( c[ 0 ] - a[ 0 ] ) / L;
+			// (not along a BLANK_FRONTS front: Walls carries that one up into its own gable)
+			if ( ( BLANK_FRONTS[ b.id ] || [] ).some( ( q ) => segDist( q[ 0 ], q[ 1 ], a, c ) < 0.6 ) ) continue;
 			const ha = roofH( a[ 0 ], a[ 1 ] ) + 0.02, hc = roofH( c[ 0 ], c[ 1 ] ) + 0.02;
 			const o = 0.28, d = 0.14;
 			kit.color = [ 0.93, 0.92, 0.9 ];

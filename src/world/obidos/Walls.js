@@ -3981,13 +3981,119 @@ export class Walls {
 			const yb = g + 6.9, Qa = [ P0[ 0 ] + U[ 0 ] * 0.3 + N[ 0 ] * 0.06, P0[ 1 ] + U[ 1 ] * 0.3 + N[ 1 ] * 0.06 ], Qb = [ P1[ 0 ] - U[ 0 ] * 0.3 + N[ 0 ] * 0.06, P1[ 1 ] - U[ 1 ] * 0.3 + N[ 1 ] * 0.06 ];
 			paint.box( ( Qa[ 0 ] + Qb[ 0 ] ) / 2, yb, ( Qa[ 1 ] + Qb[ 1 ] ) / 2, FL - 0.6, 0.22, 0.12, yaw );
 			paint.box( ( Qa[ 0 ] + Qb[ 0 ] ) / 2, yb + 0.15, ( Qa[ 1 ] + Qb[ 1 ] ) / 2, FL - 0.6, 0.08, 0.18, yaw );
+			// the big barred window under the gable, centred on it: a stone frame, dark panes behind an iron grid
+			const sW = FL / 2 - uC, wy0 = g + 7.5, wy1 = g + 9.25;
 			SK.color = STONE;
-			box( SK, 0, g + 7.4, g + 8.15, 1.1, 0, 0.1 );
-			paint.color = lin( [ 0.08, 0.09, 0.1 ] );
-			box( paint, 0, g + 7.5, g + 8.05, 0.8, 0.1, 0.11 );
+			box( SK, sW, wy0 - 0.12, wy1 + 0.12, 1.45, 0, 0.1 );
+			paint.color = lin( [ 0.07, 0.08, 0.09 ] );
+			box( paint, sW, wy0, wy1, 1.05, 0.1, 0.11 );
+			SK.color = SHADE;
+			box( SK, sW, wy0 - 0.2, wy0 - 0.08, 1.6, 0, 0.18 ); // its sill
 			kit.vdata = [ 0.29, 0.2, 0, 0 ];
 			kit.color = [ 0.08, 0.08, 0.08 ];
-			for ( let s2 = - 0.3; s2 <= 0.31; s2 += 0.15 ) box( kit, s2, g + 7.5, g + 8.05, 0.025, 0.12, 0.14 );
+			for ( let s2 = - 0.42; s2 <= 0.43; s2 += 0.14 ) box( kit, sW + s2, wy0, wy1, 0.025, 0.12, 0.14 );
+			for ( let y2 = wy0 + 0.15; y2 < wy1; y2 += 0.2 ) box( kit, sW, y2 - 0.012, y2 + 0.012, 1.05, 0.12, 0.14 );
+		}
+
+		// its gable (photo references/...-1526-): the front carried up over the eave (Town's eave, 61.0, its roof
+		// sloping away behind) into a triangle, white, with a moulded cornice along its rakes and short returns at
+		// its foot, Roman tiles along the rakes, a round oculus near the apex; at its south corner, over the stair, a
+		// little stone bell-cote with its bell in a round arch, an iron cross on top
+		{
+
+			const yE = 61.75, RISE = 2.9, TH = 0.55, uA = FL / 2, gab = new MeshKit(), tiles = new MeshKit();
+			const at = ( u, y, k ) => [ P0[ 0 ] + U[ 0 ] * u + N[ 0 ] * k, y, P0[ 1 ] + U[ 1 ] * u + N[ 1 ] * k ];
+			const rake = ( u ) => yE + RISE * ( 1 - Math.abs( u - uA ) / uA );
+			gab.vdata = [ 0, 0, 0.53, 4 ];
+			gab.color = lin( [ 0.92, 0.92, 0.9 ] );
+			// the wall: from the face's top (61.0 to 61.7 along it) up to the rakes, front and back faces, in slices
+			const n = 12;
+			for ( let i = 0; i < n; i ++ ) {
+
+				const u0 = FL * i / n, u1 = FL * ( i + 1 ) / n, b0 = 61.68 - 0.68 * u0 / FL - 0.6, b1 = 61.68 - 0.68 * u1 / FL - 0.6; // (down over the face's top: no sliver of roof)
+				for ( const [ k, nn ] of [ [ 0.04, face ], [ - TH, [ - face[ 0 ], 0, - face[ 2 ] ] ] ] ) gab.quadFacing( at( u0, b0, k ), at( u1, b1, k ), at( u1, rake( u1 ), k ), at( u0, rake( u0 ), k ), nn );
+
+			}
+
+			// its ends
+			for ( const u of [ 0, FL ] ) gab.quadFacing( at( u, 61.0, 0 ), at( u, 61.0, - TH ), at( u, yE, - TH ), at( u, yE, 0 ), [ u === 0 ? - U[ 0 ] : U[ 0 ], 0, u === 0 ? - U[ 1 ] : U[ 1 ] ] );
+			// the cornice along the rakes and its returns at the foot: a moulded strip standing proud
+			for ( const [ ua, ub ] of [ [ - 0.15, uA ], [ uA, FL + 0.15 ] ] ) {
+
+				const y0a = rake( Math.max( 0, Math.min( FL, ua ) ) ) - 0.05, y0b = rake( Math.max( 0, Math.min( FL, ub ) ) ) - 0.05;
+				gab.quadFacing( at( ua, y0a - 0.3, 0.18 ), at( ub, y0b - 0.3, 0.18 ), at( ub, y0b, 0.18 ), at( ua, y0a, 0.18 ), face );
+				gab.quadFacing( at( ua, y0a - 0.3, 0 ), at( ub, y0b - 0.3, 0 ), at( ub, y0b - 0.3, 0.18 ), at( ua, y0a - 0.3, 0.18 ), [ 0, - 1, 0 ] );
+				// the tiles over it, from the front edge back over the wall
+				tiles.vdata = [ 0.43, 0.7, 0, 0 ];
+				tiles.color = [ 1, 1, 1 ];
+				const L = Math.hypot( ub - ua, y0b - y0a );
+				tiles.quadFacing( at( ua, y0a + 0.06, 0.28 ), at( ub, y0b + 0.06, 0.28 ), at( ub, y0b + 0.12, - TH - 0.1 ), at( ua, y0a + 0.12, - TH - 0.1 ), [ 0, 1, 0 ], [ [ 0, 0 ], [ L, 0 ], [ L, 0.9 ], [ 0, 0.9 ] ] );
+
+			}
+
+			for ( const [ ua, ub ] of [ [ - 0.15, 0.9 ], [ FL - 0.9, FL + 0.15 ] ] ) {
+
+				// the returns, level along the eave
+				const Q = at( ( ua + ub ) / 2, 0, 0.09 );
+				gab.box( Q[ 0 ], yE - 0.2, Q[ 2 ], ub - ua, 0.3, 0.2, yaw );
+
+			}
+
+			// the oculus near the apex: a white moulded ring round a dark round
+			const yO = yE + RISE - 1.05, sO = uA - uC;
+			ring( gab, sO, yO, 0.24, 0.36, 0, Math.PI * 2, 0.06, 18 );
+			paint.color = lin( [ 0.07, 0.07, 0.08 ] );
+			ring( paint, sO, yO, 0, 0.24, 0, Math.PI * 2, 0.02, 18 );
+
+			// the bell-cote over the south corner
+			const uB = FL - 0.75, yB0 = rake( uB ) + 0.05, BS = lin( [ 0.74, 0.69, 0.6 ] );
+			const bb = ( s, y0, y1, w, k0, k1 ) => {
+
+				const Q = at( uB + s, 0, ( k0 + k1 ) / 2 );
+				gab.box( Q[ 0 ], ( y0 + y1 ) / 2, Q[ 2 ], w, y1 - y0, k1 - k0, yaw );
+
+			};
+			gab.color = BS;
+			bb( 0, yB0 - 0.4, yB0 + 0.2, 1.5, - 0.75, 0.2 ); // its base on the gable's corner
+			for ( const sd of [ - 1, 1 ] ) bb( sd * 0.58, yB0 + 0.2, yB0 + 1.45, 0.3, - 0.6, 0.15 ); // the piers
+			gab.color = lin( [ 0.68, 0.63, 0.55 ] );
+			for ( const k of [ 0.15, - 0.6 ] ) ring( gab, uB - uC, yB0 + 1.45, 0.43, 0.72, 0, Math.PI, k, 12 ); // the arch, both faces
+			bb( 0, yB0 + 1.45, yB0 + 2.25, 1.5, - 0.6, 0.15 ); // (its spandrels filled up to the cap: the arch shows on them)
+			gab.color = BS;
+			bb( 0, yB0 + 2.25, yB0 + 2.4, 1.7, - 0.7, 0.25 ); // its cap
+			bb( 0, yB0 + 2.4, yB0 + 2.6, 1.1, - 0.55, 0.1 );
+			paint.color = lin( [ 0.18, 0.15, 0.1 ] ); // the bell, its yoke
+			const bell = ( s, y0, y1, w ) => {
+
+				const Q = at( uB + s, 0, - 0.22 );
+				paint.box( Q[ 0 ], ( y0 + y1 ) / 2, Q[ 2 ], w, y1 - y0, w, yaw );
+
+			};
+			bell( 0, yB0 + 0.75, yB0 + 0.85, 0.62 );
+			bell( 0, yB0 + 0.85, yB0 + 1.1, 0.5 );
+			bell( 0, yB0 + 1.1, yB0 + 1.3, 0.38 );
+			bell( 0, yB0 + 1.3, yB0 + 1.42, 0.24 );
+			bell( 0, yB0 + 1.42, yB0 + 1.5, 0.9 );
+			kit.vdata = [ 0.29, 0.2, 0, 0 ];
+			kit.color = [ 0.06, 0.06, 0.06 ];
+			{
+
+				const Q = at( uB, 0, - 0.22 );
+				kit.box( Q[ 0 ], yB0 + 3.0, Q[ 2 ], 0.05, 0.8, 0.05, yaw ); // the cross
+				kit.box( Q[ 0 ], yB0 + 3.15, Q[ 2 ], 0.36, 0.05, 0.05, yaw );
+
+			}
+
+			for ( const [ K, mat, name ] of [ [ gab, materials.plaster, 'misericordia-gable' ], [ tiles, materials.roof, 'misericordia-gable-tiles' ] ] ) {
+
+				const mesh = new Mesh( K.build(), mat );
+				mesh.name = name;
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				mesh.staticVelocity = true;
+				this.group.add( mesh );
+
+			}
 
 		}
 
@@ -3998,8 +4104,8 @@ export class Walls {
 			return [ ( b[ 0 ] - a[ 0 ] ) / l, ( b[ 1 ] - a[ 1 ] ) / l ];
 
 		};
-		this._quoinCorner( P0, [ dir( P0, P1 ), dir( P0, [ 41.7, 7 ] ) ], T.heightAt( ...P0 ) - 0.2, g + 8.8 );
-		this._quoinCorner( P1, [ dir( P1, P0 ), dir( P1, [ 34.7, - 5.6 ] ) ], T.heightAt( ...P1 ) - 0.2, g + 8.8 );
+		this._quoinCorner( P0, [ dir( P0, P1 ), dir( P0, [ 41.7, 7 ] ) ], T.heightAt( ...P0 ) - 0.2, 61.4 );
+		this._quoinCorner( P1, [ dir( P1, P0 ), dir( P1, [ 34.7, - 5.6 ] ) ], T.heightAt( ...P1 ) - 0.2, 60.8 );
 
 		// the sign post by the door, toward the north corner
 		{
