@@ -255,6 +255,7 @@ export class Walls {
 		this._santaMariaSteps( materials );
 		this._torreLargo( materials );
 		this._torreLane( materials );
+		this._misericordiaPortal( materials );
 		this._senhoraDaGraca( materials );
 		this._escadariaBiblioteca( materials );
 		this._valePassage( materials );
@@ -3867,6 +3868,163 @@ export class Walls {
 		mesh.receiveShadow = true;
 		mesh.staticVelocity = true;
 		this.group.add( mesh );
+
+	}
+
+	// The Igreja da Misericórdia's front to its Largo (photo references/...-1512-...; Town leaves it without painted
+	// openings, BLANK_FRONTS): a baroque portal of honey-coloured stone, its double door of dark wood carved in
+	// diamond-pointed panels between moulded jambs, plinths and pilasters ending in small scrolls, an entablature,
+	// and over it a niche with the Virgin in blue-and-white azulejo between two great scrolls of a broken pediment,
+	// a crowned cartouche on top; across the whole front a moulded band, a small barred window over the portal,
+	// golden quoins up both corners; by the door a little rust-brown sign post.
+	_misericordiaPortal( materials ) {
+
+		const T = this.terrain, kit = this.kit, wood = new MeshKit(), paint = new MeshKit();
+		const P0 = [ 27.1, 2.3 ], P1 = [ 29.9, - 6.9 ], FL = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] );
+		const U = [ ( P1[ 0 ] - P0[ 0 ] ) / FL, ( P1[ 1 ] - P0[ 1 ] ) / FL ], N = [ U[ 1 ], - U[ 0 ] ]; // (N: out, to the Largo)
+		const yaw = Math.atan2( - U[ 1 ], U[ 0 ] ), uC = 4.1, face = [ N[ 0 ], 0, N[ 1 ] ];
+		const W = ( s, y, k ) => [ P0[ 0 ] + U[ 0 ] * ( uC + s ) + N[ 0 ] * k, y, P0[ 1 ] + U[ 1 ] * ( uC + s ) + N[ 1 ] * k ];
+		const box = ( K, s, y0, y1, w, k0, k1 ) => {
+
+			const Q = W( s, 0, ( k0 + k1 ) / 2 );
+			K.box( Q[ 0 ], ( y0 + y1 ) / 2, Q[ 2 ], w, y1 - y0, k1 - k0, yaw );
+
+		};
+		// a flat ring (or disc, r0 = 0) in the front's plane, k out, from angle a0 to a1 round ( s, y )
+		const ring = ( K, s, y, r0, r1, a0, a1, k, n = 14 ) => {
+
+			for ( let i = 0; i < n; i ++ ) {
+
+				const t0 = a0 + ( a1 - a0 ) * i / n, t1 = a0 + ( a1 - a0 ) * ( i + 1 ) / n;
+				const q = ( t, r ) => W( s + Math.cos( t ) * r, y + Math.sin( t ) * r, k );
+				K.quadFacing( q( t0, r0 ), q( t1, r0 ), q( t1, r1 ), q( t0, r1 ), face );
+
+			}
+
+		};
+		const gp = W( 0, 0, 1.0 ), g = T.heightAt( gp[ 0 ], gp[ 2 ] );
+		// (smooth dressed stone: flat-painted, in two tones for the mouldings' shade)
+		const STONE = lin( [ 0.86, 0.72, 0.56 ] ), SHADE = lin( [ 0.7, 0.57, 0.44 ] ), SK = new MeshKit();
+		SK.vdata = [ 0, 0, 0.53, 4 ];
+		SK.color = STONE;
+		// plinths, pilasters with their small scrolls, the jambs
+		for ( const sd of [ - 1, 1 ] ) {
+
+			box( SK, sd * 1.3, g - 0.2, g + 0.8, 0.6, 0, 0.32 );
+			box( SK, sd * 1.3, g + 0.8, g + 3.85, 0.44, 0, 0.24 );
+			SK.color = SHADE;
+			ring( SK, sd * 1.3, g + 3.72, 0.06, 0.2, 0, Math.PI * 2, 0.26 );
+			SK.color = STONE;
+			box( SK, sd * 0.99, g - 0.05, g + 3.62, 0.32, 0, 0.17 );
+
+		}
+
+		// the entablature and its cornice
+		box( SK, 0, g + 3.62, g + 4.1, 3.2, 0, 0.3 );
+		SK.color = SHADE;
+		box( SK, 0, g + 4.1, g + 4.24, 3.45, 0, 0.4 );
+		SK.color = STONE;
+		// the niche between the scrolls: its block, the dark round-headed recess, the Virgin in azulejo
+		box( SK, 0, g + 4.24, g + 5.55, 1.0, 0, 0.26 );
+		ring( SK, 0, g + 5.1, 0.28, 0.4, 0, Math.PI, 0.27 );
+		paint.vdata = [ 0, 0, 0.53, 4 ];
+		paint.color = lin( [ 0.55, 0.46, 0.38 ] );
+		box( paint, 0, g + 4.35, g + 5.1, 0.56, 0.25, 0.27 );
+		ring( paint, 0, g + 5.1, 0, 0.28, 0, Math.PI, 0.27 );
+		paint.color = lin( [ 0.92, 0.93, 0.95 ] );
+		box( paint, 0, g + 4.38, g + 4.52, 0.34, 0.27, 0.36 ); // her pedestal
+		paint.color = lin( [ 0.2, 0.33, 0.72 ] );
+		box( paint, 0, g + 4.52, g + 5.0, 0.2, 0.28, 0.35 ); // her mantle
+		paint.color = lin( [ 0.95, 0.94, 0.92 ] );
+		box( paint, 0, g + 4.7, g + 4.95, 0.1, 0.33, 0.36 ); // her robe, the child
+		box( paint, 0, g + 5.0, g + 5.12, 0.08, 0.29, 0.35 ); // her head
+		// the two great scrolls of the broken pediment, curling out from the niche, and their eyes
+		for ( const sd of [ - 1, 1 ] ) {
+
+			SK.color = STONE;
+			box( SK, sd * 0.85, g + 4.24, g + 4.9, 0.7, 0, 0.2 );
+			ring( SK, sd * 1.0, g + 5.0, 0.38, 0.6, sd > 0 ? - 0.3 : Math.PI + 0.3, sd > 0 ? Math.PI * 1.2 : - Math.PI * 0.2, 0.22, 18 );
+			SK.color = SHADE;
+			ring( SK, sd * 1.12, g + 4.95, 0, 0.22, 0, Math.PI * 2, 0.24 );
+			SK.color = STONE;
+			ring( SK, sd * 1.12, g + 4.95, 0.08, 0.16, 0, Math.PI * 2, 0.25 );
+
+		}
+
+		// the crowned cartouche on top
+		box( SK, 0, g + 5.55, g + 5.75, 1.25, 0, 0.3 );
+		box( SK, 0, g + 5.75, g + 6.35, 0.6, 0, 0.22 );
+		ring( SK, 0, g + 6.35, 0, 0.28, 0, Math.PI, 0.22 );
+		// the door: dark boards, raised diamond-pointed panels in two leaves
+		wood.vdata = [ 0, 0, 0.53, 5 ];
+		wood.color = lin( [ 0.3, 0.2, 0.14 ] );
+		box( wood, 0, g - 0.02, g + 3.5, 1.66, 0, 0.06 );
+		wood.color = lin( [ 0.24, 0.16, 0.11 ] );
+		for ( const sd of [ - 1, 1 ] ) for ( let r = 0; r < 5; r ++ ) {
+
+			const yc = g + 0.45 + r * 0.66 + ( r === 0 ? 0 : 0.05 ), sc = sd * 0.41;
+			box( wood, sc, yc - 0.25, yc + 0.25, 0.6, 0.06, 0.1 );
+			box( wood, sc, yc - 0.15, yc + 0.15, 0.36, 0.1, 0.14 );
+			box( wood, sc, yc - 0.06, yc + 0.06, 0.14, 0.14, 0.17 );
+
+		}
+
+		// the threshold
+		kit.vdata = [ 0.43, 0.45, 0, 0 ];
+		kit.color = [ 0.72, 0.7, 0.65 ];
+		box( kit, 0, g - 0.25, g + 0.02, 2.0, 0, 0.5 );
+
+		// across the front a moulded band, and the small barred window over the portal
+		{
+
+			paint.color = lin( [ 0.93, 0.93, 0.91 ] );
+			const yb = g + 6.9, Qa = [ P0[ 0 ] + U[ 0 ] * 0.3 + N[ 0 ] * 0.06, P0[ 1 ] + U[ 1 ] * 0.3 + N[ 1 ] * 0.06 ], Qb = [ P1[ 0 ] - U[ 0 ] * 0.3 + N[ 0 ] * 0.06, P1[ 1 ] - U[ 1 ] * 0.3 + N[ 1 ] * 0.06 ];
+			paint.box( ( Qa[ 0 ] + Qb[ 0 ] ) / 2, yb, ( Qa[ 1 ] + Qb[ 1 ] ) / 2, FL - 0.6, 0.22, 0.12, yaw );
+			paint.box( ( Qa[ 0 ] + Qb[ 0 ] ) / 2, yb + 0.15, ( Qa[ 1 ] + Qb[ 1 ] ) / 2, FL - 0.6, 0.08, 0.18, yaw );
+			SK.color = STONE;
+			box( SK, 0, g + 7.4, g + 8.15, 1.1, 0, 0.1 );
+			paint.color = lin( [ 0.08, 0.09, 0.1 ] );
+			box( paint, 0, g + 7.5, g + 8.05, 0.8, 0.1, 0.11 );
+			kit.vdata = [ 0.29, 0.2, 0, 0 ];
+			kit.color = [ 0.08, 0.08, 0.08 ];
+			for ( let s2 = - 0.3; s2 <= 0.31; s2 += 0.15 ) box( kit, s2, g + 7.5, g + 8.05, 0.025, 0.12, 0.14 );
+
+		}
+
+		// golden quoins up both its corners
+		const dir = ( a, b ) => {
+
+			const l = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+			return [ ( b[ 0 ] - a[ 0 ] ) / l, ( b[ 1 ] - a[ 1 ] ) / l ];
+
+		};
+		this._quoinCorner( P0, [ dir( P0, P1 ), dir( P0, [ 41.7, 7 ] ) ], T.heightAt( ...P0 ) - 0.2, g + 8.8 );
+		this._quoinCorner( P1, [ dir( P1, P0 ), dir( P1, [ 34.7, - 5.6 ] ) ], T.heightAt( ...P1 ) - 0.2, g + 8.8 );
+
+		// the sign post by the door, toward the north corner
+		{
+
+			const s0 = - 2.3, gq = T.heightAt( ...[ W( s0, 0, 0.5 ) ].map( ( v ) => [ v[ 0 ], v[ 2 ] ] )[ 0 ] );
+			paint.color = lin( [ 0.36, 0.15, 0.08 ] );
+			box( paint, s0, gq - 0.1, gq + 1.55, 0.2, 0.42, 0.5 );
+			box( paint, s0, gq + 1.55, gq + 1.7, 0.12, 0.43, 0.49 );
+			box( paint, s0, gq + 1.7, gq + 1.82, 0.03, 0.44, 0.48 ); // the little cross
+			box( paint, s0, gq + 1.74, gq + 1.77, 0.08, 0.44, 0.48 );
+			paint.color = lin( [ 0.9, 0.9, 0.88 ] );
+			box( paint, s0, gq + 1.0, gq + 1.3, 0.16, 0.5, 0.51 ); // its plaque
+
+		}
+
+		for ( const [ K, name ] of [ [ wood, 'misericordia-door' ], [ paint, 'misericordia-paint' ], [ SK, 'misericordia-portal' ] ] ) {
+
+			const mesh = new Mesh( K.build(), materials.plaster );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
 
 	}
 

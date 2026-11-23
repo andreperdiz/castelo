@@ -5,6 +5,15 @@ import { orientedBox } from './Walls.js';
 import { mulberry32 } from '../../util/Noise.js';
 import { ORNELAS_MARKERS } from '../TerrainData.js';
 
+// distance from ( x, z ) to the segment a-b
+const segDist = ( x, z, a, b ) => {
+
+	const dx = b[ 0 ] - a[ 0 ], dz = b[ 1 ] - a[ 1 ], l2 = dx * dx + dz * dz;
+	const t = l2 > 0 ? Math.max( 0, Math.min( 1, ( ( x - a[ 0 ] ) * dx + ( z - a[ 1 ] ) * dz ) / l2 ) ) : 0;
+	return Math.hypot( x - a[ 0 ] - dx * t, z - a[ 1 ] - dz * t );
+
+};
+
 // The houses of Óbidos (and the suburbs round the walls) from the OpenStreetMap footprints:
 // whitewashed walls with a painted base band and window / door surrounds (blue, yellow or ochre),
 // terracotta canudo-tile roofs, chimneys. Every footprint gets one gable roof: its ridge runs along
@@ -95,6 +104,9 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 // houses of bare stone, not whitewashed (the part of the footprint holding the point): on the Largo da
 // Misericórdia, the medieval house-tower facing it (photo references/...-1912-3408fb6f-...)
 const STONE_HOUSES = { 299064346: [ 23, 12 ] };
+// fronts with no painted doors or windows (Walls builds what is on them): the Igreja da Misericórdia's front to its
+// Largo, the baroque portal (photo references/...-1512-...), by a point on that front
+const BLANK_FRONTS = { 299064033: [ [ 28.5, - 2.3 ] ] };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -1830,7 +1842,8 @@ export class Town {
 			// a party wall (another house right against it) gets no windows
 			const party = this._inOther( mx + nx * 0.8, mz + nz * 0.8, f );
 			const ga = T.heightAt( a[ 0 ], a[ 1 ] ), gc = T.heightAt( c[ 0 ], c[ 1 ] ), gEdge = Math.min( ga, gc );
-			const facade = ! party && L > 1.6 ? 1 : 0;
+			const blank = ( BLANK_FRONTS[ b.id ] || [] ).some( ( q ) => segDist( q[ 0 ], q[ 1 ], a, c ) < 0.6 );
+			const facade = ! party && ! blank && L > 1.6 ? 1 : 0;
 			// openings: in storeys above the lowest ground at this edge; the ground's slope along it rides
 			// in w (see TownMaterials) so the base band and the street-level doors follow the street
 			const st = isChurch ? 1 : Math.max( 1, Math.round( ( eave - gEdge ) / STOREY ) );
