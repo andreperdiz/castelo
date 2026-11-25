@@ -4336,6 +4336,27 @@ export class Walls {
 		// level while the alley falls; on the north the garden's, taller
 		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.top;
 		this._oldWall( plaster, s0, s1, - 1, alleyY, top - alleyY( s0 ), top - alleyY( s1 ), 53, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
+		// (its top, set over the alley's fall, dips under the level coping where the alley's fall isn't even: the gap
+		// filled up to the coping, whitewashed, both faces; seen from the café terrace since that came down to the Largo)
+		{
+
+			const WL = Math.hypot( s1[ 0 ] - s0[ 0 ], s1[ 1 ] - s0[ 1 ] ), wu = [ ( s1[ 0 ] - s0[ 0 ] ) / WL, ( s1[ 1 ] - s0[ 1 ] ) / WL ], bk = [ wu[ 1 ], - wu[ 0 ] ];
+			const at = ( u, k = 0 ) => [ s0[ 0 ] + wu[ 0 ] * u + bk[ 0 ] * k, s0[ 1 ] + wu[ 1 ] * u + bk[ 1 ] * k ];
+			const H0 = top - alleyY( s0 ), H1 = top - alleyY( s1 ), wallTop = ( u ) => alleyY( at( u ) ) + H0 + ( H1 - H0 ) * u / WL;
+			plaster.vdata = [ 20, 0, 0.47, 0 ];
+			plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
+			for ( let n = Math.ceil( WL * 4 ), i = 0; i < n; i ++ ) {
+
+				const ua = WL * i / n, ub = WL * ( i + 1 ) / n, ya = wallTop( ua ) - 0.02, yb = wallTop( ub ) - 0.02;
+				if ( Math.max( ya, yb ) > top - 0.005 ) continue;
+				const A = at( ua ), B = at( ub ), A2 = at( ua, 0.5 ), B2 = at( ub, 0.5 ), V = ( q, y ) => [ q[ 0 ], y, q[ 1 ] ];
+				plaster.quadFacing( V( A, ya ), V( B, yb ), V( B, top ), V( A, top ), [ - bk[ 0 ], 0, - bk[ 1 ] ], [ [ ua, 4 ], [ ub, 4 ], [ ub, 4.5 ], [ ua, 4.5 ] ] );
+				plaster.quadFacing( V( A2, ya ), V( B2, yb ), V( B2, top ), V( A2, top ), [ bk[ 0 ], 0, bk[ 1 ] ], [ [ ua, 4 ], [ ub, 4 ], [ ub, 4.5 ], [ ua, 4.5 ] ] );
+				plaster.quadFacing( V( A, top ), V( B, top ), V( B2, top ), V( A2, top ), [ 0, 1, 0 ], [ [ ua, 5 ], [ ub, 5 ], [ ub, 5.5 ], [ ua, 5.5 ] ] );
+
+			}
+
+		}
 		const ntop = alleyY( n0 ) + 3.2;
 		// (down at the corner, as high again over the alley's foot as the wall turning down the ramp)
 		const nEnd = alleyY( n1 ) + 4.2;
