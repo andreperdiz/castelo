@@ -3883,29 +3883,36 @@ export class Walls {
 
 		};
 		const STONE = lin( [ 0.82, 0.73, 0.57 ] ), SHADE = lin( [ 0.66, 0.58, 0.45 ] ), DARK = lin( [ 0.08, 0.08, 0.09 ] );
+		// (photo -2003-, the front close: its pilasters and cornice of grey weathered stone; the portal pale, near white)
+		const GREY = lin( [ 0.6, 0.58, 0.53 ] ), GREY2 = lin( [ 0.47, 0.46, 0.42 ] ), PALE = lin( [ 0.86, 0.83, 0.76 ] ), PALE2 = lin( [ 0.72, 0.69, 0.62 ] );
 		SK.vdata = [ 0, 0, 0.53, 4 ];
 		paint.vdata = [ 0, 0, 0.53, 4 ];
 		const e = EAVE - G, hw = uC + 0.2;
-		// the corner pilasters, their blocks a little proud in turn; the plinth
+		// the corner pilasters: broad, plain, a moulded base and a capital under the cornice, dark weathering down them
 		for ( const sd of [ - 1, 1 ] ) {
 
-			SK.color = STONE;
-			box( SK, sd * ( uC - 0.45 ), - 0.3, e, 0.9, 0, 0.14 );
-			SK.color = SHADE;
-			for ( let y = 0.4, i = 0; y < e - 0.4; y += 0.62, i ++ ) if ( i % 2 === 0 ) box( SK, sd * ( uC - 0.45 ), y, y + 0.3, 0.96, 0.1, 0.16 );
+			const s = sd * ( uC - 0.55 );
+			SK.color = GREY;
+			box( SK, s, - 0.3, e, 1.1, 0, 0.22 );
+			SK.color = GREY2;
+			box( SK, s + sd * 0.18, 1.2, e - 0.6, 0.32, 0.22, 0.23 );
+			box( SK, s - sd * 0.3, 2.5, e - 2.5, 0.16, 0.22, 0.23 );
+			box( SK, s, - 0.3, 1.05, 1.24, 0, 0.32 );
+			SK.color = GREY;
+			box( SK, s, 1.05, 1.2, 1.18, 0, 0.27 );
+			box( SK, s, e - 0.4, e - 0.15, 1.2, 0, 0.3 );
 
 		}
 
-		SK.color = SHADE;
-		box( SK, 0, - 0.3, 0.45, FL, 0, 0.1 );
 		// the cornice, and the mouldings up the pediment's rakes
-		SK.color = SHADE;
-		box( SK, 0, e - 0.15, e, FL + 0.2, 0, 0.22 );
-		SK.color = STONE;
-		box( SK, 0, e, e + 0.28, FL + 0.5, 0, 0.36 );
+		SK.color = GREY2;
+		box( SK, 0, e - 0.15, e, FL + 0.2, 0, 0.26 );
+		SK.color = GREY;
+		box( SK, 0, e, e + 0.28, FL + 0.5, 0, 0.38 );
 		{
 
-			const y0 = e + 0.28, y1 = e + 0.28 + RISE, H = 0.22, kk = 0.3;
+			const y0 = e + 0.28, y1 = e + 0.28 + RISE, H = 0.2, kk = 0.28;
+			SK.color = GREY;
 			for ( const sd of [ - 1, 1 ] ) {
 
 				SK.quadFacing( W( sd * hw, y0, kk ), W( 0, y1, kk ), W( 0, y1 + H, kk ), W( sd * hw, y0 + H, kk ), face );
@@ -3917,19 +3924,13 @@ export class Walls {
 			plaster.vdata = [ 20, 0, 0.31, 0 ];
 			plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
 			plaster.quadFacing( W( - hw, y0, 0.12 ), W( hw, y0, 0.12 ), W( 0, y1, 0.12 ), W( 0, y1, 0.12 ), face, [ [ 0, e ], [ FL, e ], [ FL / 2, e + RISE ], [ FL / 2, e + RISE ] ] );
-			// urns on the corners, the cross on the apex
+			// urns like pine cones on the corners, over the pilasters; the cross on the apex
 			for ( const sd of [ - 1, 1 ] ) {
 
-				SK.color = STONE;
-				box( SK, sd * ( uC - 0.3 ), y0, y0 + 0.45, 0.42, 0.05, 0.47 );
-				box( SK, sd * ( uC - 0.3 ), y0 + 0.45, y0 + 0.55, 0.5, 0, 0.52 );
-				for ( const a of [ 0, Math.PI / 4 ] ) {
-
-					const Q = W( sd * ( uC - 0.3 ), 0, 0.26 );
-					SK.box( Q[ 0 ], G + y0 + 0.78, Q[ 2 ], 0.34, 0.36, 0.34, yaw + a );
-					SK.box( Q[ 0 ], G + y0 + 1.05, Q[ 2 ], 0.12, 0.3, 0.12, yaw + a );
-
-				}
+				SK.color = GREY;
+				box( SK, sd * ( uC - 0.4 ), y0, y0 + 0.4, 0.46, 0.05, 0.5 );
+				const Q = W( sd * ( uC - 0.4 ), 0, 0.27 );
+				for ( const [ dy, h, w ] of [ [ 0.4, 0.1, 0.36 ], [ 0.5, 0.22, 0.2 ], [ 0.72, 0.3, 0.36 ], [ 1.02, 0.22, 0.26 ], [ 1.24, 0.14, 0.14 ] ] ) for ( const a of [ 0, Math.PI / 4 ] ) SK.box( Q[ 0 ], G + y0 + dy + h / 2, Q[ 2 ], w, h, w, yaw + a );
 
 			}
 
@@ -3939,79 +3940,185 @@ export class Walls {
 
 		}
 
-		// the oval window: a stone frame, dark panes behind a grid
-		SK.color = STONE;
-		ring( SK, 0, e - 1.5, 0.62, 0.82, 0, Math.PI * 2, 0.08, 24, 1.45, 1 );
-		paint.color = DARK;
-		ring( paint, 0, e - 1.5, 0, 0.62, 0, Math.PI * 2, 0.05, 24, 1.45, 1 );
+		// the oval window, high under the cornice: a frame of grey stone, leaded panes in a lattice
+		SK.color = GREY;
+		const yo = e - 1.05;
+		ring( SK, 0, yo, 0.45, 0.6, 0, Math.PI * 2, 0.08, 24, 1.62, 1 );
+		paint.color = lin( [ 0.16, 0.18, 0.2 ] );
+		ring( paint, 0, yo, 0, 0.45, 0, Math.PI * 2, 0.05, 24, 1.62, 1 );
 		kit.vdata = [ 0.29, 0.2, 0, 0 ];
-		kit.color = [ 0.15, 0.15, 0.15 ];
-		for ( const s of [ - 0.45, 0, 0.45 ] ) box( kit, s, e - 2.05, e - 0.95, 0.03, 0.06, 0.08 );
-		box( kit, 0, e - 1.52, e - 1.48, 1.7, 0.06, 0.08 );
+		kit.color = [ 0.3, 0.3, 0.3 ];
+		for ( let s = - 0.6; s <= 0.61; s += 0.2 ) {
 
-		// the portal: its lower storey
-		SK.color = STONE;
-		box( SK, 0, - 0.1, 4.55, 5.2, 0, 0.12 );
+			const h = 0.45 * Math.sqrt( Math.max( 0, 1 - ( s / 0.73 ) ** 2 ) );
+			box( kit, s, yo - h, yo + h, 0.02, 0.06, 0.07 );
+
+		}
+
+		for ( let y = - 0.36; y <= 0.37; y += 0.18 ) {
+
+			const w = 0.73 * Math.sqrt( Math.max( 0, 1 - ( y / 0.45 ) ** 2 ) );
+			box( kit, 0, yo + y - 0.01, yo + y + 0.01, 2 * w, 0.06, 0.07 );
+
+		}
+
+		// before the portal, a step of big stone slabs; two stone bollards on the square
+		kit.vdata = [ 0.43, 0.4, 0, 0 ];
+		kit.color = [ 0.86, 0.85, 0.8 ];
+		box( kit, 0, - 0.3, 0.1, FL - 0.4, 0, 1.4 );
+		this.colliders.addBox( new Vector3( ...W( 0, - 0.1, 0.7 ) ), new Vector3( ( FL - 0.4 ) / 2, 0.2, 0.7 ), yaw, { walkable: true, tag: 'step' } );
+		kit.color = [ 0.8, 0.78, 0.72 ];
+		for ( const s of [ - 5.0, 4.9 ] ) {
+
+			const Q = W( s, 0, 2.6 );
+			for ( const a of [ 0, Math.PI / 4 ] ) kit.box( Q[ 0 ], T.heightAt( Q[ 0 ], Q[ 2 ] ) + 0.3, Q[ 2 ], 0.3, 0.7, 0.3, a );
+			kit.box( Q[ 0 ], T.heightAt( Q[ 0 ], Q[ 2 ] ) + 0.7, Q[ 2 ], 0.2, 0.12, 0.2, 0.4 );
+			this.colliders.addBox( new Vector3( Q[ 0 ], T.heightAt( Q[ 0 ], Q[ 2 ] ) + 0.35, Q[ 2 ] ), new Vector3( 0.17, 0.35, 0.17 ), 0, { walkable: false, tag: 'bollard' } );
+
+		}
+
+		// the portal, pale stone: its lower storey, the round-arched door in pairs of fluted columns on pedestals,
+		// a carved frieze over them
+		SK.color = PALE;
+		box( SK, 0, 0.05, 3.9, 5.7, 0, 0.14 );
 		const wood = new MeshKit();
 		wood.vdata = [ 0, 0, 0.53, 5 ];
-		wood.color = lin( [ 0.3, 0.17, 0.1 ] );
-		box( wood, 0, 0, 2.1, 1.95, 0.12, 0.17 );
-		wood.color = lin( [ 0.25, 0.14, 0.08 ] );
-		ring( wood, 0, 2.1, 0, 0.975, 0, Math.PI, 0.17, 16 );
-		SK.color = SHADE;
-		ring( SK, 0, 2.1, 0.975, 1.22, 0, Math.PI, 0.2, 18 );
-		for ( const sd of [ - 1, 1 ] ) box( SK, sd * 1.1, 0, 2.1, 0.25, 0.12, 0.2 );
-		for ( const s of [ - 2.2, - 1.6, 1.6, 2.2 ] ) {
+		wood.color = lin( [ 0.3, 0.16, 0.1 ] );
+		box( wood, 0, 0.05, 2.95, 1.95, 0.14, 0.18 );
+		ring( wood, 0, 2.95, 0, 0.975, 0, Math.PI, 0.18, 16 );
+		wood.color = lin( [ 0.24, 0.12, 0.08 ] );
+		box( wood, 0, 0.05, 2.95, 0.04, 0.18, 0.2 );
+		for ( const sd of [ - 1, 1 ] ) for ( let r = 0; r < 3; r ++ ) {
 
-			SK.color = SHADE;
-			box( SK, s, 0, 1.0, 0.46, 0.12, 0.56 );
-			SK.color = STONE;
-			const Q = W( s, 0, 0.36 );
-			for ( const a of [ 0, Math.PI / 4 ] ) SK.box( Q[ 0 ], G + 2.55, Q[ 2 ], 0.26, 3.1, 0.26, yaw + a );
-			box( SK, s, 4.0, 4.2, 0.42, 0.14, 0.58 );
+			// (its leaves' panels with diamond points)
+			const yc = 0.6 + r * 0.85, sc = sd * 0.47;
+			wood.color = lin( [ 0.17, 0.09, 0.06 ] );
+			box( wood, sc, yc - 0.34, yc + 0.34, 0.76, 0.18, 0.2 );
+			wood.color = lin( [ 0.36, 0.2, 0.12 ] );
+			box( wood, sc, yc - 0.29, yc + 0.29, 0.66, 0.2, 0.22 );
+			wood.color = lin( [ 0.27, 0.15, 0.09 ] );
+			box( wood, sc, yc - 0.19, yc + 0.19, 0.44, 0.22, 0.26 );
+			wood.color = lin( [ 0.42, 0.25, 0.15 ] );
+			box( wood, sc, yc - 0.08, yc + 0.08, 0.18, 0.26, 0.3 );
 
 		}
 
-		this.colliders.addBox( new Vector3( ...W( 0, 0.5, 0.35 ) ), new Vector3( 2.6, 0.5, 0.25 ), yaw, { walkable: true, tag: 'portal' } );
-		SK.color = SHADE;
-		box( SK, 0, 4.2, 4.55, 5.6, 0, 0.6 );
-		SK.color = STONE;
-		box( SK, 0, 4.55, 4.7, 5.8, 0, 0.66 );
-		// its upper storey: the panels, the niche with the Virgin, the scrolls, the little pediment
-		box( SK, 0, 4.7, 6.6, 4.4, 0, 0.16 );
+		SK.color = PALE2;
+		ring( SK, 0, 2.95, 0.975, 1.28, 0, Math.PI, 0.22, 18 );
+		ring( SK, 0, 2.95, 1.28, 1.36, 0, Math.PI, 0.25, 18 );
+		for ( const sd of [ - 1, 1 ] ) box( SK, sd * 1.13, 0.05, 2.95, 0.3, 0.14, 0.22 );
 		for ( const sd of [ - 1, 1 ] ) {
 
-			SK.color = SHADE;
-			box( SK, sd * 1.25, 5.15, 5.95, 1.2, 0.16, 0.2 );
-			paint.color = lin( [ 0.46, 0.44, 0.41 ] );
-			box( paint, sd * 1.25, 5.25, 5.85, 1.0, 0.2, 0.21 );
-			SK.color = STONE;
-			box( SK, sd * 0.5, 4.9, 6.35, 0.13, 0.16, 0.3 );
-			SK.color = SHADE;
-			ring( SK, sd * 2.0, 5.25, 0, 0.24, 0, Math.PI * 2, 0.2 );
-			SK.color = STONE;
-			ring( SK, sd * 2.0, 5.25, 0.09, 0.17, 0, Math.PI * 2, 0.21 );
+			// (a tall blank panel between each pair, round-headed like a niche)
+			SK.color = PALE2;
+			box( SK, sd * 1.92, 1.25, 3.2, 0.5, 0.14, 0.16 );
+			ring( SK, sd * 1.92, 3.2, 0, 0.25, 0, Math.PI, 0.16 );
 
 		}
 
-		paint.color = lin( [ 0.3, 0.28, 0.27 ] );
-		box( paint, 0, 4.95, 6.0, 0.7, 0.16, 0.17 );
-		ring( paint, 0, 6.0, 0, 0.35, 0, Math.PI, 0.17 );
-		paint.color = lin( [ 0.9, 0.88, 0.82 ] );
-		box( paint, 0, 4.95, 5.1, 0.42, 0.17, 0.35 );
-		box( paint, 0, 5.1, 5.85, 0.3, 0.2, 0.32 );
-		box( paint, 0, 5.85, 6.0, 0.13, 0.22, 0.31 );
-		SK.color = STONE;
-		box( SK, 0, 6.55, 6.68, 1.6, 0, 0.32 );
+		for ( const s of [ - 2.35, - 1.5, 1.5, 2.35 ] ) {
+
+			SK.color = PALE2;
+			box( SK, s, 0.05, 1.0, 0.56, 0.14, 0.66 );
+			SK.color = PALE;
+			box( SK, s, 1.0, 1.12, 0.5, 0.14, 0.62 );
+			const Q = W( s, 0, 0.4 );
+			for ( let a = 0; a < 4; a ++ ) SK.box( Q[ 0 ], G + 2.35, Q[ 2 ], 0.28, 2.46, 0.28, yaw + a * Math.PI / 8 );
+			SK.color = PALE2;
+			for ( let a = 0; a < 8; a ++ ) {
+
+				// (its flutes)
+				const t = a * Math.PI / 4, c = W( s + Math.cos( t ) * 0.145, 0, 0.4 + Math.sin( t ) * 0.145 );
+				SK.box( c[ 0 ], G + 2.35, c[ 2 ], 0.03, 2.3, 0.03, yaw );
+
+			}
+
+			SK.color = PALE;
+			box( SK, s, 3.58, 3.72, 0.38, 0.18, 0.6 );
+			box( SK, s, 3.72, 3.9, 0.5, 0.14, 0.66 );
+
+		}
+
+		this.colliders.addBox( new Vector3( ...W( 0, 0.5, 0.4 ) ), new Vector3( 2.85, 0.5, 0.26 ), yaw, { walkable: true, tag: 'portal' } );
+		SK.color = PALE2;
+		box( SK, 0, 3.9, 4.12, 5.95, 0, 0.68 );
+		SK.color = PALE;
+		box( SK, 0, 4.12, 4.6, 5.8, 0, 0.62 );
+		SK.color = PALE2;
+		for ( let s = - 2.6; s <= 2.61; s += 0.65 ) box( SK, s, 4.22, 4.5, 0.36, 0.62, 0.65 ); // (the frieze's carving)
+		box( SK, 0, 4.6, 4.8, 6.15, 0, 0.74 );
+		// its upper storey: the Virgin of the Assumption with two angels on clouds in a round-headed niche, rosy
+		// round her; the two inscribed tablets in carved frames; a crest of scrolls and medallions with little ball
+		// finials; the small pediment over the niche, its date plaque under it
+		SK.color = PALE;
+		box( SK, 0, 4.8, 6.75, 4.9, 0, 0.18 );
+		paint.color = lin( [ 0.74, 0.5, 0.45 ] );
+		box( paint, 0, 4.95, 6.2, 0.98, 0.18, 0.19 );
+		ring( paint, 0, 6.2, 0, 0.49, 0, Math.PI, 0.19 );
+		paint.color = lin( [ 0.56, 0.5, 0.47 ] );
+		box( paint, 0, 5.0, 6.2, 0.72, 0.19, 0.2 );
+		ring( paint, 0, 6.2, 0, 0.36, 0, Math.PI, 0.2 );
+		paint.color = lin( [ 0.88, 0.87, 0.84 ] );
+		const fig = ( s, y0, y1, w, k0, k1 ) => box( paint, s, y0, y1, w, k0, k1 );
+		fig( 0, 4.95, 5.12, 0.8, 0.2, 0.42 ); // the clouds
+		fig( - 0.2, 5.05, 5.22, 0.36, 0.22, 0.44 );
+		fig( 0.22, 5.08, 5.24, 0.34, 0.22, 0.44 );
+		for ( const sd of [ - 1, 1 ] ) {
+
+			fig( sd * 0.24, 5.15, 5.5, 0.15, 0.24, 0.4 ); // the angels
+			fig( sd * 0.24, 5.5, 5.6, 0.09, 0.26, 0.38 );
+
+		}
+
+		fig( 0, 5.2, 6.05, 0.32, 0.22, 0.38 ); // her robe
+		fig( 0, 5.85, 5.95, 0.62, 0.24, 0.34 ); // her arms raised
+		fig( 0, 6.06, 6.2, 0.13, 0.25, 0.35 ); // her head
+		for ( const sd of [ - 1, 1 ] ) {
+
+			SK.color = PALE2;
+			box( SK, sd * 1.45, 5.2, 6.0, 1.3, 0.18, 0.22 );
+			SK.color = PALE;
+			box( SK, sd * 1.45, 5.28, 5.92, 1.15, 0.22, 0.24 );
+			paint.color = lin( [ 0.36, 0.35, 0.33 ] );
+			box( paint, sd * 1.45, 5.38, 5.82, 0.95, 0.24, 0.25 );
+			SK.color = PALE2;
+			for ( const dx of [ - 0.5, 0.5 ] ) box( SK, sd * 1.45 + dx, 5.05, 5.18, 0.25, 0.18, 0.26 ); // (strapwork under them)
+			ring( SK, sd * 2.25, 5.6, 0, 0.16, 0, Math.PI * 2, 0.22 );
+			// the crest: a medallion in scrolls over each tablet, ball finials at its ends and by the niche
+			SK.color = PALE2;
+			box( SK, sd * 1.45, 6.75, 6.85, 2.1, 0, 0.26 );
+			ring( SK, sd * 1.45, 7.03, 0.11, 0.2, 0, Math.PI * 2, 0.22, 14, 1.25, 1 );
+			for ( const dx of [ - 0.45, 0.45 ] ) ring( SK, sd * 1.45 + dx, 6.97, 0.05, 0.12, 0, Math.PI * 2, 0.22 );
+			for ( const s of [ sd * 2.3, sd * 0.62 ] ) {
+
+				SK.color = PALE;
+				box( SK, s, 6.85, 7.0, 0.16, 0.05, 0.25 );
+				const Q = W( s, 0, 0.15 );
+				for ( const a of [ 0, Math.PI / 4 ] ) SK.box( Q[ 0 ], G + 7.1, Q[ 2 ], 0.17, 0.2, 0.17, yaw + a );
+
+			}
+
+		}
+
+		SK.color = PALE2;
+		box( SK, 0, 6.75, 6.9, 1.55, 0, 0.32 );
+		paint.color = lin( [ 0.93, 0.92, 0.88 ] );
+		box( paint, 0, 6.98, 7.16, 1.05, 0.12, 0.2 ); // the date plaque
+		SK.color = PALE;
+		box( SK, 0, 6.9, 7.25, 1.3, 0, 0.16 );
+		box( SK, 0, 7.25, 7.33, 1.75, 0, 0.3 );
 		{
 
-			const y0 = 6.68, y1 = 7.15, k = 0.24;
-			SK.quadFacing( W( - 0.78, y0, k ), W( 0.78, y0, k ), W( 0, y1, k ), W( 0, y1, k ), face );
-			for ( const sd of [ - 1, 1 ] ) SK.quadFacing( W( sd * 0.78, y0, k ), W( 0, y1, k ), W( 0, y1, 0 ), W( sd * 0.78, y0, 0 ), [ 0, 1, 0 ] );
+			const y0 = 7.33, y1 = 7.8, k = 0.25;
+			SK.quadFacing( W( - 0.86, y0, k ), W( 0.86, y0, k ), W( 0, y1, k ), W( 0, y1, k ), face );
+			for ( const sd of [ - 1, 1 ] ) SK.quadFacing( W( sd * 0.86, y0, k ), W( 0, y1, k ), W( 0, y1, 0 ), W( sd * 0.86, y0, 0 ), [ 0, 1, 0 ] );
+			SK.color = PALE2;
+			SK.quadFacing( W( - 0.62, y0 + 0.05, k + 0.01 ), W( 0.62, y0 + 0.05, k + 0.01 ), W( 0, y1 - 0.1, k + 0.01 ), W( 0, y1 - 0.1, k + 0.01 ), face );
 
 		}
 
-		// the north aisle's front, set back: the pilaster and urn at its corner, a small window
+		// the north aisle's front, set back: a grey pilaster at its corner with a finial like a flame, a small
+		// window with red shutters up under its roof, a little barred one low down
 		{
 
 			const A0 = [ 22.9, - 51.8 ];
@@ -4023,20 +4130,58 @@ export class Walls {
 				K.box( Q[ 0 ], G + ( y0 + y1 ) / 2, Q[ 1 ], s1 - s0, y1 - y0, k1 - k0, yaw );
 
 			};
-			SK.color = STONE;
-			ab( SK, 0, 0.7, - 0.3, ea + 0.2, 0, 0.14 );
-			ab( SK, - 0.05, 0.75, ea + 0.2, ea + 0.7, 0, 0.3 );
-			for ( const a of [ 0, Math.PI / 4 ] ) {
+			SK.color = GREY;
+			ab( SK, 0, 0.8, - 0.3, ea + 0.2, 0, 0.18 );
+			ab( SK, - 0.05, 0.85, - 0.3, 0.9, 0, 0.26 );
+			ab( SK, - 0.05, 0.85, ea + 0.2, ea + 0.45, 0, 0.3 );
+			for ( const [ dy, h, w ] of [ [ 0.45, 0.2, 0.3 ], [ 0.65, 0.3, 0.38 ], [ 0.95, 0.2, 0.26 ], [ 1.15, 0.2, 0.14 ] ] ) for ( const a of [ 0, Math.PI / 4 ] ) {
 
-				const Q = Wa( 0.35, 0.15 );
-				SK.box( Q[ 0 ], G + ea + 0.92, Q[ 1 ], 0.32, 0.34, 0.32, yaw + a );
-				SK.box( Q[ 0 ], G + ea + 1.17, Q[ 1 ], 0.1, 0.24, 0.1, yaw + a );
+				const Q = Wa( 0.4, 0.15 );
+				SK.box( Q[ 0 ], G + ea + 0.2 + dy + h / 2, Q[ 1 ], w, h, w, yaw + a );
 
 			}
 
-			ab( SK, 2.1, 3.1, 3.4, 4.5, 0, 0.1 );
+			ab( SK, 1.9, 2.95, ea - 2.0, ea - 0.75, 0, 0.1 );
+			paint.color = lin( [ 0.5, 0.13, 0.1 ] );
+			ab( paint, 2.02, 2.83, ea - 1.88, ea - 0.87, 0.1, 0.12 );
+			paint.color = lin( [ 0.3, 0.07, 0.06 ] );
+			ab( paint, 2.41, 2.44, ea - 1.88, ea - 0.87, 0.12, 0.13 );
+			ab( SK, 2.15, 2.75, 1.6, 2.5, 0, 0.1 );
 			paint.color = DARK;
-			ab( paint, 2.25, 2.95, 3.55, 4.35, 0.1, 0.11 );
+			ab( paint, 2.25, 2.65, 1.7, 2.4, 0.1, 0.11 );
+			kit.vdata = [ 0.29, 0.2, 0, 0 ];
+			kit.color = [ 0.08, 0.08, 0.08 ];
+			for ( const s of [ 2.35, 2.45, 2.55 ] ) ab( kit, s - 0.012, s + 0.012, 1.7, 2.4, 0.11, 0.13 );
+			ab( kit, 2.25, 2.65, 2.04, 2.07, 0.11, 0.13 );
+
+		}
+
+		// the bell tower's foot, beside the front to the south (photo -2003-): a big round-arched doorway in a frame
+		// of grey stone, a pediment of mouldings over it
+		{
+
+			const Xt = [ 23.2, - 37.35 - uC ], gt = T.heightAt( 22.6, - 37.35 ) - G;
+			SK.color = GREY;
+			box( SK, 0, gt - 0.2, gt + 3.3, 2.75, 0, 0.12, Xt );
+			paint.color = lin( [ 0.07, 0.07, 0.08 ] );
+			box( paint, 0, gt - 0.05, gt + 3.3, 2.16, 0.12, 0.14, Xt );
+			const Wt = ( s, y, k ) => W( s, y, k, Xt );
+			for ( let i = 0; i < 12; i ++ ) {
+
+				const t0 = Math.PI * i / 12, t1 = Math.PI * ( i + 1 ) / 12;
+				paint.quadFacing( Wt( 0, gt + 3.3, 0.14 ), Wt( Math.cos( t0 ) * 1.08, gt + 3.3 + Math.sin( t0 ) * 1.08, 0.14 ), Wt( Math.cos( t1 ) * 1.08, gt + 3.3 + Math.sin( t1 ) * 1.08, 0.14 ), Wt( 0, gt + 3.3, 0.14 ), face );
+				SK.quadFacing( Wt( Math.cos( t0 ) * 1.08, gt + 3.3 + Math.sin( t0 ) * 1.08, 0.12 ), Wt( Math.cos( t1 ) * 1.08, gt + 3.3 + Math.sin( t1 ) * 1.08, 0.12 ), Wt( Math.cos( t1 ) * 1.38, gt + 3.3 + Math.sin( t1 ) * 1.38, 0.12 ), Wt( Math.cos( t0 ) * 1.38, gt + 3.3 + Math.sin( t0 ) * 1.38, 0.12 ), face );
+
+			}
+
+			const y0 = gt + 5.0, y1 = gt + 6.0, hw2 = 2.0;
+			box( SK, 0, y0 - 0.15, y0, 2 * hw2 + 0.3, 0, 0.18, Xt );
+			for ( const sd of [ - 1, 1 ] ) {
+
+				SK.quadFacing( Wt( sd * hw2, y0, 0.16 ), Wt( 0, y1, 0.16 ), Wt( 0, y1 + 0.16, 0.16 ), Wt( sd * hw2, y0 + 0.16, 0.16 ), face );
+				SK.quadFacing( Wt( sd * hw2, y0 + 0.16, 0.16 ), Wt( 0, y1 + 0.16, 0.16 ), Wt( 0, y1 + 0.16, 0 ), Wt( sd * hw2, y0 + 0.16, 0 ), [ 0, 1, 0 ] );
+
+			}
 
 		}
 
