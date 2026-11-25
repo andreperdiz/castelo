@@ -1,6 +1,6 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
-import { mulberry32 } from '../../util/Noise.js';
+import { mulberry32, smoothstep, lerp } from '../../util/Noise.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
 import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS } from '../TerrainData.js';
 
@@ -3443,7 +3443,8 @@ export class Walls {
 
 			}
 
-			return Math.max( F + 0.05, y );
+			// (at the corner it comes to the terrace's level, the two meeting there)
+			return lerp( Math.max( F + 0.05, y ), U + 0.02, smoothstep( S.L - 3, S.L, s ) );
 
 		};
 		sides.forEach( ( S, i ) => {
@@ -3470,9 +3471,19 @@ export class Walls {
 				kit.quadFacing( V( sa, k1, F - 0.4 ), V( sb, k1, F - 0.4 ), V( sb, k1, yb ), V( sa, k1, ya ), out, [ [ sa, 0 ], [ sb, 0 ], [ sb, yb - F ], [ sa, ya - F ] ] );
 				SK.vdata = [ 0, 0, 0.53, 4 ];
 				SK.color = BLUE;
-				SK.quadFacing( V( sa, - TH - 0.02, ya - 0.05 ), V( sb, - TH - 0.02, yb - 0.05 ), V( sb, - TH - 0.02, yb + 0.5 ), V( sa, - TH - 0.02, ya + 0.5 ), out );
+				// (on round the corner to the mitre, where it meets the terrace's band)
+				const sc = p === n - 1 ? sb + TH * Math.tan( Math.acos( S.u[ 0 ] * sides[ 1 ].u[ 0 ] + S.u[ 1 ] * sides[ 1 ].u[ 1 ] ) / 2 ) + 0.02 : sb;
+				SK.quadFacing( V( sa, - TH - 0.02, ya - 0.05 ), V( sc, - TH - 0.02, yb - 0.05 ), V( sc, - TH - 0.02, yb + 0.5 ), V( sa, - TH - 0.02, ya + 0.5 ), out );
 
 			}
+
+			// the outside corner, between the lane's ramp and the terrace: paved at the terrace's level over the
+			// ground's step (which lies under the wall and just behind it)
+			const S1 = sides[ 1 ];
+			// (a touch under the terrace's level: where the lane's ground is as high it shows instead)
+			// (out to the wall's line: the south arm's back, past where the lane's ramp ends, is behind it)
+			put( kit, S1, - TH - 1.75, 0.05, F - 0.4, U - 0.03, - TH - 1.7, 0.05, 'bottom' );
+			solid( S1, - TH - 1.75, 0, F - 0.4, U + 0.02, - TH - 1.7, 0, true, 'terrace' );
 
 		}
 
@@ -3786,7 +3797,7 @@ export class Walls {
 		// the terrace's side of the west wall: blue along its foot, as on the square's side
 		SK.vdata = [ 0, 0, 0.53, 4 ];
 		SK.color = BLUE;
-		put( SK, SW, 0, SW.L, U - 0.1, U + 0.45, - TH - 0.025, - TH + 0.005, 'top bottom' );
+		put( SK, SW, - TH * 0.95, SW.L, U - 0.1, U + 0.52, - TH - 0.025, - TH + 0.005, 'top bottom' );
 
 		// the plane trees before the church's south side, over the café's tables (photo -1350-)
 		this.extraTrees = this.extraTrees || [];
