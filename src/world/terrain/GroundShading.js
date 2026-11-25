@@ -210,8 +210,8 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 // panel from the wall out into the square, an outer and an inner rectangle joined at their corners like a
 // picture frame; between them before the fountain a longer one, halved down the middle, an inner rectangle in
 // each half with quarter circles in its corners, diagonals from its corners to the panel's, meeting in a point at
-// the middle line top and bottom; and that panel again beyond it, toward the church, a narrower one of the same
-// either side of it in line with the side panels. p: a sett's centre.
+// the middle line top and bottom; and that panel again beyond it, toward the church, either side of it a single
+// framed rectangle like its inner ones, in line with the side panels and as wide. p: a sett's centre.
 fn groundSmSeg( q: vec2f, a: vec2f, b: vec2f ) -> f32 {
 	let ab = b - a;
 	let t = clamp( dot( q - a, ab ) / dot( ab, ab ), 0.0, 1.0 );
@@ -269,9 +269,23 @@ fn groundSantaMaria( p: vec2f ) -> f32 {
 		let km = select( k - 4.0, k - 13.8, k > 13.8 );
 		m = max( m, groundSmPanel( vec2f( q.x, km ), 4.7, w ) );
 	}
-	// and either side of the second, the same halved panel as narrow as the side panels
+	// and either side of the second, in line with the side panels and as wide: one rectangle like the middle
+	// panels' inner ones, its quarter circles in the corners, framed, the corners joined by diagonals
 	if ( k >= 13.6 && q.x >= 4.5 ) {
-		m = max( m, groundSmPanel( vec2f( abs( q.x - 8.1 ), k - 13.8 ), 3.4, w ) );
+		let fo0 = vec2f( 4.7, 13.8 ); let fo1 = vec2f( 11.5, 23.6 );
+		let fi0 = vec2f( 5.7, 15.5 ); let fi1 = vec2f( 10.5, 22.4 );
+		var f = groundSmRect( q, fo0, fo1 );
+		f = min( f, groundSmRect( q, fi0, fi1 ) );
+		f = min( f, groundSmSeg( q, fo0, fi0 ) );
+		f = min( f, groundSmSeg( q, fo1, fi1 ) );
+		f = min( f, groundSmSeg( q, vec2f( fo1.x, fo0.y ), vec2f( fi1.x, fi0.y ) ) );
+		f = min( f, groundSmSeg( q, vec2f( fo0.x, fo1.y ), vec2f( fi0.x, fi1.y ) ) );
+		m = max( m, step( f, w ) );
+		if ( all( q >= fi0 ) && all( q <= fi1 ) ) {
+			var c = min( length( q - fi0 ), length( q - fi1 ) );
+			c = min( c, min( length( q - vec2f( fi0.x, fi1.y ) ), length( q - vec2f( fi1.x, fi0.y ) ) ) );
+			m = max( m, step( abs( c - 0.65 ), w * 0.8 ) );
+		}
 	}
 	return m;
 }
