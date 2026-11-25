@@ -3661,11 +3661,13 @@ export class Walls {
 			}
 
 		}
-		// the bollards in a row before the fountain and its beds: short square posts of grey limestone
+		// the bollards before the fountain and its beds: short square posts of grey limestone
 		kit.vdata = [ 0.43, 0.55, 0, 0 ];
-		for ( const s of [ - 3.4, - 2.3, - 0.35, 1.35, 2.6, 3.7 ] ) { // (as the photo's, not quite even)
+		// (on the calçada's lines before the fountain, GroundShading.groundSantaMaria: one where each line from the
+		// beds starts, five along the line joining them; as marked on the game)
+		for ( const [ s, k ] of [ [ - 3.1, 1.2 ], [ 3.1, 1.2 ], [ - 3.1, 2.6 ], [ - 1.55, 2.6 ], [ 0, 2.6 ], [ 1.55, 2.6 ], [ 3.1, 2.6 ] ] ) {
 
-			const C = P( SW, sF + s, 1.15 );
+			const C = P( SW, sF + s, k );
 			kit.color = [ 0.78, 0.77, 0.72 ];
 			kit.box( C[ 0 ], F + 0.33, C[ 1 ], 0.22, 0.72, 0.22, SW.yaw );
 			kit.box( C[ 0 ], F + 0.72, C[ 1 ], 0.16, 0.08, 0.16, SW.yaw );
