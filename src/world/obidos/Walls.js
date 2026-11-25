@@ -4334,7 +4334,8 @@ export class Walls {
 
 		// the walls: on the south (the right going down) as high as the terrace behind it, so its top stays
 		// level while the alley falls; on the north the garden's, taller
-		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.top;
+		// (its top a metre over the café terrace behind it, which lies at the Largo's level)
+		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.cafe + 1.0;
 		this._oldWall( plaster, s0, s1, - 1, alleyY, top - alleyY( s0 ), top - alleyY( s1 ), 53, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
 		// (its top, set over the alley's fall, dips under the level coping where the alley's fall isn't even: the gap
 		// filled up to the coping, whitewashed, both faces; seen from the café terrace since that came down to the Largo)
