@@ -65,6 +65,18 @@ const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 1
 	// the Igreja da Misericórdia: its front to the Largo from the stone corner over the stair's lower steps (the
 	// black-footed wall beside them is its own), the portal in the middle of it (photos references/...-1512-, -1526-)
 	299064033: [ [ 28.24, - 8.8 ], [ 27.1, 2.3 ], [ 41.7, 7 ], [ 53.7, 10.9 ], [ 55.7, 4.8 ], [ 57, 0.6 ], [ 34.7, - 5.6 ], [ 28.24, - 8.8 ] ] };
+// footprints built as several houses (each its own id for the tables below): behind Praça de Santa Maria's
+// terrace (photo references/...-1113-814e8453-...), OSM's one big block is, from the north, a low annex with a
+// Gothic doorway in its front (a), the house behind it up the slope (b), and the tall house of three storeys (c)
+const PARTS = { 299063419: [
+	// (the annex shallow, so its roof runs along the front and falls toward it)
+	{ id: '299063419a', pts: [ [ - 14.2, - 37.3 ], [ - 18.3, - 37.6 ], [ - 18.45, - 44.5 ], [ - 14.15, - 44.5 ] ] },
+	// (behind it, low, in two narrow ranges whose roofs run north-south: one broad roof's gable would show over it)
+	{ id: '299063419b', pts: [ [ - 18.3, - 37.6 ], [ - 20.3, - 37.8 ], [ - 20.9, - 32.6 ], [ - 24.2, - 33.2 ], [ - 24.2, - 44.75 ], [ - 20.55, - 44.5 ], [ - 18.45, - 44.5 ] ] },
+	{ id: '299063419d', pts: [ [ - 24.2, - 33.2 ], [ - 30.4, - 34.4 ], [ - 27.9, - 45 ], [ - 24.2, - 44.75 ] ] },
+	{ id: '299063419c', pts: [ [ - 14.15, - 44.5 ], [ - 20.55, - 44.5 ], [ - 27.9, - 45 ], [ - 29, - 45.1 ], [ - 27, - 58.5 ], [ - 21.5, - 58.1 ], [ - 21.2, - 59.9 ], [ - 14.1, - 59.4 ] ] } ] };
+// the ridge's direction (x, z) where the footprint's box would turn it the other way: the annex's along its front
+const RIDGE = { '299063419a': [ 0, 1 ] };
 // (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
 const KEEP_OUTLINE = new Set( [ 299072134, 299064033 ] );
 // (and these keep their corners on OSM's street lines too: the Misericórdia's on the old Praça line by the stair)
@@ -90,7 +102,9 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	299088484: [ 0.86, 0.55, 0.17 ],
 	// down to the fork (photo references/...-img-4390): a low house with a blue foot; the long one, a yellow foot
 	299088432: [ 0.13, 0.24, 0.6 ],
-	299088405: [ 0.88, 0.66, 0.2 ] };
+	299088405: [ 0.88, 0.66, 0.2 ],
+	// behind Praça de Santa Maria's terrace (photo references/...-1113-...): window surrounds of grey stone
+	299063325: [ 0.7, 0.66, 0.58 ], '299063419a': [ 0.93, 0.92, 0.89 ], '299063419b': [ 0.7, 0.66, 0.58 ], '299063419d': [ 0.7, 0.66, 0.58 ], '299063419c': [ 0.7, 0.66, 0.58 ] };
 // the eave itself, for houses the footprint's size and slope would make too tall: going up Rua Dom João de
 // Ornelas, the long footprint holding the blue house and the white one beyond it, two low storeys, then a
 // lower one (photo references/...-img-4391; the street fronts: Town._ornelasFronts)
@@ -107,7 +121,14 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	299090456: 50.0, 299090857: 50.6, 298848393: 51.8,
 	// near the top, the tall house in the curtain's corner (photo references/...-img-4383): its ground behind the
 	// curtain is far higher than its street's
-	299072134: 57.6 };
+	299072134: 57.6,
+	// behind Praça de Santa Maria's terrace (photo references/...-1113-...; the LiDAR's roofs raise the ground
+	// under them): two low storeys; the annex, one, and the house behind it low enough to stay behind it; the tall
+	// house, three
+	299063325: 65.3, '299063419a': 62.6, '299063419b': 62.8, '299063419d': 63.6, '299063419c': 67.8,
+	// and the ones behind them, on the lane up to Rua Dom Antão Moniz and on that street: only sky shows over the
+	// white house's roof in the photo
+	299065370: 66.4, 299065511: 70.0, 299065556: 71.5 }; // (the first still a storey over its upper lane)
 // houses of bare stone, not whitewashed (the part of the footprint holding the point): on the Largo da
 // Misericórdia, the medieval house-tower facing it (photo references/...-1912-3408fb6f-...)
 const STONE_HOUSES = { 299064346: [ 23, 12 ] };
@@ -161,8 +182,9 @@ export class Town {
 		// footprints, cleaned, with a grid for "is this point inside another building" queries
 		const list = [];
 		this.passages = [];
-		for ( const b of OSM.buildings ) for ( let poly of this._pieces( b ) ) {
+		for ( const b0 of OSM.buildings ) for ( let poly of this._pieces( b0 ) ) {
 
+			const b = poly.part ? { ...b0, id: poly.part } : b0;
 			if ( SKIP.has( b.building ) || SKIP_MAN_MADE.has( b.man_made ) || SKIP_ID.has( b.id ) ) continue;
 			poly = cleanPolygon( poly );
 			if ( poly.length < 3 ) continue;
@@ -287,6 +309,7 @@ export class Town {
 		this._ornelasFronts( list );
 		this._ornelasGardenWall( list );
 		this._ornelasFork( list );
+		this._santaMariaFronts( list );
 		this.edges = list;
 		this._lanterns( materials, rand );
 
@@ -528,6 +551,108 @@ export class Town {
 
 		};
 		return { at, out, ground, plaster, part, opening, pot, STONE };
+
+	}
+
+	// Behind Praça de Santa Maria's terrace, as the photo (references/...-1113-814e8453-...) shows them over the
+	// wall, each opening placed as there. From the north: the white house of two low storeys, four windows in grey
+	// stone frames over its shop doors, then a narrow bay between two blue pilasters, its window wider; the low
+	// annex's plain white front, a Gothic doorway in it; the tall house of three storeys, a blue pilaster at its
+	// corner, a blue band under the top floor, its two top windows opening onto iron balconies.
+	_santaMariaFronts( list ) {
+
+		const find = ( id ) => list.find( ( q ) => q.b.id === id );
+		const BLUE = srgbToLinear( [ 0.1, 0.27, 0.78 ] ), WHITE = [ 0.93, 0.92, 0.89 ], IRON = srgbToLinear( [ 0.05, 0.05, 0.05 ] );
+		const WOOD = srgbToLinear( [ 0.22, 0.12, 0.07 ] ), GREEN = srgbToLinear( [ 0.06, 0.2, 0.17 ] );
+		// the white house
+		const fw = find( 299063325 );
+		if ( fw ) {
+
+			const { ground, plaster, part, opening, pot } = this._frontTools( fw, [ [ - 16.7, - 20 ], [ - 14.2, - 37.3 ] ] );
+			const L = Math.hypot( 2.5, 17.3 ), eave = fw.roofH( - 14.6, - 30 );
+			plaster( 0, L, WHITE, 0.31 );
+			part( 14.3, 14.62, fw.base, eave, 0.08, BLUE );
+			part( L - 0.5, L, fw.base, eave, 0.1, BLUE );
+			const gU = ground( 11 );
+			for ( const [ i, t ] of [ 5.84, 8.12, 10.39, 12.66 ].entries() ) {
+
+				opening( t, gU + 3.6, 0.82, 1.4, false );
+				pot( t + 0.15, gU + 3.6, 1131 + i );
+
+			}
+
+			opening( 15.12, gU + 3.6, 1.0, 1.45, false );
+			for ( const [ t, w, c ] of [ [ 5.84, 1.2, WOOD ], [ 8.12, 1.3, GREEN ], [ 10.39, 1.0, WOOD ], [ 12.66, 1.0, WOOD ], [ 15.25, 1.1, WOOD ] ] ) opening( t, ground( t ), w, 2.25, true, c );
+
+		}
+
+		// the annex: plain white, the Gothic doorway (a pointed arch of two arcs) in a band of grey stone
+		const fa = find( '299063419a' );
+		if ( fa ) {
+
+			const { ground, plaster, part, STONE } = this._frontTools( fa, [ [ - 14.2, - 37.3 ], [ - 14.15, - 44.5 ] ] );
+			plaster( 0, Math.hypot( 0.05, 7.2 ), WHITE, 0.43 );
+			const t0 = 3.7, g = ground( t0 ), spring = g + 1.5;
+			const arch = ( w, rise ) => ( s ) => {
+
+				const a = Math.abs( s ), R = w;
+				return a > w / 2 ? - Infinity : spring + Math.sqrt( Math.max( 0, R * R - ( a + w / 2 ) ** 2 ) ) * rise;
+
+			};
+			const N = 14;
+			for ( const [ w, c, proud ] of [ [ 1.42, STONE, 0.08 ], [ 1.1, WOOD, 0.1 ] ] ) {
+
+				const top = arch( w, 1 );
+				for ( let k = 0; k < N; k ++ ) {
+
+					const s0 = - w / 2 + w * k / N, s1 = s0 + w / N, y1 = top( ( s0 + s1 ) / 2 );
+					part( t0 + s0, t0 + s1, g - 0.05, y1, proud, c );
+
+				}
+
+			}
+
+		}
+
+		// the tall house
+		const ft = find( '299063419c' );
+		if ( ft ) {
+
+			const { at, out, ground, plaster, part, opening } = this._frontTools( ft, [ [ - 14.15, - 44.5 ], [ - 14.1, - 59.4 ] ] );
+			const L = Math.hypot( 0.05, 14.9 ), eave = ft.roofH( - 14.6, - 50 ), g = ground( 2.5 );
+			plaster( 0, L, WHITE, 0.53 );
+			part( 0, 0.45, ft.base, eave, 0.1, BLUE );
+			part( 0, L, g + 4.82, g + 4.97, 0.06, BLUE );
+			opening( 1.0, g + 1.45, 0.82, 0.9, false );
+			opening( 2.45, g, 1.0, 2.25, true, GREEN );
+			opening( 5.2, g + 1.45, 0.82, 0.9, false );
+			for ( const t of [ 2.45, 5.2 ] ) {
+
+				opening( t, g + 2.95, 0.88, 1.15, false );
+				// the balcony: a stone slab, a door-window over it, the iron railing round it
+				opening( t, g + 5.05, 0.9, 1.95, false );
+				part( t - 0.68, t + 0.68, g + 4.95, g + 5.05, 0.5, srgbToLinear( [ 0.7, 0.66, 0.58 ] ) );
+				const kit = this.walls, yaw = at( t ).yaw, rail = ( tt, d, y0, y1, sx, sz ) => {
+
+					const [ x, z ] = out( tt, d );
+					kit.box( x, ( y0 + y1 ) / 2, z, sx, y1 - y0, sz, yaw );
+
+				};
+				kit.color = IRON;
+				kit.vdata = [ 0, 0, 0.53, 4 ];
+				rail( t, 0.46, g + 5.9, g + 5.95, 1.32, 0.04 );
+				rail( t, 0.46, g + 5.12, g + 5.16, 1.32, 0.03 );
+				for ( let k = - 6; k <= 6; k ++ ) rail( t + k * 0.105, 0.46, g + 5.05, g + 5.9, 0.018, 0.018 );
+				for ( const sd of [ - 1, 1 ] ) {
+
+					rail( t + sd * 0.64, 0.25, g + 5.9, g + 5.95, 0.04, 0.44 );
+					for ( const d of [ 0.12, 0.24, 0.36 ] ) rail( t + sd * 0.64, d, g + 5.05, g + 5.9, 0.018, 0.018 );
+
+				}
+
+			}
+
+		}
 
 	}
 
@@ -1795,7 +1920,23 @@ export class Town {
 		const base = gMin - 1.2;
 
 		// roof: gable along the oriented box, ridge through its centre
-		const obb = orientedBox( poly );
+		let obb = orientedBox( poly );
+		if ( RIDGE[ b.id ] ) {
+
+			// (the box round the footprint along the given direction instead)
+			const [ ux, uz ] = RIDGE[ b.id ];
+			let x0 = Infinity, x1 = - Infinity, z0 = Infinity, z1 = - Infinity;
+			for ( const q of poly ) {
+
+				const lx = q[ 0 ] * ux + q[ 1 ] * uz, lz = - q[ 0 ] * uz + q[ 1 ] * ux;
+				x0 = Math.min( x0, lx ); x1 = Math.max( x1, lx ); z0 = Math.min( z0, lz ); z1 = Math.max( z1, lz );
+
+			}
+
+			const lcx = ( x0 + x1 ) / 2, lcz = ( z0 + z1 ) / 2;
+			obb = { cx: lcx * ux - lcz * uz, cz: lcx * uz + lcz * ux, hx: ( x1 - x0 ) / 2, hz: ( z1 - z0 ) / 2, ux, uz, yaw: Math.atan2( - uz, ux ) };
+
+		}
 		const ux = obb.ux, uz = obb.uz; // ridge direction
 		const vx = - uz, vz = ux; // across
 		const halfW = obb.hz;
@@ -1948,6 +2089,7 @@ export class Town {
 // side of the passage (the outline clipped to each side of it), the passage noted for _passageBody
 Town.prototype._pieces = function ( b ) {
 
+	if ( PARTS[ b.id ] ) return PARTS[ b.id ].map( ( p ) => Object.assign( p.pts.map( ( q ) => [ ...q ] ), { part: p.id } ) );
 	const outline = OUTLINE[ b.id ] || b.pts, P = PASSAGES[ b.id ];
 	const st = P && OSM.streets.find( ( s ) => s.id === P.street );
 	if ( ! st ) return [ outline ];
