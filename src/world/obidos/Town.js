@@ -160,7 +160,7 @@ const STONE_HOUSES = { 299064346: [ 23, 12 ] };
 // Largo, the baroque portal (photo references/...-1512-...), by a point on that front
 const BLANK_FRONTS = { 299064033: [ [ 27.3, 0.3 ], [ 27.7, - 2.3 ], [ 27.95, - 5.0 ], [ 28.15, - 7.8 ] ], // (along it: its roof's crease splits it)
 	// and the Igreja de Santa Maria's front and its north aisle's (Walls._santaMariaChurch)
-	'147555812n': [ [ 19.2, - 41 ], [ 19.2, - 46.3 ] ], '147555812a': [ [ 22.9, - 49.5 ] ], '147555812c': [ [ CH.x, ( CH.z0 + CH.z1 ) / 2 ] ],
+	'147555812n': [ [ 19.2, - 41 ], [ 19.2, - 46.3 ] ], '147555812a': [ [ 22.9, - 49.5 ] ], '147555812c': [ [ CH.x, ( CH.z0 + CH.z1 ) / 2 ], [ ( CH.x + 23.2 ) / 2, CH.z1 ] ], // (its side too: plain)
 	// (and the south aisle's side past the tower: plain, no doors)
 	'147555812s': [ [ 32.2, - 34.6 ] ],
 	// and the Museu Municipal's side down the lane south of Praça de Santa Maria (Town._santaMariaFronts)
