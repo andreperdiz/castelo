@@ -64,7 +64,9 @@ const OUTLINE = { 298902328: [ [ - 64.4, 195.6 ], [ - 68.3, 195.2 ], [ - 76.8, 1
 	299072134: [ [ - 35.3, 225.4 ], [ - 38.7, 223.96 ], [ - 39.83, 225.62 ], [ - 45.6, 226.35 ], [ - 45.6, 236.6 ], [ - 39.5, 239 ], [ - 38.2, 234.7 ], [ - 35.3, 225.4 ] ],
 	// the Igreja da Misericórdia: its front to the Largo from the stone corner over the stair's lower steps (the
 	// black-footed wall beside them is its own), the portal in the middle of it (photos references/...-1512-, -1526-)
-	299064033: [ [ 28.24, - 8.8 ], [ 27.1, 2.3 ], [ 41.7, 7 ], [ 53.7, 10.9 ], [ 55.7, 4.8 ], [ 57, 0.6 ], [ 34.7, - 5.6 ], [ 28.24, - 8.8 ] ] };
+	299064033: [ [ 28.24, - 8.8 ], [ 27.1, 2.3 ], [ 41.7, 7 ], [ 53.7, 10.9 ], [ 55.7, 4.8 ], [ 57, 0.6 ], [ 34.7, - 5.6 ], [ 28.24, - 8.8 ] ],
+	// the Telheiro on Praça de Santa Maria's north side: its front set back behind its porch (TELHEIRO)
+	298877060: [ [ - 10.7, - 77.2 ], [ - 10.44, - 60.88 ], [ 5.86, - 58.78 ], [ 6.5, - 65.7 ], [ - 0.2, - 66.1 ], [ - 0.2, - 76.8 ], [ - 10.7, - 77.2 ] ] };
 // footprints built as several houses (each its own id for the tables below): behind Praça de Santa Maria's
 // terrace (photo references/...-1113-814e8453-...), OSM's one big block is, from the north, a low annex with a
 // Gothic doorway in its front (a), the house behind it up the slope (b), and the tall house of three storeys (c)
@@ -74,9 +76,14 @@ const PARTS = { 299063419: [
 	// (behind it, low, in two narrow ranges whose roofs run north-south: one broad roof's gable would show over it)
 	{ id: '299063419b', pts: [ [ - 18.3, - 37.6 ], [ - 20.3, - 37.8 ], [ - 20.9, - 32.6 ], [ - 24.2, - 33.2 ], [ - 24.2, - 44.75 ], [ - 20.55, - 44.5 ], [ - 18.45, - 44.5 ] ] },
 	{ id: '299063419d', pts: [ [ - 24.2, - 33.2 ], [ - 30.4, - 34.4 ], [ - 27.9, - 45 ], [ - 24.2, - 44.75 ] ] },
-	{ id: '299063419c', pts: [ [ - 14.15, - 44.5 ], [ - 20.55, - 44.5 ], [ - 27.9, - 45 ], [ - 29, - 45.1 ], [ - 27, - 58.5 ], [ - 21.5, - 58.1 ], [ - 21.2, - 59.9 ], [ - 14.1, - 59.4 ] ] } ] };
+	// (the tall house three bays long, as the photo from the north corner shows it, -1151-; the house past it set back)
+	{ id: '299063419c', pts: [ [ - 14.15, - 44.5 ], [ - 20.55, - 44.5 ], [ - 27.9, - 45 ], [ - 29, - 45.1 ], [ - 27.85, - 53.05 ], [ - 14.12, - 53.05 ] ] },
+	{ id: '299063419e', pts: [ [ - 15.1, - 53.05 ], [ - 27.85, - 53.05 ], [ - 27, - 58.5 ], [ - 21.5, - 58.1 ], [ - 21.2, - 59.9 ], [ - 15.1, - 59.45 ] ] } ] };
+// the Telheiro's porch (photo references/...-1151-3b65f969-...): the house's front set back from OSM's line
+// (wall: west to east) behind a porch depth deep, its floor level with the lane's top
+const TELHEIRO = { wall: [ [ - 10.44, - 60.88 ], [ 5.86, - 58.78 ] ], depth: 2.2, floor: 59.2 };
 // the ridge's direction (x, z) where the footprint's box would turn it the other way: the annex's along its front
-const RIDGE = { '299063419a': [ 0, 1 ] };
+const RIDGE = { '299063419a': [ 0, 1 ], '299063419c': [ 0, 1 ] };
 // (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
 const KEEP_OUTLINE = new Set( [ 299072134, 299064033 ] );
 // (and these keep their corners on OSM's street lines too: the Misericórdia's on the old Praça line by the stair)
@@ -104,7 +111,7 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	299088432: [ 0.13, 0.24, 0.6 ],
 	299088405: [ 0.88, 0.66, 0.2 ],
 	// behind Praça de Santa Maria's terrace (photo references/...-1113-...): window surrounds of grey stone
-	299063325: [ 0.7, 0.66, 0.58 ], '299063419a': [ 0.93, 0.92, 0.89 ], '299063419b': [ 0.7, 0.66, 0.58 ], '299063419d': [ 0.7, 0.66, 0.58 ], '299063419c': [ 0.7, 0.66, 0.58 ] };
+	299063325: [ 0.7, 0.66, 0.58 ], '299063419a': [ 0.93, 0.92, 0.89 ], '299063419b': [ 0.7, 0.66, 0.58 ], '299063419d': [ 0.7, 0.66, 0.58 ], '299063419e': [ 0.7, 0.66, 0.58 ], 298877060: [ 0.88, 0.66, 0.2 ], '299063419c': [ 0.7, 0.66, 0.58 ] };
 // the eave itself, for houses the footprint's size and slope would make too tall: going up Rua Dom João de
 // Ornelas, the long footprint holding the blue house and the white one beyond it, two low storeys, then a
 // lower one (photo references/...-img-4391; the street fronts: Town._ornelasFronts)
@@ -125,7 +132,9 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	// behind Praça de Santa Maria's terrace (photo references/...-1113-...; the LiDAR's roofs raise the ground
 	// under them): two low storeys; the annex, one, and the house behind it low enough to stay behind it; the tall
 	// house, three
-	299063325: 65.3, '299063419a': 62.6, '299063419b': 62.8, '299063419d': 63.6, '299063419c': 67.8,
+	299063325: 65.3, '299063419a': 62.6, '299063419b': 62.8, '299063419d': 63.6, '299063419c': 67.8, '299063419e': 65.4,
+	// the Telheiro: two storeys over its porch's floor (TELHEIRO)
+	298877060: 65.6,
 	// and the ones behind them, on the lane up to Rua Dom Antão Moniz and on that street: only sky shows over the
 	// white house's roof in the photo
 	299065370: 66.4, 299065511: 70.0, 299065556: 71.5 }; // (the first still a storey over its upper lane)
@@ -614,41 +623,170 @@ export class Town {
 
 		}
 
-		// the tall house
+		// an iron balcony on a stone slab before a door-window at t, its floor at y, on the front of tools
+		const balcony = ( { at, out, part, opening }, t, y, w = 1.32 ) => {
+
+			opening( t, y + 0.1, 0.9, 1.95, false );
+			part( t - w / 2 - 0.02, t + w / 2 + 0.02, y, y + 0.1, 0.5, srgbToLinear( [ 0.7, 0.66, 0.58 ] ) );
+			const kit = this.walls, yaw = at( t ).yaw, rail = ( tt, d, y0, y1, sx, sz ) => {
+
+				const [ x, z ] = out( tt, d );
+				kit.box( x, ( y0 + y1 ) / 2, z, sx, y1 - y0, sz, yaw );
+
+			};
+			kit.color = IRON;
+			kit.vdata = [ 0, 0, 0.53, 4 ];
+			rail( t, 0.46, y + 0.95, y + 1.0, w, 0.04 );
+			rail( t, 0.46, y + 0.17, y + 0.21, w, 0.03 );
+			const n = Math.round( w / 0.21 );
+			for ( let k = - n; k <= n; k ++ ) rail( t + k * w / 2 / n, 0.46, y + 0.1, y + 0.95, 0.018, 0.018 );
+			for ( const sd of [ - 1, 1 ] ) {
+
+				rail( t + sd * ( w / 2 - 0.02 ), 0.25, y + 0.95, y + 1.0, 0.04, 0.44 );
+				for ( const d of [ 0.12, 0.24, 0.36 ] ) rail( t + sd * ( w / 2 - 0.02 ), d, y + 0.1, y + 0.95, 0.018, 0.018 );
+
+			}
+
+		};
+
+		// the tall house (and the photo from the north corner, -1151-): three bays between two blue pilasters, a
+		// blue band under the top floor, three balconies along it
 		const ft = find( '299063419c' );
 		if ( ft ) {
 
-			const { at, out, ground, plaster, part, opening } = this._frontTools( ft, [ [ - 14.15, - 44.5 ], [ - 14.1, - 59.4 ] ] );
-			const L = Math.hypot( 0.05, 14.9 ), eave = ft.roofH( - 14.6, - 50 ), g = ground( 2.5 );
+			const tools = this._frontTools( ft, [ [ - 14.15, - 44.5 ], [ - 14.12, - 53.05 ] ] ), { ground, plaster, part, opening } = tools;
+			const L = Math.hypot( 0.03, 8.55 ), eave = ft.roofH( - 14.6, - 48.8 ), g = ground( 2.5 );
 			plaster( 0, L, WHITE, 0.53 );
 			part( 0, 0.45, ft.base, eave, 0.1, BLUE );
+			part( L - 0.45, L, ft.base, eave, 0.1, BLUE );
 			part( 0, L, g + 4.82, g + 4.97, 0.06, BLUE );
-			opening( 1.0, g + 1.45, 0.82, 0.9, false );
-			opening( 2.45, g, 1.0, 2.25, true, GREEN );
-			opening( 5.2, g + 1.45, 0.82, 0.9, false );
-			for ( const t of [ 2.45, 5.2 ] ) {
+			opening( 1.15, g + 1.45, 0.82, 0.9, false );
+			opening( 2.6, g, 1.0, 2.25, true, GREEN );
+			opening( 5.15, g + 1.45, 0.82, 0.9, false );
+			opening( 7.4, g, 1.0, 2.25, true, WOOD );
+			for ( const t of [ 2.6, 5.15, 7.4 ] ) {
 
 				opening( t, g + 2.95, 0.88, 1.15, false );
-				// the balcony: a stone slab, a door-window over it, the iron railing round it
-				opening( t, g + 5.05, 0.9, 1.95, false );
-				part( t - 0.68, t + 0.68, g + 4.95, g + 5.05, 0.5, srgbToLinear( [ 0.7, 0.66, 0.58 ] ) );
-				const kit = this.walls, yaw = at( t ).yaw, rail = ( tt, d, y0, y1, sx, sz ) => {
+				balcony( tools, t, g + 4.95, 1.2 );
 
-					const [ x, z ] = out( tt, d );
-					kit.box( x, ( y0 + y1 ) / 2, z, sx, y1 - y0, sz, yaw );
+			}
 
-				};
-				kit.color = IRON;
-				kit.vdata = [ 0, 0, 0.53, 4 ];
-				rail( t, 0.46, g + 5.9, g + 5.95, 1.32, 0.04 );
-				rail( t, 0.46, g + 5.12, g + 5.16, 1.32, 0.03 );
-				for ( let k = - 6; k <= 6; k ++ ) rail( t + k * 0.105, 0.46, g + 5.05, g + 5.9, 0.018, 0.018 );
-				for ( const sd of [ - 1, 1 ] ) {
+		}
 
-					rail( t + sd * 0.64, 0.25, g + 5.9, g + 5.95, 0.04, 0.44 );
-					for ( const d of [ 0.12, 0.24, 0.36 ] ) rail( t + sd * 0.64, d, g + 5.05, g + 5.9, 0.018, 0.018 );
+		// the house past it, set back, lower, a blue pilaster at its far corner
+		const fe = find( '299063419e' );
+		if ( fe ) {
+
+			const tools = this._frontTools( fe, [ [ - 15.1, - 53.05 ], [ - 15.1, - 59.45 ] ] ), { ground, plaster, part, opening, pot } = tools;
+			const L = 6.4, eave = fe.roofH( - 15.5, - 56 ), g = ground( 3 );
+			plaster( 0, L, WHITE, 0.61 );
+			part( L - 0.45, L, fe.base, eave, 0.1, BLUE );
+			for ( const [ i, t ] of [ 1.6, 4.3 ].entries() ) {
+
+				opening( t, g + 3.4, 0.82, 1.3, false );
+				pot( t, g + 3.4, 1151 + i );
+
+			}
+
+			opening( 1.6, g, 1.0, 2.2, true, WOOD );
+			opening( 4.3, g + 1.2, 0.82, 1.1, false );
+
+		}
+
+		// the Telheiro, on the north side over the lane falling along the wall's north arm (photo -1151-): its
+		// porch the length of its front, on a platform of rough grey stone, level with the lane's top, the lane
+		// dropping away under its east end; stone columns, a white beam, a lean-to of Roman tiles, big pots of red
+		// geraniums between the columns. The house white over a yellow foot, a yellow pilaster at its west
+		// corner and a yellow band under the eave, balconies along the upper floor.
+		const fh = find( 298877060 );
+		if ( fh ) {
+
+			const A = TELHEIRO.wall[ 0 ], B = TELHEIRO.wall[ 1 ], L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+			const tools = this._frontTools( fh, [ A, B ] ), { at, out, plaster, part, opening } = tools;
+			const P = TELHEIRO.floor, D = TELHEIRO.depth, eave = fh.roofH( ...out( L / 2, 0.1 ) ), T = this.terrain;
+			const YELLOW = srgbToLinear( [ 0.88, 0.66, 0.2 ] ), COLUMN = srgbToLinear( [ 0.84, 0.82, 0.77 ] ), PAINTED = [ 0, 0, 0.53, 4 ];
+			plaster( 0, L, WHITE, 0.29 );
+			part( 0, L, P - 0.1, P + 0.62, 0.04, YELLOW ); // (its foot: over the porch's floor, not the lane's)
+			part( 0, 0.5, fh.base, eave, 0.1, YELLOW );
+			part( 0, L, eave - 0.4, eave - 0.12, 0.08, YELLOW );
+			// the platform: rough grey stone from the lane up to the porch's floor, slabs on top
+			const stone = this.stoneWalls, yaw = at( 0 ).yaw;
+			for ( let t = 0; t < L - 0.01; t += 1 ) {
+
+				const t1 = Math.min( L, t + 1 ), [ x, z ] = out( ( t + t1 ) / 2, D / 2 ), lo = Math.min( P, T.heightAt( ...out( ( t + t1 ) / 2, D + 0.4 ) ) ) - 0.4;
+				stone.color = [ 0.86, 0.86, 0.83 ];
+				stone.vdata = [ 41.3 + t, 0.6, 0, 0 ];
+				stone.box( x, ( lo + P - 0.06 ) / 2, z, t1 - t + 0.01, P - 0.06 - lo, D, yaw, 'top' );
+				stone.color = [ 0.95, 0.93, 0.88 ];
+				stone.vdata = [ 0.29, 0.4, 0, 1 ];
+				stone.box( x, P - 0.03, z, t1 - t + 0.01, 0.06, D + 0.08, yaw, 'bottom' );
+				this.colliders.addBox( new Vector3( x, ( lo + P ) / 2, z ), new Vector3( ( t1 - t ) / 2, ( P - lo ) / 2, D / 2 ), yaw, { walkable: true, tag: 'porch' } );
+
+			}
+
+			// the columns, the beam over them, the pots between
+			const kit = this.walls, n = Math.round( ( L - 1.2 ) / 2.8 ), cols = [];
+			for ( let i = 0; i <= n; i ++ ) cols.push( 0.6 + ( L - 1.2 ) * i / n );
+			kit.vdata = PAINTED;
+			kit.color = COLUMN;
+			for ( const t of cols ) {
+
+				const [ x, z ] = out( t, D - 0.25 );
+				kit.box( x, P + 0.08, z, 0.42, 0.16, 0.42, yaw );
+				for ( const a of [ 0, Math.PI / 4 ] ) kit.box( x, P + 1.32, z, 0.28, 2.32, 0.28, yaw + a );
+				kit.box( x, P + 2.55, z, 0.42, 0.14, 0.42, yaw );
+				this.colliders.addBox( new Vector3( x, P + 1.3, z ), new Vector3( 0.18, 1.3, 0.18 ), yaw, { walkable: false, tag: 'column' } );
+
+			}
+
+			kit.color = srgbToLinear( [ 0.93, 0.92, 0.89 ] );
+			{
+
+				const [ x, z ] = out( L / 2, D - 0.25 );
+				kit.box( x, P + 2.75, z, L, 0.26, 0.32, yaw );
+
+			}
+
+			const r = mulberry32( 1151 );
+			for ( let i = 0; i + 1 < cols.length; i += 1 ) {
+
+				if ( i % 2 === 1 && r() < 0.6 ) continue;
+				const t = ( cols[ i ] + cols[ i + 1 ] ) / 2 + ( r() - 0.5 ) * 0.6, [ x, z ] = out( t, D - 0.45 );
+				kit.color = srgbToLinear( [ 0.66, 0.34, 0.2 ] );
+				kit.box( x, P + 0.3, z, 0.5, 0.6, 0.5, yaw + r() );
+				for ( let k = 0; k < 40; k ++ ) {
+
+					const a = r() * 6.28, d = r() * 0.38, s = 0.07 + r() * 0.08;
+					kit.color = srgbToLinear( r() < 0.3 ? [ 0.85, 0.1, 0.12 ] : [ 0.17 + r() * 0.08, 0.34 + r() * 0.12, 0.1 ] );
+					kit.box( x + Math.cos( a ) * d, P + 0.65 + r() * 0.45 * ( 1 - d / 0.4 ), z + Math.sin( a ) * d, s, s, s, r() * 3 );
 
 				}
+
+			}
+
+			// the lean-to: tiles from over the beam up to the wall, white under it
+			{
+
+				const y0 = P + 2.9, y1 = P + 3.45, o = D + 0.3, sl = Math.hypot( o, y1 - y0 );
+				const V = ( t, d, y ) => { const [ x, z ] = out( t, d ); return [ x, y, z ]; };
+				this.roofs.color = [ 1, 1, 1 ];
+				this.roofs.vdata = [ 0.71, 0.55, 0, 0 ];
+				this.roofs.quadFacing( V( - 0.2, 0, y1 ), V( L + 0.2, 0, y1 ), V( L + 0.2, o, y0 ), V( - 0.2, o, y0 ), [ 0, 1, 0 ], [ [ 0, 0 ], [ L + 0.4, 0 ], [ L + 0.4, sl ], [ 0, sl ] ] );
+				const O0 = V( 0, 0, 0 ), O1 = V( 0, 1, 0 );
+				this.roofs.quadFacing( V( - 0.2, o, y0 ), V( L + 0.2, o, y0 ), V( L + 0.2, o, y0 - 0.1 ), V( - 0.2, o, y0 - 0.1 ), [ O1[ 0 ] - O0[ 0 ], 0, O1[ 2 ] - O0[ 2 ] ], [ [ 0, 0 ], [ L + 0.4, 0 ], [ L + 0.4, 0.1 ], [ 0, 0.1 ] ] );
+				kit.vdata = PAINTED;
+				kit.color = srgbToLinear( [ 0.9, 0.89, 0.86 ] );
+				kit.quadFacing( V( - 0.2, 0, y1 - 0.08 ), V( L + 0.2, 0, y1 - 0.08 ), V( L + 0.2, o, y0 - 0.08 ), V( - 0.2, o, y0 - 0.08 ), [ 0, - 1, 0 ] );
+
+			}
+
+			// the doors and windows under the porch, balconies over it
+			const bays = [ 1.9, 4.7, 7.5, 10.3, 13.1, 15.4 ].filter( ( t ) => t < L - 0.6 );
+			for ( const [ i, t ] of bays.entries() ) {
+
+				if ( i % 3 === 1 ) opening( t, P, 1.05, 2.3, true, WOOD );
+				else opening( t, P + 1.0, 0.85, 1.3, false );
+				balcony( tools, t, P + 3.55, 1.25 );
 
 			}
 

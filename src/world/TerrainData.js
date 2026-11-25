@@ -164,11 +164,11 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 	forecourt: { poly: [ [ 21, 9.2 ], [ 26, 10.5 ], [ 24.65, 2.6 ], [ 22.95, 2.25 ] ] }, // (the tower's west and east corners, then the tip)
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
 // Praça de Santa Maria's lower square (photo references/...-1113-814e8453-...): a level floor of calçada in the
-// U of the old retaining wall (OSM: the north arm, the long west side with the Chafariz in it, the south arm),
+// U of the old retaining wall (OSM: the south arm, the long west side with the Chafariz in it, the north arm; -z is north),
 // the terrace behind it a man's height higher, the Pelourinho on it; the lanes either side fall east along the
 // arms. floor: the lower square east to where it eases back onto the ground (x); terrace: how far back it runs
 // level from the wall before easing up to the houses (x0 .. x1); fountain: its middle along the west side (z);
-// pillory on the terrace behind it; steps up from the square's corner by the north arm's end onto its lane
+// pillory on the terrace behind it; steps up from the square's corner by the south arm's end onto its lane
 export const SANTA_MARIA_SQUARE = { wall: [ [ 1.8, - 28.4 ], [ - 8.3, - 30 ], [ - 6.8, - 54.2 ], [ 4.9, - 53.4 ] ],
 	floor: { x0: 6, x1: 10 }, terrace: { x0: - 10, x1: - 13.5, rise: 2.35 }, fountain: { z: - 41.95 }, pillory: [ - 10.0, - 41.3 ],
 	steps: { x0: 1.9, x1: 5.6 } };

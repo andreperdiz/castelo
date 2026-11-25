@@ -3363,7 +3363,7 @@ export class Walls {
 	// under a slab of reddish stone; in the middle of its long west side the Chafariz, a Renaissance fountain of
 	// pinkish stone (a trough, a panel with the arms in a round arch between two pilasters and two lion masks, a
 	// cornice, a pediment between scrolls), a low blue bed of shrubs either side and a row of stone bollards in
-	// front; three steps up from the square's corner by the north arm's end, a pot on the pier there; on the
+	// front; three steps up from the square's corner by the south arm's end, a pot on the pier there; on the
 	// terrace behind the fountain the Pelourinho.
 	_santaMariaSquare( materials ) {
 
@@ -3611,7 +3611,7 @@ export class Walls {
 
 		}
 
-		// the steps up from the square's corner past the north arm's end onto its lane (photo, left): long stone
+		// the steps up from the square's corner past the south arm's end onto its lane (photo, left): long stone
 		// steps, a landing on to the lane; the pier at the arm's end a little higher, a pot of geraniums on it
 		{
 
