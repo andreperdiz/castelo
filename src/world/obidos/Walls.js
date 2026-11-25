@@ -3673,20 +3673,46 @@ export class Walls {
 
 		}
 
-		// the steps up from the square's corner past the south arm's end onto its lane (photo, left): long stone
-		// steps, a landing on to the lane; the pier at the arm's end a little higher, a pot of geraniums on it
+		// the steps up from the square's corner past the south arm's end onto its lane (photos -1113-, -2021-): three
+		// long stone steps fanning out from the pier, the lowest short, the next longer with a rounded end, the top one
+		// a long wedge sinking into the lane's cobbles as the lane falls east; the pier at the arm's end a little
+		// higher, a pot of geraniums on it
 		{
 
-			const S0 = sides[ 0 ], st = Q.steps, zb = S0.A[ 1 ] - 1.25, zt = S0.A[ 1 ] + 0.05;
-			const lane = T.heightAt( ( st.x0 + st.x1 ) / 2, S0.A[ 1 ] + 2.4 );
-			const n = Math.max( 2, Math.round( ( lane - F ) / 0.16 ) ), rise = ( lane - F ) / n, run = ( zt - zb ) / n;
+			const S0 = sides[ 0 ], x0 = S0.A[ 0 ] + 0.15, zW = S0.A[ 1 ];
+			// (full height by the pier, sinking toward the wedge's tip, where the lane has fallen to the square's level)
+			const taper = ( x ) => F + 0.02 + 0.43 * ( 1 - smoothstep( x0 + 1.8, x0 + 4.9, x ) );
+			// each step's outline (x, z) and its top: its rise, but no higher than that
+			const arc = ( cx, cz, r, a0, a1, n ) => Array.from( { length: n + 1 }, ( _, i ) => { const a = a0 + ( a1 - a0 ) * i / n; return [ cx + Math.cos( a ) * r, cz + Math.sin( a ) * r ]; } );
+			const steps = [
+				[ 1, [ [ x0, zW - 1.35 ], [ x0 + 2.3, zW - 1.35 ], [ x0 + 2.3, zW - 0.95 ], [ x0, zW - 0.95 ] ] ],
+				[ 2, [ [ x0, zW - 0.95 ], ...arc( x0 + 3.0, zW - 0.55, 0.4, - Math.PI / 2, 0, 5 ), [ x0, zW - 0.55 ] ] ],
+				[ 3, [ [ x0, zW - 0.55 ], [ x0 + 4.9, zW + 0.12 ], [ x0, zW + 1.2 ] ] ] ];
 			kit.vdata = [ 0.43, 0.5, 0, 0 ];
 			kit.color = [ 0.76, 0.75, 0.7 ];
-			for ( let i = 1; i <= n; i ++ ) {
+			const V = ( q, y ) => [ q[ 0 ], y, q[ 1 ] ];
+			for ( const [ i, poly ] of steps ) {
 
-				const za = zb + run * ( i - 1 ), top = F + rise * i, zc = ( za + zt + 1.2 ) / 2;
-				kit.box( ( st.x0 + st.x1 ) / 2, ( top + F - 0.4 ) / 2, zc, st.x1 - st.x0, top - F + 0.4, zt + 1.2 - za, 0, 'bottom' );
-				this.colliders.addBox( new Vector3( ( st.x0 + st.x1 ) / 2, ( top + F - 0.4 ) / 2, zc ), new Vector3( ( st.x1 - st.x0 ) / 2, ( top - F + 0.4 ) / 2, ( zt + 1.2 - za ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+				const top = ( q ) => Math.min( F + 0.15 * i, taper( q[ 0 ] ) );
+				const C = poly.reduce( ( a, q ) => [ a[ 0 ] + q[ 0 ] / poly.length, a[ 1 ] + q[ 1 ] / poly.length ], [ 0, 0 ] );
+				for ( let j = 0; j < poly.length; j ++ ) {
+
+					const a = poly[ j ], b = poly[ ( j + 1 ) % poly.length ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+					// its top as a fan from the middle, its edges' faces down below the ground
+					// (wound to face up whichever way the outline runs)
+					const up = ( b[ 1 ] - C[ 1 ] ) * ( a[ 0 ] - C[ 0 ] ) - ( b[ 0 ] - C[ 0 ] ) * ( a[ 1 ] - C[ 1 ] ) > 0;
+					const [ p, q ] = up ? [ b, a ] : [ a, b ];
+					kit.tri( V( C, top( C ) ), V( p, top( p ) ), V( q, top( q ) ), [ [ C[ 0 ], C[ 1 ] ], [ p[ 0 ], p[ 1 ] ], [ q[ 0 ], q[ 1 ] ] ], [ 0, 1, 0 ] );
+					const n = [ ( b[ 1 ] - a[ 1 ] ) / L, 0, - ( b[ 0 ] - a[ 0 ] ) / L ];
+					const out = ( ( a[ 0 ] + b[ 0 ] ) / 2 - C[ 0 ] ) * n[ 0 ] + ( ( a[ 1 ] + b[ 1 ] ) / 2 - C[ 1 ] ) * n[ 2 ] > 0 ? n : [ - n[ 0 ], 0, - n[ 2 ] ];
+					kit.quadFacing( V( a, F - 0.3 ), V( b, F - 0.3 ), V( b, top( b ) ), V( a, top( a ) ), out, [ [ 0, 0 ], [ L, 0 ], [ L, top( b ) - F + 0.3 ], [ 0, top( a ) - F + 0.3 ] ] );
+
+				}
+
+				// (to walk on: a box for each step's broad end by the pier)
+				const xs = poly.map( ( q ) => q[ 0 ] ), zs = poly.map( ( q ) => q[ 1 ] );
+				const bx0 = Math.min( ...xs ), bx1 = i === 3 ? x0 + 2.2 : Math.max( ...xs ), bz0 = Math.min( ...zs ), bz1 = i === 3 ? zW + 0.9 : Math.max( ...zs ), h = F + 0.15 * i;
+				this.colliders.addBox( new Vector3( ( bx0 + bx1 ) / 2, ( h + F - 0.3 ) / 2, ( bz0 + bz1 ) / 2 ), new Vector3( ( bx1 - bx0 ) / 2, ( h - F + 0.3 ) / 2, ( bz1 - bz0 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
 
 			}
 
@@ -3698,6 +3724,8 @@ export class Walls {
 			SK.vdata = [ 0, 0, 0.53, 4 ];
 			SK.color = BLUE;
 			SK.box( Cp[ 0 ], ( B0 + F + 0.75 ) / 2, Cp[ 1 ], 0.84, F + 0.75 - B0, TH + 0.14, S0.yaw, 'top bottom' );
+			// (on its end, over the steps, the blue goes higher, photo -2021-)
+			SK.box( Cp[ 0 ] - S0.u[ 0 ] * 0.425, F + 1.32, Cp[ 1 ] - S0.u[ 1 ] * 0.425, 0.02, 1.15, TH + 0.14, S0.yaw );
 			kit.vdata = [ 0.43, 0.6, 0, 0 ];
 			kit.color = [ 0.66, 0.64, 0.6 ];
 			kit.box( Cp[ 0 ], YT + 0.17, Cp[ 1 ], 0.94, 0.1, TH + 0.24, S0.yaw );

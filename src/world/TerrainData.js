@@ -170,11 +170,10 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 // level from the wall to the houses' fronts (x0, easing under them by x1), and how much higher (the wall stands
 // 0.75 m over it, photo -1350-); it is Rua Direita: level across, it climbs north from north[ 0 ] (z) to the
 // north arm's corner by north[ 1 ] m, and runs on into the street's ground past its ends (ends: from the
-// south corner's paving to z, and from the north corner to z); fountain: its middle along the west side (z), the Pelourinho behind it; steps up from
-// the square's corner by the south arm's end onto its lane
+// south corner's paving to z, and from the north corner to z); fountain: its middle along the west side (z), the
+// Pelourinho behind it
 export const SANTA_MARIA_SQUARE = { wall: [ [ 1.8, - 28.4 ], [ - 8.3, - 30 ], [ - 6.8, - 54.2 ], [ 4.9, - 53.4 ] ],
-	floor: { x0: 6, x1: 10 }, terrace: { x0: - 14.6, x1: - 16, rise: 2.1, north: [ - 44, 0.4 ], ends: [ - 27.6, - 23.6, - 62 ] }, fountain: { z: - 41.95 },
-	steps: { x0: 1.9, x1: 5.6 } };
+	floor: { x0: 6, x1: 10 }, terrace: { x0: - 14.6, x1: - 16, rise: 2.1, north: [ - 44, 0.4 ], ends: [ - 27.6, - 23.6, - 62 ] }, fountain: { z: - 41.95 } };
 // the chapel before the Igreja de Santa Maria's bell tower (photo references/...-2003-be0365f0-...): its front to
 // the square at x, a metre behind the church's, from z0 to z1; its eave (Town builds it gabled to the square,
 // Walls dresses its front)
