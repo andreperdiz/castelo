@@ -210,7 +210,8 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 // panel from the wall out into the square, an outer and an inner rectangle joined at their corners like a
 // picture frame; between them before the fountain a longer one, halved down the middle, an inner rectangle in
 // each half with quarter circles in its corners, diagonals from its corners to the panel's, meeting in a point at
-// the middle line top and bottom. p: a sett's centre.
+// the middle line top and bottom; and that panel again beyond it, toward the church (four rectangles in all).
+// p: a sett's centre.
 fn groundSmSeg( q: vec2f, a: vec2f, b: vec2f ) -> f32 {
 	let ab = b - a;
 	let t = clamp( dot( q - a, ab ) / dot( ab, ab ), 0.0, 1.0 );
@@ -226,8 +227,10 @@ fn groundSantaMaria( p: vec2f ) -> f32 {
 	let d = p - ${ SM.o };
 	let a = dot( d, ${ SM.u } );
 	let k = dot( d, ${ SM.n } );
-	if ( k < 0.2 || k > 14.2 || abs( a ) > 11.8 ) { return 0.0; }
+	if ( k < 0.2 || k > 24.0 || abs( a ) > 11.8 ) { return 0.0; }
 	let q = vec2f( abs( a ), k );
+	// (the middle panel's frame: past its far edge, the second one, the same shifted out by its length)
+	let qm = vec2f( q.x, select( k, k - 9.8, k > 13.8 ) );
 	let w = 0.12;
 	var e = 99.0;
 	// the side panels: outer and inner rectangles, their corners joined
@@ -239,22 +242,22 @@ fn groundSantaMaria( p: vec2f ) -> f32 {
 	e = min( e, groundSmSeg( q, so1, si1 ) );
 	e = min( e, groundSmSeg( q, vec2f( so1.x, so0.y ), vec2f( si1.x, si0.y ) ) );
 	e = min( e, groundSmSeg( q, vec2f( so0.x, so1.y ), vec2f( si0.x, si1.y ) ) );
-	// the middle panel, its middle line, the inner rectangles, the diagonals
+	// the middle panels, their middle line, the inner rectangles, the diagonals
 	let co0 = vec2f( 0.0, 4.0 ); let co1 = vec2f( 4.7, 13.8 );
 	let ci0 = vec2f( 0.9, 5.7 ); let ci1 = vec2f( 3.5, 12.6 );
-	e = min( e, groundSmRect( q, vec2f( - 1.0, co0.y ), co1 ) );
-	e = min( e, groundSmSeg( q, vec2f( 0.0, co0.y ), vec2f( 0.0, co1.y ) ) );
-	e = min( e, groundSmRect( q, ci0, ci1 ) );
-	e = min( e, groundSmSeg( q, vec2f( co1.x, co0.y ), vec2f( ci1.x, ci0.y ) ) );
-	e = min( e, groundSmSeg( q, vec2f( 0.0, co0.y ), ci0 ) );
-	e = min( e, groundSmSeg( q, co1, ci1 ) );
-	e = min( e, groundSmSeg( q, vec2f( 0.0, co1.y ), vec2f( ci0.x, ci1.y ) ) );
+	e = min( e, groundSmRect( qm, vec2f( - 1.0, co0.y ), co1 ) );
+	e = min( e, groundSmSeg( qm, vec2f( 0.0, co0.y ), vec2f( 0.0, co1.y ) ) );
+	e = min( e, groundSmRect( qm, ci0, ci1 ) );
+	e = min( e, groundSmSeg( qm, vec2f( co1.x, co0.y ), vec2f( ci1.x, ci0.y ) ) );
+	e = min( e, groundSmSeg( qm, vec2f( 0.0, co0.y ), ci0 ) );
+	e = min( e, groundSmSeg( qm, co1, ci1 ) );
+	e = min( e, groundSmSeg( qm, vec2f( 0.0, co1.y ), vec2f( ci0.x, ci1.y ) ) );
 	var m = step( e, w );
 	// the quarter circles in the inner rectangles' corners
-	if ( all( q >= ci0 ) && all( q <= ci1 ) ) {
+	if ( all( qm >= ci0 ) && all( qm <= ci1 ) ) {
 		let r = 0.65;
-		var c = min( length( q - ci0 ), length( q - ci1 ) );
-		c = min( c, min( length( q - vec2f( ci0.x, ci1.y ) ), length( q - vec2f( ci1.x, ci0.y ) ) ) );
+		var c = min( length( qm - ci0 ), length( qm - ci1 ) );
+		c = min( c, min( length( qm - vec2f( ci0.x, ci1.y ) ), length( qm - vec2f( ci1.x, ci0.y ) ) ) );
 		m = max( m, step( abs( c - r ), w * 0.8 ) );
 	}
 	return m;
