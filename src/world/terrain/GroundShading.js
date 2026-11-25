@@ -263,6 +263,11 @@ fn groundSantaMaria( p: vec2f ) -> f32 {
 	e = min( e, groundSmSeg( q, so1, si1 ) );
 	e = min( e, groundSmSeg( q, vec2f( so1.x, so0.y ), vec2f( si1.x, si0.y ) ) );
 	e = min( e, groundSmSeg( q, vec2f( so0.x, so1.y ), vec2f( si0.x, si1.y ) ) );
+	// before the fountain, between its beds and the middle panel: lines from the beds' fronts, joined across, and
+	// diagonals out to the middle panel's near corners
+	e = min( e, groundSmSeg( q, vec2f( 3.1, 0.6 ), vec2f( 3.1, 2.6 ) ) );
+	e = min( e, groundSmSeg( q, vec2f( 0.0, 2.6 ), vec2f( 3.1, 2.6 ) ) );
+	e = min( e, groundSmSeg( q, vec2f( 3.1, 2.6 ), vec2f( 4.7, 4.0 ) ) );
 	m = step( e, w );
 	// the middle panels, before the fountain and again beyond it toward the church
 	if ( k >= 3.8 ) {
