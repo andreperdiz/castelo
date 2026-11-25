@@ -4385,14 +4385,29 @@ export class Walls {
 
 			}
 
-			// the strip of grey stone paving along the front wall, level with the terrace, over the ground's dip right
-			// behind the wall, and a collider for it
-			const F = S.cafe + 0.02, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
+			// slabs of grey stone along the front wall's foot, a touch under the terrace's cobbles: they show only in
+			// the ground's dip right behind the wall; and a collider at the terrace's level over it
+			const F = S.cafe - 0.03, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
 			kit.vdata = [ 0.71, 0.3, 0, 0 ];
 			kit.color = [ 0.74, 0.72, 0.67 ];
 			kit.quadFacing( ...corners.map( ( q ) => [ q[ 0 ], F, q[ 1 ] ] ), [ 0, 1, 0 ], corners.map( ( q ) => [ q[ 0 ], q[ 1 ] ] ) );
 			const Cf = P( SL / 2, D / 2 ), lo = base( corners[ 0 ], corners[ 2 ], [ 0, 0 ] ) - 0.5;
-			this.colliders.addBox( new Vector3( Cf[ 0 ], ( F + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( F - lo ) / 2, D / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
+			this.colliders.addBox( new Vector3( Cf[ 0 ], ( S.cafe + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( S.cafe - lo ) / 2, D / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
+
+			// the front wall's west end, where the alley starts down from the square, finished with a pier under a
+			// slab of grey stone
+			{
+
+				const C = P( 0.32, 0.27 ), g = Math.min( alleyY( s0 ), S.cafe ) - 0.6, py = Math.atan2( - su[ 1 ], su[ 0 ] );
+				plaster.vdata = [ 20, 0, 0.47, 0 ];
+				plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
+				plaster.box( C[ 0 ], ( g + top + 0.15 ) / 2, C[ 1 ], 0.7, top + 0.15 - g, 0.7, py );
+				kit.vdata = [ 0.43, 0.6, 0, 0 ];
+				kit.color = [ 0.66, 0.64, 0.6 ];
+				kit.box( C[ 0 ], top + 0.2, C[ 1 ], 0.84, 0.1, 0.84, py );
+				this.colliders.addBox( new Vector3( C[ 0 ], ( g + top ) / 2, C[ 1 ] ), new Vector3( 0.35, ( top - g ) / 2, 0.35 ), py, { walkable: false, tag: 'wall' } );
+
+			}
 
 			// a coping of old brownish stone along the two walls' tops, moss in it
 			kit.vdata = [ 0.43, 0.6, 0, 0 ];

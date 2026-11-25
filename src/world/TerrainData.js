@@ -1217,10 +1217,11 @@ export class TerrainData {
 
 		// the café's terrace behind the south wall: no walls round it on the Largo's side, its ground level with the
 		// Largo's (photos references/...-1411-..., -2021-), the wall over the alley standing as a parapet over it; a
-		// paved strip along the wall (Walls lays it, over the ground's dip right behind the wall); level back DEEP m,
+		// row of slabs along the wall's foot (Walls lays it a touch under the ground, so it shows only in the ground's
+		// dip right behind the wall); level back DEEP m,
 		// then easing into the Largo's ground; not touched a metre from the wall (changed there it would bank out over
 		// the wall's foot in the alley), nor east past the terrace, where the stair runs
-		const top = y0 + 1.5, DEEP = 9.5, STRIP = 1.6, cafe = this.heightAt( 18.5, - 24 );
+		const top = y0 + 1.5, DEEP = 9.5, STRIP = 2.2, cafe = this.heightAt( 18.5, - 24 );
 		{
 
 			const [ sA, sB ] = S.south, zl = ( x ) => sA[ 1 ] + ( sB[ 1 ] - sA[ 1 ] ) * ( x - sA[ 0 ] ) / ( sB[ 0 ] - sA[ 0 ] );
