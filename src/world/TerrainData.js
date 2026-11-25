@@ -1246,6 +1246,37 @@ export class TerrainData {
 
 		}
 
+		// the way up from the alley's top to the Largo, between the museum and the terrace's west wall: one gentle
+		// slope from the alley's edge to the Largo's level, not the short steep rise left where the two levels met
+		{
+
+			const zA = - 12.8, zB = - 20.2, xs = [], ya = [], yb = [];
+			const ri0 = Math.floor( ( 8.5 - origin ) / texel ), ri1 = Math.floor( ( 13.0 - origin ) / texel - 0.5 ); // (not past the wall's line: the terrace is behind it)
+			for ( let i = ri0; i <= ri1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel;
+				xs.push( i );
+				ya.push( this.heightAt( x, zA ) );
+				yb.push( this.heightAt( x, zB ) );
+
+			}
+
+			const rj0 = Math.ceil( ( zB - origin ) / texel - 0.5 ), rj1 = Math.floor( ( zA - origin ) / texel - 0.5 );
+			for ( let j = rj0; j <= rj1; j ++ ) {
+
+				const z = origin + ( j + 0.5 ) * texel, t = ( z - zA ) / ( zB - zA );
+				xs.forEach( ( i, n ) => {
+
+					heights[ j * res + i ] = lerp( ya[ n ], yb[ n ], t );
+					this.path[ j * res + i ] = 255;
+					this.scarp[ j * res + i ] = 255;
+
+				} );
+
+			}
+
+		}
+
 		// the lane from the Largo north under the arch beside the house-tower (Rua Padre António Almeida; photo
 		// references/...-1912-3408fb6f-...): one even climb right across to the walls each side, the walled garden's
 		// bank cut back behind its wall
