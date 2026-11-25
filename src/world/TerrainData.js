@@ -1215,12 +1215,12 @@ export class TerrainData {
 
 		}
 
-		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge): no
-		// walls round it on the Largo's side, its ground running on into the Largo's (photos references/...-1411-...,
-		// -2021-): a paved strip along the wall at its top's level (Walls lays it, over the ground's rise), from it the
-		// ground falling gently to the Largo's by DEEP + 2.5 m back; not touched a metre from the wall (raised there it
-		// would bank out over the wall's foot in the alley), nor east past the terrace, where the stair runs
-		const top = y0 + 1.5, DEEP = 9.5, STRIP = 3.0;
+		// the café's terrace behind the south wall: no walls round it on the Largo's side, its ground level with the
+		// Largo's (photos references/...-1411-..., -2021-), the wall over the alley standing as a parapet over it; a
+		// paved strip along the wall (Walls lays it, over the ground's dip right behind the wall); level back DEEP m,
+		// then easing into the Largo's ground; not touched a metre from the wall (changed there it would bank out over
+		// the wall's foot in the alley), nor east past the terrace, where the stair runs
+		const top = y0 + 1.5, DEEP = 9.5, STRIP = 1.6, cafe = this.heightAt( 18.5, - 24 );
 		{
 
 			const [ sA, sB ] = S.south, zl = ( x ) => sA[ 1 ] + ( sB[ 1 ] - sA[ 1 ] ) * ( x - sA[ 0 ] ) / ( sB[ 0 ] - sA[ 0 ] );
@@ -1232,7 +1232,7 @@ export class TerrainData {
 				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = zl( x ) - z, idx = j * res + i;
 				if ( k < 1.0 || k > DEEP + 2.5 || x > xe ) continue;
 				const lw = 1 - smoothstep( 0, 2.5, sA[ 0 ] - x );
-				const y = k <= STRIP ? top - 0.08 : lerp( top - 0.05, heights[ idx ], smoothstep( STRIP, DEEP + 2.5, k ) );
+				const y = lerp( cafe, heights[ idx ], smoothstep( DEEP, DEEP + 2.5, k ) );
 				heights[ idx ] = lerp( heights[ idx ], y, lw );
 				if ( lw > 0.5 ) {
 
@@ -1492,7 +1492,7 @@ export class TerrainData {
 
 		}
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, STRIP, lane: LN, forecourt: FC, laneY,
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, STRIP, cafe, lane: LN, forecourt: FC, laneY,
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}

@@ -4385,9 +4385,9 @@ export class Walls {
 
 			}
 
-			// the strip of grey stone paving along the front wall, level just under its top, over the ground's rise
+			// the strip of grey stone paving along the front wall, level with the terrace, over the ground's dip right
 			// behind the wall, and a collider for it
-			const F = top - 0.05, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
+			const F = S.cafe + 0.02, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
 			kit.vdata = [ 0.71, 0.3, 0, 0 ];
 			kit.color = [ 0.74, 0.72, 0.67 ];
 			kit.quadFacing( ...corners.map( ( q ) => [ q[ 0 ], F, q[ 1 ] ] ), [ 0, 1, 0 ], corners.map( ( q ) => [ q[ 0 ], q[ 1 ] ] ) );
@@ -4639,11 +4639,11 @@ export class Walls {
 		}
 
 		// on the terrace, three big square white parasols over the tables, open, their tops showing over the
-		// walls from the Largo (photo references/...-2241-...)
+		// wall from the alley (photo references/...-2241-...)
 		{
 
 			const back = [ - out[ 0 ], - out[ 1 ] ], P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
-			const F = top - 0.05, pyaw = Math.atan2( - su[ 1 ], su[ 0 ] );
+			const F = S.cafe, pyaw = Math.atan2( - su[ 1 ], su[ 0 ] );
 			for ( const u of [ 3.0, 6.6, 10.2 ] ) {
 
 				const C = P( u, 1.9 ), yR = F + 2.35, yA = F + 2.75, H = 1.55; // the rim, the apex, half the canopy
@@ -4760,7 +4760,7 @@ export class Walls {
 		for ( const u of [ 1.6, 4.4 ] ) {
 
 			// a small round table, two chairs, a step back from the wall's top
-			const C = [ s0[ 0 ] + su[ 0 ] * u - out[ 0 ] * 1.3, s0[ 1 ] + su[ 1 ] * u - out[ 1 ] * 1.3 ], g = S.top - 0.05;
+			const C = [ s0[ 0 ] + su[ 0 ] * u - out[ 0 ] * 1.3, s0[ 1 ] + su[ 1 ] * u - out[ 1 ] * 1.3 ], g = S.cafe;
 			kit.color = [ 0.06, 0.06, 0.06 ];
 			kit.box( C[ 0 ], g + 0.36, C[ 1 ], 0.05, 0.72, 0.05, 0 );
 			kit.color = [ 0.55, 0.55, 0.53 ];
