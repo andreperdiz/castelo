@@ -109,6 +109,9 @@ export class PhotoRefs {
 	setPhoto( file ) {
 
 		this.file = file;
+		// a new photo starts a new view: the last one's note and name don't belong to it
+		this.noteInput.value = '';
+		this.nameInput.value = file.name.replace( /\.[^.]+$/, '' );
 		if ( this.img.src.startsWith( 'blob:' ) ) URL.revokeObjectURL( this.img.src );
 		this.img.onload = () => {
 
@@ -117,7 +120,6 @@ export class PhotoRefs {
 			// a phone's main camera sees about 70° across its long side: start there
 			const portrait = this.img.naturalHeight > this.img.naturalWidth;
 			this.setFov( portrait ? 70 : 50 );
-			if ( ! this.nameInput.value ) this.nameInput.value = file.name.replace( /\.[^.]+$/, '' );
 			this.say( 'Move the camera until the game lines up with the photo.' );
 
 		};
