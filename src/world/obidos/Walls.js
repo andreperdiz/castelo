@@ -3704,9 +3704,12 @@ export class Walls {
 
 		// the Pelourinho (photo -1350-): against the terrace's side of the wall right behind the fountain (its
 		// pediment shows over the wall behind it), on three round steps of big blocks; a round shaft on a moulded
-		// base, a collar of twisted rope two thirds up, and a tall carved finial like a pine cone
+		// base, a collar of twisted rope two thirds up, and a tall carved finial like a pine cone; some 4.8 m over the
+		// terrace in all (photo -1113-: its tip under five metres over the terrace). The column's profile is drawn
+		// 6 m tall and scaled by K, its girth by KR.
 		{
 
+			const K = 0.64, KR = 0.9;
 			const C = P( SW, sF, - TH - 1.0 ), [ x, z ] = C, g = T.heightAt( x - 1.5, z );
 			kit.vdata = [ 0.43, 0.65, 0, 0 ];
 			// a drum of n blocks round ( x, z ), radius r, from y0 up h; a round body: four squares turned
@@ -3731,7 +3734,7 @@ export class Walls {
 			};
 			kit.color = [ 1.0, 0.98, 0.92 ];
 			let y = g - 0.3;
-			for ( const [ h, r, n ] of [ [ 0.7, 1.15, 14 ], [ 0.4, 0.88, 12 ], [ 0.38, 0.62, 10 ] ] ) {
+			for ( const [ h, r, n ] of [ [ 0.64, 1.1, 14 ], [ 0.34, 0.84, 12 ], [ 0.32, 0.6, 10 ] ] ) {
 
 				drum( y, h, r, n );
 				this.colliders.addBox( new Vector3( x, y + h / 2, z ), new Vector3( r * 0.9, h / 2, r * 0.9 ), 0, { walkable: true, tag: 'pillory' } );
@@ -3740,21 +3743,21 @@ export class Walls {
 			}
 
 			const y0 = y;
-			this.colliders.addBox( new Vector3( x, y0 + 2, z ), new Vector3( 0.3, 2, 0.3 ), 0, { walkable: false, tag: 'pillory' } );
+			this.colliders.addBox( new Vector3( x, y0 + 6 * K / 2, z ), new Vector3( 0.3, 6 * K / 2, 0.3 ), 0, { walkable: false, tag: 'pillory' } );
 			for ( const [ dy, h, r ] of [
 				// the base's mouldings, the shaft, the rope collar, the shaft on up
 				[ 0, 0.12, 0.36 ], [ 0.12, 0.2, 0.3 ], [ 0.32, 0.18, 0.33 ], [ 0.5, 0.15, 0.27 ], [ 0.65, 0.1, 0.22 ], [ 0.75, 2.2, 0.17 ],
 				[ 2.95, 0.22, 0.225 ], [ 3.17, 0.75, 0.17 ],
 				// the finial: a moulded drum, the long carved cone swelling and closing, a ring, its point
 				[ 3.9, 0.12, 0.24 ], [ 4.02, 0.25, 0.28 ], [ 4.27, 0.4, 0.32 ], [ 4.67, 0.4, 0.34 ], [ 5.07, 0.25, 0.3 ], [ 5.32, 0.1, 0.26 ],
-				[ 5.42, 0.18, 0.2 ], [ 5.6, 0.18, 0.14 ], [ 5.78, 0.14, 0.09 ], [ 5.92, 0.1, 0.04 ] ] ) round( y0 + dy, h, r, h < 0.13 ? WORN : PALE );
+				[ 5.42, 0.18, 0.2 ], [ 5.6, 0.18, 0.14 ], [ 5.78, 0.14, 0.09 ], [ 5.92, 0.1, 0.04 ] ] ) round( y0 + dy * K, h * K, r * KR, h < 0.13 ? WORN : PALE );
 			// the rope's twist, and the leaves carved over the cone
 			const r = mulberry32( 1350 );
 			for ( let i = 0; i < 12; i ++ ) {
 
 				const a = i * Math.PI / 6;
 				SK.color = WORN;
-				SK.box( x + Math.cos( a ) * 0.225, y0 + 3.06, z + Math.sin( a ) * 0.225, 0.12, 0.05, 0.05, - a + 0.6 );
+				SK.box( x + Math.cos( a ) * 0.225 * KR, y0 + 3.06 * K, z + Math.sin( a ) * 0.225 * KR, 0.11, 0.04, 0.045, - a + 0.6 );
 
 			}
 
@@ -3762,7 +3765,7 @@ export class Walls {
 
 				const a = r() * Math.PI * 2, yy = 4.15 + r() * 1.0, rr = 0.3 + 0.05 * Math.sin( ( yy - 4.15 ) * 3 );
 				SK.color = r() < 0.5 ? WORN : PALE;
-				SK.box( x + Math.cos( a ) * rr, y0 + yy, z + Math.sin( a ) * rr, 0.14, 0.12, 0.09, - a );
+				SK.box( x + Math.cos( a ) * rr * KR, y0 + yy * K, z + Math.sin( a ) * rr * KR, 0.12, 0.09, 0.08, - a );
 
 			}
 
