@@ -1215,11 +1215,35 @@ export class TerrainData {
 
 		}
 
-		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge),
-		// from the wall's face back 9.5 m along the way down from the square (photo references/...-814e8453-...):
-		// Walls builds it, walls round it and a paved floor over the ground, which is left as it is (a raised
-		// ground would bank out over the walls' feet)
-		const top = y0 + 1.5, DEEP = 9.5;
+		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge): no
+		// walls round it on the Largo's side, its ground running on into the Largo's (photos references/...-1411-...,
+		// -2021-): a paved strip along the wall at its top's level (Walls lays it, over the ground's rise), from it the
+		// ground falling gently to the Largo's by DEEP + 2.5 m back; not touched a metre from the wall (raised there it
+		// would bank out over the wall's foot in the alley), nor east past the terrace, where the stair runs
+		const top = y0 + 1.5, DEEP = 9.5, STRIP = 3.0;
+		{
+
+			const [ sA, sB ] = S.south, zl = ( x ) => sA[ 1 ] + ( sB[ 1 ] - sA[ 1 ] ) * ( x - sA[ 0 ] ) / ( sB[ 0 ] - sA[ 0 ] );
+			const xe = sB[ 0 ] - 0.3;
+			const ti0 = Math.floor( ( sA[ 0 ] - 3 - origin ) / texel ), ti1 = Math.ceil( ( xe - origin ) / texel );
+			const tj0 = Math.floor( ( Math.min( sA[ 1 ], sB[ 1 ] ) - DEEP - 3 - origin ) / texel ), tj1 = Math.ceil( ( Math.max( sA[ 1 ], sB[ 1 ] ) - origin ) / texel );
+			for ( let j = tj0; j <= tj1; j ++ ) for ( let i = ti0; i <= ti1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = zl( x ) - z, idx = j * res + i;
+				if ( k < 1.0 || k > DEEP + 2.5 || x > xe ) continue;
+				const lw = 1 - smoothstep( 0, 2.5, sA[ 0 ] - x );
+				const y = k <= STRIP ? top - 0.08 : lerp( top - 0.05, heights[ idx ], smoothstep( STRIP, DEEP + 2.5, k ) );
+				heights[ idx ] = lerp( heights[ idx ], y, lw );
+				if ( lw > 0.5 ) {
+
+					this.path[ idx ] = 255;
+					this.scarp[ idx ] = 255;
+
+				}
+
+			}
+
+		}
 
 		// the lane from the Largo north under the arch beside the house-tower (Rua Padre António Almeida; photo
 		// references/...-1912-3408fb6f-...): one even climb right across to the walls each side, the walled garden's
@@ -1468,7 +1492,7 @@ export class TerrainData {
 
 		}
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: FC, laneY,
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, STRIP, lane: LN, forecourt: FC, laneY,
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}

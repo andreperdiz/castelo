@@ -4363,8 +4363,9 @@ export class Walls {
 
 		}
 
-		// the terrace's other sides, held up by walls like the front one: its back (south), its east end, and
-		// its west side along the way down from the square (photo references/...-814e8453-...)
+		// the terrace's east end, held up by a wall like the front one beside the stair from the Largo da Misericórdia
+		// (photo references/...-814e8453-...); on the Largo de Santa Maria's side no walls, its ground running on
+		// into the Largo's (photos -1411-, -2021-: TerrainData shapes it)
 		{
 
 			const back = [ - out[ 0 ], - out[ 1 ] ], T = this.terrain, P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
@@ -4376,30 +4377,29 @@ export class Walls {
 				return lo;
 
 			};
-			const blue = lin( [ 0.2, 0.34, 0.8 ] );
-			for ( const [ A, B, n, seed ] of [ [ P( SL, S.DEEP ), P( 0, S.DEEP ), back, 67 ], [ P( SL, 0.25 ), P( SL, S.DEEP ), su, 71 ], [ P( 0, S.DEEP ), P( 0, 0.25 ), [ - su[ 0 ], - su[ 1 ] ], 73 ] ] ) {
+			const blue = lin( [ 0.2, 0.34, 0.8 ] ), EAST = S.DEEP; // (the Misericórdia's side: as it was)
+			{
 
-				const g = base( A, B, n );
-				this._oldWall( plaster, A, B, - 1, () => g, top - g, top - g, seed, false, { foot: blue, ivy: false } );
+				const A = P( SL, 0.25 ), B = P( SL, EAST ), g = base( A, B, su );
+				this._oldWall( plaster, A, B, - 1, () => g, top - g, top - g, 71, false, { foot: blue, ivy: false } );
 
 			}
 
-			// the floor: grey stone paving level just under the walls' tops, over the ground, and a collider for it
-			const F = top - 0.05, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, S.DEEP ), P( 0, S.DEEP ) ];
+			// the strip of grey stone paving along the front wall, level just under its top, over the ground's rise
+			// behind the wall, and a collider for it
+			const F = top - 0.05, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
 			kit.vdata = [ 0.71, 0.3, 0, 0 ];
 			kit.color = [ 0.74, 0.72, 0.67 ];
 			kit.quadFacing( ...corners.map( ( q ) => [ q[ 0 ], F, q[ 1 ] ] ), [ 0, 1, 0 ], corners.map( ( q ) => [ q[ 0 ], q[ 1 ] ] ) );
-			const Cf = P( SL / 2, S.DEEP / 2 ), lo = base( corners[ 0 ], corners[ 2 ], [ 0, 0 ] ) - 0.5;
-			this.colliders.addBox( new Vector3( Cf[ 0 ], ( F + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( F - lo ) / 2, S.DEEP / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
+			const Cf = P( SL / 2, D / 2 ), lo = base( corners[ 0 ], corners[ 2 ], [ 0, 0 ] ) - 0.5;
+			this.colliders.addBox( new Vector3( Cf[ 0 ], ( F + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( F - lo ) / 2, D / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
 
-			// a coping of old brownish stone along all four tops, moss in it
+			// a coping of old brownish stone along the two walls' tops, moss in it
 			kit.vdata = [ 0.43, 0.6, 0, 0 ];
 			kit.color = [ 0.36, 0.33, 0.27 ];
-			const C = P( SL / 2, S.DEEP / 2 );
-			for ( const [ A, B ] of [ [ P( 0, 0 ), P( SL, 0 ) ], [ P( SL, 0 ), P( SL, S.DEEP ) ], [ P( SL, S.DEEP ), P( 0, S.DEEP ) ], [ P( 0, S.DEEP ), P( 0, 0 ) ] ] ) {
+			for ( const [ A, B, inw ] of [ [ P( 0, 0 ), P( SL, 0 ), back ], [ P( SL, 0 ), P( SL, EAST ), [ - su[ 0 ], - su[ 1 ] ] ] ] ) {
 
 				const M = [ ( A[ 0 ] + B[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] ) / 2 ], l = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
-				const m = Math.hypot( C[ 0 ] - M[ 0 ], C[ 1 ] - M[ 1 ] ), inw = [ ( C[ 0 ] - M[ 0 ] ) / m, ( C[ 1 ] - M[ 1 ] ) / m ];
 				kit.box( M[ 0 ] + inw[ 0 ] * 0.24, top + 0.04, M[ 1 ] + inw[ 1 ] * 0.24, l + 0.1, 0.08, 0.62, Math.atan2( - ( B[ 1 ] - A[ 1 ] ), B[ 0 ] - A[ 0 ] ) );
 
 			}
