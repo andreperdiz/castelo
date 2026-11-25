@@ -1,6 +1,7 @@
 import { ShaderModule } from '../../engine/gpu/Shader.js';
 import { commonModule } from '../../engine/render/wgsl/common.js';
 import { srgb, terrainShadingModule } from './TerrainShading.js';
+import { SANTA_MARIA_SQUARE } from '../TerrainData.js';
 
 // The Óbidos countryside and town ground, shared by the near terrain and the far DEM mesh.
 //
@@ -18,6 +19,7 @@ import { srgb, terrainShadingModule } from './TerrainShading.js';
 //   fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f                          limestone setts (albedo, a = bump)
 //   fn groundRoughStones( xz: vec2f, px: f32 ) -> vec4f                      a wall foot's rough stones in sand
 //   fn groundHash( p: vec2f ) -> f32
+//   fn groundSantaMaria( p: vec2f ) -> f32                                    1 on the dark stones of the square's calçada
 const C = {
 	stubble: srgb( 0.68, 0.58, 0.4 ),
 	stubbleLight: srgb( 0.76, 0.66, 0.47 ),
@@ -42,7 +44,20 @@ const C = {
 	settDark: srgb( 0.34, 0.34, 0.33 ),
 	settWarm: srgb( 0.56, 0.51, 0.44 ),
 	joint: srgb( 0.3, 0.29, 0.26 ),
+	basalt: srgb( 0.2, 0.2, 0.21 ),
+	basaltBlue: srgb( 0.25, 0.27, 0.31 ),
 };
+
+// Praça de Santa Maria's lower square (SANTA_MARIA_SQUARE): its frame, the fountain's middle on the west
+// side's line, a along that side (south), k out from it into the square
+const SM = ( () => {
+
+	const [ , A, B ] = SANTA_MARIA_SQUARE.wall, L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+	const u = [ ( B[ 0 ] - A[ 0 ] ) / L, ( B[ 1 ] - A[ 1 ] ) / L ], t = ( SANTA_MARIA_SQUARE.fountain.z - A[ 1 ] ) / u[ 1 ];
+	const f = ( v ) => v.toFixed( 4 );
+	return { o: `vec2f( ${ f( A[ 0 ] + u[ 0 ] * t ) }, ${ f( A[ 1 ] + u[ 1 ] * t ) } )`, u: `vec2f( ${ f( u[ 0 ] ) }, ${ f( u[ 1 ] ) } )`, n: `vec2f( ${ f( - u[ 1 ] ) }, ${ f( u[ 0 ] ) } )` };
+
+} )();
 
 const consts = Object.entries( C ).map( ( [ k, v ] ) => `const GC_${ k }: vec3f = ${ v };` ).join( '\n' );
 
@@ -190,6 +205,96 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 	return vec4f( d1, ( d2 - d1 ) * 0.5, id );
 }
 
+// The calçada of Praça de Santa Maria's lower square, as drawn over the game by someone who knows it: lines of
+// dark stones two setts wide on the pale limestone, mirrored about the fountain (q.x: |a|). Either side a long
+// panel from the wall out into the square, an outer and an inner rectangle joined at their corners like a
+// picture frame; between them before the fountain a longer one, halved down the middle, an inner rectangle in
+// each half with quarter circles in its corners, diagonals from its corners to the panel's, meeting in a point at
+// the middle line top and bottom; and that panel again beyond it, toward the church, either side of it a single
+// framed rectangle like its inner ones, in line with the side panels and as wide. p: a sett's centre.
+fn groundSmSeg( q: vec2f, a: vec2f, b: vec2f ) -> f32 {
+	let ab = b - a;
+	let t = clamp( dot( q - a, ab ) / dot( ab, ab ), 0.0, 1.0 );
+	return length( q - a - ab * t );
+}
+fn groundSmRect( q: vec2f, lo: vec2f, hi: vec2f ) -> f32 {
+	let c = clamp( q, lo, hi );
+	let inside = all( q >= lo ) && all( q <= hi );
+	let d = min( min( q.x - lo.x, hi.x - q.x ), min( q.y - lo.y, hi.y - q.y ) );
+	return select( length( q - c ), d, inside );
+}
+// one of the panels halved down the middle: q from its middle line (x: |across|, y: along, from its near edge),
+// hw its half width; 1 on its lines
+fn groundSmPanel( q: vec2f, hw: f32, w: f32 ) -> f32 {
+	let f = hw / 4.7;
+	let co0 = vec2f( 0.0, 0.0 ); let co1 = vec2f( hw, 9.8 );
+	let ci0 = vec2f( 0.9 * f, 1.7 ); let ci1 = vec2f( 3.5 * f, 8.6 );
+	var e = groundSmRect( q, vec2f( - 1.0, co0.y ), co1 );
+	e = min( e, groundSmSeg( q, co0, vec2f( 0.0, co1.y ) ) );
+	e = min( e, groundSmRect( q, ci0, ci1 ) );
+	e = min( e, groundSmSeg( q, vec2f( co1.x, co0.y ), vec2f( ci1.x, ci0.y ) ) );
+	e = min( e, groundSmSeg( q, co0, ci0 ) );
+	e = min( e, groundSmSeg( q, co1, ci1 ) );
+	e = min( e, groundSmSeg( q, vec2f( 0.0, co1.y ), vec2f( ci0.x, ci1.y ) ) );
+	var m = step( e, w );
+	// the quarter circles in the inner rectangles' corners
+	if ( all( q >= ci0 ) && all( q <= ci1 ) ) {
+		let r = 0.65 * min( 1.0, f * 1.2 );
+		var c = min( length( q - ci0 ), length( q - ci1 ) );
+		c = min( c, min( length( q - vec2f( ci0.x, ci1.y ) ), length( q - vec2f( ci1.x, ci0.y ) ) ) );
+		m = max( m, step( abs( c - r ), w * 0.8 ) );
+	}
+	return m;
+}
+fn groundSantaMaria( p: vec2f ) -> f32 {
+	let d = p - ${ SM.o };
+	let a = dot( d, ${ SM.u } );
+	let k = dot( d, ${ SM.n } );
+	if ( k < 0.2 || k > 24.0 || abs( a ) > 11.8 ) { return 0.0; }
+	let q = vec2f( abs( a ), k );
+	let w = 0.12;
+	var m = 0.0;
+	// the side panels by the wall: outer and inner rectangles, their corners joined
+	let so0 = vec2f( 4.7, 0.5 ); let so1 = vec2f( 11.5, 11.2 );
+	let si0 = vec2f( 6.3, 1.6 ); let si1 = vec2f( 10.2, 9.8 );
+	var e = groundSmRect( q, so0, so1 );
+	e = min( e, groundSmRect( q, si0, si1 ) );
+	e = min( e, groundSmSeg( q, so0, si0 ) );
+	e = min( e, groundSmSeg( q, so1, si1 ) );
+	e = min( e, groundSmSeg( q, vec2f( so1.x, so0.y ), vec2f( si1.x, si0.y ) ) );
+	e = min( e, groundSmSeg( q, vec2f( so0.x, so1.y ), vec2f( si0.x, si1.y ) ) );
+	// before the fountain, between its beds and the middle panel: lines from the beds' fronts, joined across, and
+	// diagonals out to the middle panel's near corners
+	e = min( e, groundSmSeg( q, vec2f( 3.1, 0.6 ), vec2f( 3.1, 2.6 ) ) );
+	e = min( e, groundSmSeg( q, vec2f( 0.0, 2.6 ), vec2f( 3.1, 2.6 ) ) );
+	e = min( e, groundSmSeg( q, vec2f( 3.1, 2.6 ), vec2f( 4.7, 4.0 ) ) );
+	m = step( e, w );
+	// the middle panels, before the fountain and again beyond it toward the church
+	if ( k >= 3.8 ) {
+		let km = select( k - 4.0, k - 13.8, k > 13.8 );
+		m = max( m, groundSmPanel( vec2f( q.x, km ), 4.7, w ) );
+	}
+	// and either side of the second, in line with the side panels and as wide: one rectangle like the middle
+	// panels' inner ones, its quarter circles in the corners, framed, the corners joined by diagonals
+	if ( k >= 13.6 && q.x >= 4.5 ) {
+		let fo0 = vec2f( 4.7, 13.8 ); let fo1 = vec2f( 11.5, 23.6 );
+		let fi0 = vec2f( 5.7, 15.5 ); let fi1 = vec2f( 10.5, 22.4 );
+		var f = groundSmRect( q, fo0, fo1 );
+		f = min( f, groundSmRect( q, fi0, fi1 ) );
+		f = min( f, groundSmSeg( q, fo0, fi0 ) );
+		f = min( f, groundSmSeg( q, fo1, fi1 ) );
+		f = min( f, groundSmSeg( q, vec2f( fo1.x, fo0.y ), vec2f( fi1.x, fi0.y ) ) );
+		f = min( f, groundSmSeg( q, vec2f( fo0.x, fo1.y ), vec2f( fi0.x, fi1.y ) ) );
+		m = max( m, step( f, w ) );
+		if ( all( q >= fi0 ) && all( q <= fi1 ) ) {
+			var c = min( length( q - fi0 ), length( q - fi1 ) );
+			c = min( c, min( length( q - vec2f( fi0.x, fi1.y ) ), length( q - vec2f( fi1.x, fi0.y ) ) ) );
+			m = max( m, step( abs( c - 0.65 ), w * 0.8 ) );
+		}
+	}
+	return m;
+}
+
 // Óbidos street paving: small squarish limestone setts (~0.11 m) and darker ones, set in packed earth;
 // fades to the average tone when a stone is smaller than a few pixels
 fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
@@ -200,11 +305,14 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	var col = mix( GC_settMid, GC_settLight, h1 );
 	col = mix( col, GC_settDark, smoothstep( 0.78, 0.92, h2 ) );
 	col = mix( col, GC_settWarm, smoothstep( 0.6, 0.85, groundHash( v.zw + 4.4 ) ) * 0.5 );
+	// (the dark stones of a pattern: whole setts, by their centres)
+	let dark = groundSantaMaria( ( v.zw + 0.5 ) * s );
+	col = mix( col, mix( GC_basalt, GC_basaltBlue, h1 ) * ( 0.85 + h2 * 0.3 ), dark );
 	let pxS = px / s;
 	let joint = 1.0 - smoothstep( 0.03, 0.09 + pxS, v.y );
 	let fade = smoothstep( 0.3, 1.0, pxS ); // (the small stones fade before they shimmer into rings)
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
-	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
+	col = mix( mix( col, jointCol, joint * 0.7 ), mix( mix( GC_settMid, GC_basalt, dark ), jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;
 	return vec4f( col, mix( dome - joint * 0.006, 0.0, fade ) );
 }

@@ -1,8 +1,8 @@
 import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
-import { mulberry32 } from '../../util/Noise.js';
+import { mulberry32, smoothstep, lerp } from '../../util/Noise.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
-import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS } from '../TerrainData.js';
+import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS, SANTA_MARIA_CHAPEL } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -253,6 +253,8 @@ export class Walls {
 		this._portaEste( materials );
 		this._beneficiado( materials );
 		this._santaMariaSteps( materials );
+		this._santaMariaSquare( materials );
+		this._santaMariaChurch( materials );
 		this._torreLargo( materials );
 		this._torreLane( materials );
 		this._misericordiaPortal( materials );
@@ -3357,6 +3359,956 @@ export class Walls {
 
 	}
 
+	// Praça de Santa Maria's lower square (photo references/...-1113-814e8453-...; TerrainData levels it and the
+	// terrace): the old retaining wall round it, whitewashed, its top level; along its foot a seat painted blue
+	// under a slab of reddish stone; in the middle of its long west side the Chafariz, a Renaissance fountain of
+	// pinkish stone (a trough, a panel with the arms in a round arch between two pilasters and two lion masks, a
+	// cornice, a pediment between scrolls), a low blue bed of shrubs either side and a row of stone bollards in
+	// front; three steps up from the square's corner by the south arm's end, a pot on the pier there; on the
+	// terrace, against the wall behind the fountain, the Pelourinho, yellow benches either side of it.
+	_santaMariaSquare( materials ) {
+
+		const Q = this.terrain.santaMariaSquare;
+		if ( ! Q ) return;
+		const T = this.terrain, kit = this.kit, F = Q.F, U = Q.U, YT = U + 0.75, TH = 0.6;
+		const plaster = new MeshKit(), SK = new MeshKit();
+		const WHITE = lin( [ 0.92, 0.91, 0.88 ] ), BLUE = lin( [ 0.1, 0.27, 0.78 ] ), SEAT = lin( [ 0.56, 0.28, 0.19 ] );
+		// the three sides: start, along, length, n toward the square, yaw
+		const sides = [];
+		for ( let i = 0; i < 3; i ++ ) {
+
+			const A = Q.wall[ i ], B = Q.wall[ i + 1 ], L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+			const u = [ ( B[ 0 ] - A[ 0 ] ) / L, ( B[ 1 ] - A[ 1 ] ) / L ];
+			sides.push( { A, B, L, u, n: [ - u[ 1 ], u[ 0 ] ], yaw: Math.atan2( - u[ 1 ], u[ 0 ] ) } );
+
+		}
+
+		const P = ( S, s, k ) => [ S.A[ 0 ] + S.u[ 0 ] * s + S.n[ 0 ] * k, S.A[ 1 ] + S.u[ 1 ] * s + S.n[ 1 ] * k ];
+		const put = ( K, S, s0, s1, y0, y1, k0, k1, skip = '' ) => {
+
+			const C = P( S, ( s0 + s1 ) / 2, ( k0 + k1 ) / 2 );
+			K.box( C[ 0 ], ( y0 + y1 ) / 2, C[ 1 ], s1 - s0, y1 - y0, k1 - k0, S.yaw, skip );
+
+		};
+		const solid = ( S, s0, s1, y0, y1, k0, k1, walkable, tag ) => {
+
+			const C = P( S, ( s0 + s1 ) / 2, ( k0 + k1 ) / 2 );
+			this.colliders.addBox( new Vector3( C[ 0 ], ( y0 + y1 ) / 2, C[ 1 ] ), new Vector3( ( s1 - s0 ) / 2, ( y1 - y0 ) / 2, Math.abs( k1 - k0 ) / 2 ), S.yaw, { walkable, tag } );
+
+		};
+
+		// the wall: its face on the line, TH thick away from the square (mitred at the two corners), level along
+		// its top
+		const back = Q.wall.map( ( W, i ) => {
+
+			const a = sides[ Math.max( 0, i - 1 ) ].n, b = sides[ Math.min( 2, i ) ].n;
+			const m = [ a[ 0 ] + b[ 0 ], a[ 1 ] + b[ 1 ] ], ml = Math.hypot( m[ 0 ], m[ 1 ] ), k = TH / ( ( m[ 0 ] * a[ 0 ] + m[ 1 ] * a[ 1 ] ) / ml );
+			return [ W[ 0 ] - m[ 0 ] / ml * k, W[ 1 ] - m[ 1 ] / ml * k ];
+
+		} );
+		plaster.vdata = [ 20, 0, 0.31, 0 ];
+		plaster.color = WHITE;
+		const V = ( p, y ) => [ p[ 0 ], y, p[ 1 ] ], B0 = F - 0.6, H = YT - F;
+		let u0 = 0;
+		sides.forEach( ( S, i ) => {
+
+			const A = S.A, B = S.B, Ab = back[ i ], Bb = back[ i + 1 ], u1 = u0 + S.L;
+			plaster.quadFacing( V( A, B0 ), V( B, B0 ), V( B, YT ), V( A, YT ), [ S.n[ 0 ], 0, S.n[ 1 ] ], [ [ u0, - 0.6 ], [ u1, - 0.6 ], [ u1, H ], [ u0, H ] ] );
+			plaster.quadFacing( V( A, YT ), V( B, YT ), V( Bb, YT ), V( Ab, YT ), [ 0, 1, 0 ], [ [ u0, 5 ], [ u1, 5 ], [ u1, 5.6 ], [ u0, 5.6 ] ] );
+			plaster.quadFacing( V( Ab, B0 ), V( Bb, B0 ), V( Bb, YT ), V( Ab, YT ), [ - S.n[ 0 ], 0, - S.n[ 1 ] ], [ [ u0, - 0.6 ], [ u1, - 0.6 ], [ u1, H ], [ u0, H ] ] );
+			solid( S, 0, S.L, B0, YT, 0, - TH, false, 'wall' );
+			u0 = u1;
+
+		} );
+		for ( const [ E, Eb, d ] of [ [ Q.wall[ 0 ], back[ 0 ], sides[ 0 ].u.map( ( v ) => - v ) ], [ Q.wall[ 3 ], back[ 3 ], sides[ 2 ].u ] ] ) {
+
+			plaster.quadFacing( V( E, B0 ), V( Eb, B0 ), V( Eb, YT ), V( E, YT ), [ d[ 0 ], 0, d[ 1 ] ], [ [ 0, - 0.6 ], [ TH, - 0.6 ], [ TH, H ], [ 0, H ] ] );
+
+		}
+
+		// behind it a strip of setts level with what lies there (the terrace; the lanes either side, falling
+		// east), over the ground's step down to the square's level under the wall: along the terrace level; along
+		// the north arm's lane in steps (photo -1151-); along the south arm's a smooth ramp, as the lane runs on
+		// down to the Largo (photo -1411-), blue along the wall's foot on that side (a band following the lane)
+		kit.vdata = [ 0.29, 0.6, 0, 1 ];
+		kit.color = [ 0.8, 0.78, 0.74 ];
+		const laneY = ( S, s ) => {
+
+			let y = 0;
+			for ( const d of [ - 0.5, 0, 0.5 ] ) {
+
+				// (the ground just past its outer edge, so the two meet flush)
+				const O = P( S, Math.min( S.L, Math.max( 0, s + d ) ), - TH - 1.9 );
+				y += T.heightAt( O[ 0 ], O[ 1 ] ) / 3;
+
+			}
+
+			// (at the corner it comes to the terrace's level, the two meeting there)
+			return lerp( Math.max( F + 0.05, y ), U + 0.02, smoothstep( S.L - 3, S.L, s ) );
+
+		};
+		sides.forEach( ( S, i ) => {
+
+			const n = Math.ceil( S.L );
+			for ( let p = 0; p < n; p ++ ) {
+
+				const s0 = S.L * p / n, s1 = S.L * ( p + 1 ) / n, O = P( S, ( s0 + s1 ) / 2, - TH - 2.6 );
+				// (the terrace at its level there, Rua Direita climbing north; the north lane's steps coming to it at the corner)
+				const M = P( S, ( s0 + s1 ) / 2, 0 );
+				const top = i === 1 ? Q.Ut( M[ 1 ] ) + 0.02 : i === 0 ? ( laneY( S, s0 ) + laneY( S, s1 ) ) / 2
+					: lerp( Math.max( F + 0.05, T.heightAt( O[ 0 ], O[ 1 ] ) + 0.02 ), Q.UN + 0.02, 1 - smoothstep( 0, 3, ( s0 + s1 ) / 2 ) );
+				if ( i === 2 ) put( kit, S, s0 - 0.02, s1 + 0.02, F - 0.4, top, - TH - 1.7, - TH + 0.05, 'bottom' );
+				solid( S, s0, s1, F - 0.4, top, - TH - 1.7, - TH, true, 'terrace' );
+
+			}
+
+		} );
+		// (the smooth ones: the south lane's ramp, and the terrace along Rua Direita's climb)
+		for ( const [ S, Y ] of [ [ sides[ 0 ], ( s ) => laneY( sides[ 0 ], s ) ], [ sides[ 1 ], ( s ) => Q.Ut( P( sides[ 1 ], s, 0 )[ 1 ] ) + 0.02 ] ] ) {
+
+			const V = ( s, k, y ) => { const C = P( S, s, k ); return [ C[ 0 ], y, C[ 1 ] ]; }, k0 = - TH + 0.05, k1 = - TH - 1.7, out = [ - S.n[ 0 ], 0, - S.n[ 1 ] ];
+			for ( let p = 0, n = Math.ceil( S.L * 2 ); p < n; p ++ ) {
+
+				const sa = S.L * p / n, sb = S.L * ( p + 1 ) / n, ya = Y( sa ), yb = Y( sb );
+				kit.quadFacing( V( sa, k0, ya ), V( sb, k0, yb ), V( sb, k1, yb ), V( sa, k1, ya ), [ 0, 1, 0 ], [ [ sa, 0 ], [ sb, 0 ], [ sb, 1.75 ], [ sa, 1.75 ] ] );
+				kit.quadFacing( V( sa, k1, F - 0.4 ), V( sb, k1, F - 0.4 ), V( sb, k1, yb ), V( sa, k1, ya ), out, [ [ sa, 0 ], [ sb, 0 ], [ sb, yb - F ], [ sa, ya - F ] ] );
+
+			}
+
+		}
+
+		{
+
+			const S = sides[ 0 ], n = Math.ceil( S.L * 2 ), V = ( s, k, y ) => { const Q = P( S, s, k ); return [ Q[ 0 ], y, Q[ 1 ] ]; };
+			const out = [ - S.n[ 0 ], 0, - S.n[ 1 ] ];
+			for ( let p = 0; p < n; p ++ ) {
+
+				const sa = S.L * p / n, sb = S.L * ( p + 1 ) / n, ya = laneY( S, sa ), yb = laneY( S, sb );
+				SK.vdata = [ 0, 0, 0.53, 4 ];
+				SK.color = BLUE;
+				// (on round the corner to the mitre, where it meets the terrace's band)
+				const sc = p === n - 1 ? sb + TH * Math.tan( Math.acos( S.u[ 0 ] * sides[ 1 ].u[ 0 ] + S.u[ 1 ] * sides[ 1 ].u[ 1 ] ) / 2 ) + 0.02 : sb;
+				SK.quadFacing( V( sa, - TH - 0.02, ya - 0.05 ), V( sc, - TH - 0.02, yb - 0.05 ), V( sc, - TH - 0.02, yb + 0.5 ), V( sa, - TH - 0.02, ya + 0.5 ), out );
+
+			}
+
+			// the outside corner, between the lane's ramp and the terrace: paved at the terrace's level over the
+			// ground's step (which lies under the wall and just behind it)
+			const S1 = sides[ 1 ];
+			// (a touch under the terrace's level: where the lane's ground is as high it shows instead)
+			// (out to the wall's line: the south arm's back, past where the lane's ramp ends, is behind it)
+			put( kit, S1, - TH - 1.75, 0.05, F - 0.4, U - 0.03, - TH - 1.7, 0.05, 'bottom' );
+			solid( S1, - TH - 1.75, 0, F - 0.4, U + 0.02, - TH - 1.7, 0, true, 'terrace' );
+			// and the north corner likewise, where the north lane comes up to Rua Direita
+			put( kit, S1, S1.L - 0.05, S1.L + TH + 1.75, F - 0.4, Q.UN - 0.03, - TH - 1.7, 0.05, 'bottom' );
+			solid( S1, S1.L, S1.L + TH + 1.75, F - 0.4, Q.UN + 0.02, - TH - 1.7, 0, true, 'terrace' );
+
+		}
+
+		// the seat along its foot: blue, under a slab of reddish stone; on the west side broken by the fountain and
+		// the low beds either side of it
+		const SW = sides[ 1 ], sF = ( Q.fountain.z - SW.A[ 1 ] ) / ( SW.B[ 1 ] - SW.A[ 1 ] ) * SW.L, FW = 1.75, BED = 3.9;
+		const seat = ( S, s0, s1 ) => {
+
+			SK.vdata = [ 0, 0, 0.53, 4 ];
+			SK.color = BLUE;
+			put( SK, S, s0, s1, F - 0.1, F + 0.4, 0, 0.48, 'bottom' );
+			SK.color = SEAT;
+			put( SK, S, s0, s1, F + 0.4, F + 0.47, 0, 0.53, 'bottom' );
+			solid( S, s0, s1, F - 0.1, F + 0.47, 0, 0.53, true, 'seat' );
+
+		};
+		seat( sides[ 0 ], 0.75, sides[ 0 ].L ); // (from the pier at its end)
+		seat( SW, 0.53, sF - BED );
+		seat( SW, sF + BED, SW.L );
+		seat( sides[ 2 ], 0.53, sides[ 2 ].L - 0.2 );
+
+		// the beds: a low blue kerb, earth, shrubs and a few small trees of orange flowers
+		{
+
+			const r = mulberry32( 1113 );
+			for ( const [ s0, s1 ] of [ [ sF - BED, sF - FW ], [ sF + FW, sF + BED ] ] ) {
+
+				SK.vdata = [ 0, 0, 0.53, 4 ];
+				SK.color = BLUE;
+				put( SK, SW, s0, s1, F - 0.1, F + 0.28, 0.44, 0.56, 'bottom' );
+				put( SK, SW, s0, s0 + 0.1, F - 0.1, F + 0.28, 0, 0.5, 'bottom' );
+				put( SK, SW, s1 - 0.1, s1, F - 0.1, F + 0.28, 0, 0.5, 'bottom' );
+				SK.color = lin( [ 0.24, 0.18, 0.13 ] );
+				put( SK, SW, s0 + 0.1, s1 - 0.1, F + 0.1, F + 0.24, 0, 0.44, 'bottom' );
+				solid( SW, s0, s1, F - 0.1, F + 0.28, 0, 0.56, true, 'bed' );
+				for ( let i = 0; i < 70 * ( s1 - s0 ); i ++ ) {
+
+					// (bushier toward the bed's outer end, as in the photo; low by the fountain)
+					const t = r(), s = s0 + 0.15 + t * ( s1 - s0 - 0.3 ), out = s0 < sF ? 1 - t : t;
+					if ( r() > 0.25 + 0.75 * out ) continue;
+					const k = 0.05 + r() * 0.42, y = F + 0.24 + r() * r() * ( 0.3 + 1.0 * out ), sz = 0.08 + r() * 0.14;
+					const C = P( SW, s, k ), bloom = r() < 0.08;
+					SK.color = lin( bloom ? [ 0.9, 0.45, 0.12 ] : [ 0.13 + r() * 0.1, 0.3 + r() * 0.14, 0.09 ] );
+					SK.box( C[ 0 ], y, C[ 1 ], sz, sz * 0.8, sz, r() * 3 );
+
+				}
+
+			}
+
+		}
+
+		// the Chafariz (photo -1113-): in a frame of s along the west side from the fountain's middle, k out
+		// from the wall's face; of dressed grey stone with rosy panels, in two stages: below, as wide as it is
+		// tall, its blocks with a lion mask spouting at each end and a mask between them, over a long low trough;
+		// above, narrower, the arms on a shield in a great round arch, a scroll curling down at either side, a
+		// cornice and a low pediment rising over the wall's top
+		{
+
+			const STONE = lin( [ 0.68, 0.63, 0.56 ] ), SHADE = lin( [ 0.54, 0.5, 0.45 ] ), ROSE = lin( [ 0.66, 0.55, 0.5 ] ), DARK = lin( [ 0.3, 0.27, 0.24 ] );
+			const W3 = ( s, y, k ) => { const C = P( SW, sF + s, k ); return [ C[ 0 ], y, C[ 1 ] ]; };
+			const fb = ( K, s, y0, y1, w, k0, k1 ) => put( K, SW, sF + s - w / 2, sF + s + w / 2, F + y0, F + y1, k0, k1 );
+			const face = [ SW.n[ 0 ], 0, SW.n[ 1 ] ];
+			const ring = ( K, s, y, r0, r1, a0, a1, k, n = 14 ) => {
+
+				for ( let i = 0; i < n; i ++ ) {
+
+					const t0 = a0 + ( a1 - a0 ) * i / n, t1 = a0 + ( a1 - a0 ) * ( i + 1 ) / n;
+					const q = ( t, r ) => W3( s + Math.cos( t ) * r, F + y + Math.sin( t ) * r, k );
+					K.quadFacing( q( t0, r0 ), q( t1, r0 ), q( t1, r1 ), q( t0, r1 ), face );
+
+				}
+
+			};
+			SK.vdata = [ 0, 0, 0.53, 4 ];
+			// the trough: a long low block of stone, dark water in it
+			SK.color = STONE;
+			fb( SK, 0, - 0.1, 0.47, 3.4, 0, 0.8 );
+			SK.color = lin( [ 0.1, 0.12, 0.11 ] );
+			fb( SK, 0, 0.4, 0.475, 3.1, 0.24, 0.66 );
+			solid( SW, sF - 1.7, sF + 1.7, F - 0.1, F + 0.47, 0, 0.8, true, 'fountain' );
+			// the lower stage: its blocks, rosy panels in two rows, the masks
+			SK.color = STONE;
+			fb( SK, 0, 0.47, 1.55, 3.1, 0, 0.24 );
+			SK.color = SHADE;
+			for ( const y of [ 0.82, 1.1 ] ) fb( SK, 0, y - 0.012, y + 0.012, 3.1, 0, 0.245 ); // (the courses' joints)
+			SK.color = ROSE;
+			for ( const s of [ - 1.05, 0, 1.05 ] ) {
+
+				fb( SK, s, 1.16, 1.48, 0.82, 0, 0.25 );
+				if ( s === 0 ) fb( SK, s, 0.86, 1.06, 0.82, 0, 0.25 );
+
+			}
+
+			for ( const sd of [ - 1, 1 ] ) {
+
+				// a lion mask at each end, low, its spout over the trough
+				SK.color = SHADE;
+				ring( SK, sd * 1.15, 0.7, 0, 0.17, 0, Math.PI * 2, 0.27 );
+				SK.color = STONE;
+				ring( SK, sd * 1.15, 0.74, 0, 0.1, 0, Math.PI * 2, 0.3, 10 );
+				SK.color = DARK;
+				ring( SK, sd * 1.15, 0.62, 0, 0.04, 0, Math.PI * 2, 0.31, 8 );
+				SK.color = SHADE;
+				fb( SK, sd * 1.15, 0.58, 0.62, 0.05, 0.24, 0.5 );
+
+			}
+
+			// the mask between them, low over the trough, and the bracket over the middle panel
+			SK.color = SHADE;
+			ring( SK, 0, 0.62, 0, 0.14, 0, Math.PI * 2, 0.27 );
+			fb( SK, 0, 1.33, 1.45, 0.5, 0.2, 0.33 );
+			// its cornice, the upper stage's base
+			SK.color = SHADE;
+			fb( SK, 0, 1.55, 1.66, 3.25, 0, 0.32 );
+			// the upper stage: the arch round the arms, rosy spandrels, the shield under a crown
+			SK.color = STONE;
+			fb( SK, 0, 1.66, 2.8, 2.0, 0, 0.18 );
+			SK.color = ROSE;
+			ring( SK, 0, 1.86, 0, 0.6, 0, Math.PI, 0.185, 16 );
+			fb( SK, 0, 1.66, 1.86, 1.2, 0.17, 0.185 );
+			for ( const sd of [ - 1, 1 ] ) fb( SK, sd * 0.84, 2.3, 2.72, 0.24, 0.17, 0.185 );
+			SK.color = SHADE;
+			ring( SK, 0, 1.86, 0.6, 0.72, 0, Math.PI, 0.21, 18 );
+			for ( const sd of [ - 1, 1 ] ) fb( SK, sd * 0.66, 1.66, 1.86, 0.12, 0.17, 0.21 );
+			SK.color = STONE;
+			fb( SK, 0, 1.9, 2.36, 0.36, 0.18, 0.28 );
+			ring( SK, 0, 1.9, 0, 0.18, Math.PI, Math.PI * 2, 0.28 );
+			SK.color = SHADE;
+			fb( SK, 0, 2.38, 2.52, 0.4, 0.18, 0.27 );
+			// the scrolls either side of it, curling down onto the cornice
+			for ( const sd of [ - 1, 1 ] ) {
+
+				SK.color = STONE;
+				ring( SK, sd * 1.0, 1.66, 0.3, 0.44, sd > 0 ? 0 : Math.PI / 2, sd > 0 ? Math.PI / 2 : Math.PI, 0.16, 10 );
+				SK.color = SHADE;
+				ring( SK, sd * 1.38, 1.84, 0, 0.17, 0, Math.PI * 2, 0.2 );
+				SK.color = STONE;
+				ring( SK, sd * 1.38, 1.84, 0.06, 0.12, 0, Math.PI * 2, 0.21 );
+
+			}
+
+			// the cornice and the pediment, its apex over the wall's top
+			SK.color = SHADE;
+			fb( SK, 0, 2.8, 2.88, 2.16, 0, 0.26 );
+			SK.color = STONE;
+			fb( SK, 0, 2.88, 2.98, 2.24, 0, 0.32 );
+			{
+
+				const y0 = F + 2.98, y1 = F + 3.32, hw = 1.08, k = 0.26;
+				const tri = ( w, a, b, kk ) => SK.quadFacing( W3( - w, a, kk ), W3( w, a, kk ), W3( 0, b, kk ), W3( 0, b, kk ), face );
+				SK.color = STONE;
+				tri( hw, y0, y1, k );
+				for ( const sd of [ - 1, 1 ] ) SK.quadFacing( W3( sd * hw, y0, k ), W3( 0, y1, k ), W3( 0, y1, 0 ), W3( sd * hw, y0, 0 ), [ 0, 1, 0 ] );
+				SK.color = SHADE;
+				tri( hw * 0.75, y0 + 0.05, y1 - 0.09, k + 0.01 );
+
+			}
+
+		}
+		// the bollards before the fountain and its beds: short square posts of grey limestone
+		kit.vdata = [ 0.43, 0.55, 0, 0 ];
+		// (on the calçada's lines before the fountain, GroundShading.groundSantaMaria: one where each line from the
+		// beds starts, five along the line joining them; as marked on the game)
+		for ( const [ s, k ] of [ [ - 3.1, 1.2 ], [ 3.1, 1.2 ], [ - 3.1, 2.6 ], [ - 1.55, 2.6 ], [ 0, 2.6 ], [ 1.55, 2.6 ], [ 3.1, 2.6 ] ] ) {
+
+			const C = P( SW, sF + s, k );
+			kit.color = [ 0.78, 0.77, 0.72 ];
+			kit.box( C[ 0 ], F + 0.33, C[ 1 ], 0.22, 0.72, 0.22, SW.yaw );
+			kit.box( C[ 0 ], F + 0.72, C[ 1 ], 0.16, 0.08, 0.16, SW.yaw );
+			this.colliders.addBox( new Vector3( C[ 0 ], F + 0.35, C[ 1 ] ), new Vector3( 0.11, 0.35, 0.11 ), SW.yaw, { walkable: false, tag: 'bollard' } );
+
+		}
+
+		// the steps up from the square's corner past the south arm's end onto its lane (photos -1113-, -2021-): three
+		// long stone steps fanning out from the pier, the lowest short, the next longer with a rounded end, the top one
+		// a long wedge sinking into the lane's cobbles as the lane falls east; the pier at the arm's end a little
+		// higher, a pot of geraniums on it
+		{
+
+			const S0 = sides[ 0 ], x0 = S0.A[ 0 ] + 0.15, zW = S0.A[ 1 ];
+			// (full height by the pier, sinking toward the wedge's tip, where the lane has fallen to the square's level)
+			const taper = ( x ) => F + 0.02 + 0.43 * ( 1 - smoothstep( x0 + 1.8, x0 + 4.9, x ) );
+			// each step's outline (x, z) and its top: its rise, but no higher than that
+			const arc = ( cx, cz, r, a0, a1, n ) => Array.from( { length: n + 1 }, ( _, i ) => { const a = a0 + ( a1 - a0 ) * i / n; return [ cx + Math.cos( a ) * r, cz + Math.sin( a ) * r ]; } );
+			const steps = [
+				[ 1, [ [ x0, zW - 1.35 ], [ x0 + 2.3, zW - 1.35 ], [ x0 + 2.3, zW - 0.95 ], [ x0, zW - 0.95 ] ] ],
+				[ 2, [ [ x0, zW - 0.95 ], ...arc( x0 + 3.0, zW - 0.55, 0.4, - Math.PI / 2, 0, 5 ), [ x0, zW - 0.55 ] ] ],
+				[ 3, [ [ x0, zW - 0.55 ], [ x0 + 4.9, zW + 0.12 ], [ x0, zW + 1.2 ] ] ] ];
+			kit.vdata = [ 0.43, 0.5, 0, 0 ];
+			kit.color = [ 0.76, 0.75, 0.7 ];
+			const V = ( q, y ) => [ q[ 0 ], y, q[ 1 ] ];
+			for ( const [ i, poly ] of steps ) {
+
+				const top = ( q ) => Math.min( F + 0.15 * i, taper( q[ 0 ] ) );
+				const C = poly.reduce( ( a, q ) => [ a[ 0 ] + q[ 0 ] / poly.length, a[ 1 ] + q[ 1 ] / poly.length ], [ 0, 0 ] );
+				for ( let j = 0; j < poly.length; j ++ ) {
+
+					const a = poly[ j ], b = poly[ ( j + 1 ) % poly.length ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+					// its top as a fan from the middle, its edges' faces down below the ground
+					// (wound to face up whichever way the outline runs)
+					const up = ( b[ 1 ] - C[ 1 ] ) * ( a[ 0 ] - C[ 0 ] ) - ( b[ 0 ] - C[ 0 ] ) * ( a[ 1 ] - C[ 1 ] ) > 0;
+					const [ p, q ] = up ? [ b, a ] : [ a, b ];
+					kit.tri( V( C, top( C ) ), V( p, top( p ) ), V( q, top( q ) ), [ [ C[ 0 ], C[ 1 ] ], [ p[ 0 ], p[ 1 ] ], [ q[ 0 ], q[ 1 ] ] ], [ 0, 1, 0 ] );
+					const n = [ ( b[ 1 ] - a[ 1 ] ) / L, 0, - ( b[ 0 ] - a[ 0 ] ) / L ];
+					const out = ( ( a[ 0 ] + b[ 0 ] ) / 2 - C[ 0 ] ) * n[ 0 ] + ( ( a[ 1 ] + b[ 1 ] ) / 2 - C[ 1 ] ) * n[ 2 ] > 0 ? n : [ - n[ 0 ], 0, - n[ 2 ] ];
+					kit.quadFacing( V( a, F - 0.3 ), V( b, F - 0.3 ), V( b, top( b ) ), V( a, top( a ) ), out, [ [ 0, 0 ], [ L, 0 ], [ L, top( b ) - F + 0.3 ], [ 0, top( a ) - F + 0.3 ] ] );
+
+				}
+
+				// (to walk on: a box for each step's broad end by the pier)
+				const xs = poly.map( ( q ) => q[ 0 ] ), zs = poly.map( ( q ) => q[ 1 ] );
+				const bx0 = Math.min( ...xs ), bx1 = i === 3 ? x0 + 2.2 : Math.max( ...xs ), bz0 = Math.min( ...zs ), bz1 = i === 3 ? zW + 0.9 : Math.max( ...zs ), h = F + 0.15 * i;
+				this.colliders.addBox( new Vector3( ( bx0 + bx1 ) / 2, ( h + F - 0.3 ) / 2, ( bz0 + bz1 ) / 2 ), new Vector3( ( bx1 - bx0 ) / 2, ( h - F + 0.3 ) / 2, ( bz1 - bz0 ) / 2 ), 0, { walkable: true, tag: 'stair' } );
+
+			}
+
+			const E = S0.A, Eb = back[ 0 ], Cp = [ ( E[ 0 ] + Eb[ 0 ] ) / 2 + S0.u[ 0 ] * 0.3, ( E[ 1 ] + Eb[ 1 ] ) / 2 + S0.u[ 1 ] * 0.3 ];
+			plaster.vdata = [ 20, 0, 0.31, 0 ];
+			plaster.color = WHITE;
+			plaster.box( Cp[ 0 ], ( B0 + YT + 0.12 ) / 2, Cp[ 1 ], 0.82, YT + 0.12 - B0, TH + 0.12, S0.yaw );
+			// (blue at its foot, round from the seat, the steps' side; a slab of grey stone on top)
+			SK.vdata = [ 0, 0, 0.53, 4 ];
+			SK.color = BLUE;
+			SK.box( Cp[ 0 ], ( B0 + F + 0.75 ) / 2, Cp[ 1 ], 0.84, F + 0.75 - B0, TH + 0.14, S0.yaw, 'top bottom' );
+			// (on its end, over the steps, the blue goes higher, photo -2021-)
+			SK.box( Cp[ 0 ] - S0.u[ 0 ] * 0.425, F + 1.32, Cp[ 1 ] - S0.u[ 1 ] * 0.425, 0.02, 1.15, TH + 0.14, S0.yaw );
+			kit.vdata = [ 0.43, 0.6, 0, 0 ];
+			kit.color = [ 0.66, 0.64, 0.6 ];
+			kit.box( Cp[ 0 ], YT + 0.17, Cp[ 1 ], 0.94, 0.1, TH + 0.24, S0.yaw );
+			SK.color = lin( [ 0.62, 0.32, 0.2 ] );
+			SK.box( Cp[ 0 ], YT + 0.38, Cp[ 1 ], 0.36, 0.32, 0.36, S0.yaw + 0.4 );
+			SK.box( Cp[ 0 ], YT + 0.56, Cp[ 1 ], 0.44, 0.06, 0.44, S0.yaw + 0.4 );
+			// the litter bin of brown slats by the seat's end
+			SK.color = lin( [ 0.3, 0.16, 0.1 ] );
+			const Cb = P( S0, 1.15, 0.78 );
+			SK.box( Cb[ 0 ], F + 0.33, Cb[ 1 ], 0.42, 0.66, 0.42, S0.yaw );
+			this.colliders.addBox( new Vector3( Cb[ 0 ], F + 0.33, Cb[ 1 ] ), new Vector3( 0.21, 0.33, 0.21 ), S0.yaw, { walkable: false, tag: 'bin' } );
+			const r = mulberry32( 2113 );
+			for ( let i = 0; i < 40; i ++ ) {
+
+				const a = r() * 6.28, d = r() * 0.3, sz = 0.06 + r() * 0.08;
+				SK.color = lin( r() < 0.2 ? [ 0.8, 0.12, 0.14 ] : [ 0.16 + r() * 0.08, 0.32 + r() * 0.12, 0.1 ] );
+				SK.box( Cp[ 0 ] + Math.cos( a ) * d, YT + 0.6 + r() * 0.3, Cp[ 1 ] + Math.sin( a ) * d, sz, sz, sz, r() * 3 );
+
+			}
+
+		}
+
+		// the Pelourinho (photo -1350-): against the terrace's side of the wall right behind the fountain (its
+		// pediment shows over the wall behind it), on three round steps of big blocks; a round shaft on a moulded
+		// base, a collar of twisted rope two thirds up, and a tall carved finial like a pine cone; some 4.8 m over the
+		// terrace in all (photo -1113-: its tip under five metres over the terrace). The column's profile is drawn
+		// 6 m tall and scaled by K, its girth by KR.
+		{
+
+			const K = 0.64, KR = 0.9;
+			const C = P( SW, sF, - TH - 1.0 ), [ x, z ] = C, g = T.heightAt( x - 1.5, z );
+			kit.vdata = [ 0.43, 0.65, 0, 0 ];
+			// a drum of n blocks round ( x, z ), radius r, from y0 up h; a round body: four squares turned
+			const drum = ( y0, h, r, n ) => {
+
+				for ( let i = 0; i < n; i ++ ) {
+
+					const a = ( i + 0.5 ) * 2 * Math.PI / n, c = Math.cos( a ), s = Math.sin( a );
+					kit.box( x + c * r / 2, y0 + h / 2, z + s * r / 2, 2 * r * Math.tan( Math.PI / n ) + 0.01, h, r, Math.PI / 2 - a );
+
+				}
+
+			};
+			// (the column smooth dressed stone, pale and weathered: flat paint in two tones)
+			const PALE = lin( [ 0.78, 0.77, 0.72 ] ), WORN = lin( [ 0.66, 0.65, 0.6 ] );
+			const round = ( y0, h, r, c = PALE ) => {
+
+				SK.vdata = [ 0, 0, 0.53, 4 ];
+				SK.color = c;
+				for ( let i = 0; i < 4; i ++ ) SK.box( x, y0 + h / 2, z, 2 * r, h, 2 * r, i * Math.PI / 8 );
+
+			};
+			kit.color = [ 1.0, 0.98, 0.92 ];
+			let y = g - 0.3;
+			for ( const [ h, r, n ] of [ [ 0.64, 1.1, 14 ], [ 0.34, 0.84, 12 ], [ 0.32, 0.6, 10 ] ] ) {
+
+				drum( y, h, r, n );
+				this.colliders.addBox( new Vector3( x, y + h / 2, z ), new Vector3( r * 0.9, h / 2, r * 0.9 ), 0, { walkable: true, tag: 'pillory' } );
+				y += h;
+
+			}
+
+			const y0 = y;
+			this.colliders.addBox( new Vector3( x, y0 + 6 * K / 2, z ), new Vector3( 0.3, 6 * K / 2, 0.3 ), 0, { walkable: false, tag: 'pillory' } );
+			for ( const [ dy, h, r ] of [
+				// the base's mouldings, the shaft, the rope collar, the shaft on up
+				[ 0, 0.12, 0.36 ], [ 0.12, 0.2, 0.3 ], [ 0.32, 0.18, 0.33 ], [ 0.5, 0.15, 0.27 ], [ 0.65, 0.1, 0.22 ], [ 0.75, 2.2, 0.17 ],
+				[ 2.95, 0.22, 0.225 ], [ 3.17, 0.75, 0.17 ],
+				// the finial: a moulded drum, the long carved cone swelling and closing, a ring, its point
+				[ 3.9, 0.12, 0.24 ], [ 4.02, 0.25, 0.28 ], [ 4.27, 0.4, 0.32 ], [ 4.67, 0.4, 0.34 ], [ 5.07, 0.25, 0.3 ], [ 5.32, 0.1, 0.26 ],
+				[ 5.42, 0.18, 0.2 ], [ 5.6, 0.18, 0.14 ], [ 5.78, 0.14, 0.09 ], [ 5.92, 0.1, 0.04 ] ] ) round( y0 + dy * K, h * K, r * KR, h < 0.13 ? WORN : PALE );
+			// the rope's twist, and the leaves carved over the cone
+			const r = mulberry32( 1350 );
+			for ( let i = 0; i < 12; i ++ ) {
+
+				const a = i * Math.PI / 6;
+				SK.color = WORN;
+				SK.box( x + Math.cos( a ) * 0.225 * KR, y0 + 3.06 * K, z + Math.sin( a ) * 0.225 * KR, 0.11, 0.04, 0.045, - a + 0.6 );
+
+			}
+
+			for ( let i = 0; i < 30; i ++ ) {
+
+				const a = r() * Math.PI * 2, yy = 4.15 + r() * 1.0, rr = 0.3 + 0.05 * Math.sin( ( yy - 4.15 ) * 3 );
+				SK.color = r() < 0.5 ? WORN : PALE;
+				SK.box( x + Math.cos( a ) * rr * KR, y0 + yy * K, z + Math.sin( a ) * rr * KR, 0.12, 0.09, 0.08, - a );
+
+			}
+
+		}
+
+		// two yellow benches against the wall's terrace side, either side of the Pelourinho: slats on dark iron ends
+		{
+
+			const YEL = lin( [ 0.95, 0.74, 0.08 ] );
+			for ( const sd of [ - 1, 1 ] ) {
+
+				const s = sF + sd * 3.5, g = T.heightAt( ...P( SW, s, - TH - 2.5 ) );
+				SK.vdata = [ 0, 0, 0.53, 4 ];
+				SK.color = YEL;
+				for ( let i = 0; i < 4; i ++ ) put( SK, SW, s - 0.9, s + 0.9, g + 0.42, g + 0.45, - TH - 0.18 - i * 0.11, - TH - 0.27 - i * 0.11 );
+				for ( let i = 0; i < 3; i ++ ) put( SK, SW, s - 0.9, s + 0.9, g + 0.58 + i * 0.13, g + 0.67 + i * 0.13, - TH - 0.1, - TH - 0.13 );
+				SK.color = lin( [ 0.05, 0.05, 0.05 ] );
+				for ( const e of [ - 0.75, 0.75 ] ) {
+
+					put( SK, SW, s + e - 0.03, s + e + 0.03, g - 0.05, g + 0.42, - TH - 0.55, - TH - 0.49 );
+					put( SK, SW, s + e - 0.03, s + e + 0.03, g - 0.05, g + 0.95, - TH - 0.14, - TH - 0.08 );
+					put( SK, SW, s + e - 0.03, s + e + 0.03, g + 0.36, g + 0.42, - TH - 0.55, - TH - 0.1 );
+
+				}
+
+				solid( SW, s - 0.9, s + 0.9, g, g + 0.45, - TH - 0.1, - TH - 0.55, true, 'bench' );
+
+			}
+
+		}
+
+		// the terrace's side of the west wall: blue along its foot, as on the square's side
+		SK.vdata = [ 0, 0, 0.53, 4 ];
+		SK.color = BLUE;
+		{
+
+			// (following the terrace's climb north, round both corners to the mitres)
+			const n = Math.ceil( SW.L ), V = ( s, y ) => { const C = P( SW, s, - TH - 0.025 ); return [ C[ 0 ], y, C[ 1 ] ]; };
+			for ( let p = 0; p < n; p ++ ) {
+
+				const sa = p === 0 ? - TH * 0.95 : SW.L * p / n, sb = p === n - 1 ? SW.L + TH * 0.95 : SW.L * ( p + 1 ) / n;
+				const ya = Q.Ut( P( SW, Math.max( 0, sa ), 0 )[ 1 ] ), yb = Q.Ut( P( SW, Math.min( SW.L, sb ), 0 )[ 1 ] );
+				SK.quadFacing( V( sa, ya - 0.1 ), V( sb, yb - 0.1 ), V( sb, Math.min( yb + 0.52, YT - 0.12 ) ), V( sa, Math.min( ya + 0.52, YT - 0.12 ) ), [ - SW.n[ 0 ], 0, - SW.n[ 1 ] ] ); // (under the coping where the street has climbed)
+
+			}
+
+		}
+
+		// the plane trees before the church's south side, over the café's tables (photo -1350-)
+		this.extraTrees = this.extraTrees || [];
+		this.extraTrees.push( { kind: 'plane', x: 15.5, z: - 34.5, scale: 1.05 }, { kind: 'plane', x: 11.0, z: - 28.0, scale: 0.95 } );
+		for ( const [ K, name ] of [ [ plaster, 'santa-maria-wall' ], [ SK, 'santa-maria-chafariz' ] ] ) {
+
+			const mesh = new Mesh( K.build(), materials.plaster );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+	}
+
+	// The Igreja de Santa Maria's front to the square (photo references/...-1350-4c6b5633-...; Town builds the
+	// nave gabled toward the square, BLANK_FRONTS): white between corner pilasters of golden stone, a cornice
+	// and the pediment's mouldings, urns on its corners and a cross on its apex, an oval window high up; the
+	// Renaissance portal of two storeys, a round-arched door between pairs of columns under an entablature, over
+	// it the Virgin in a niche between two inscribed panels and scrolls, a small pediment on top. The north aisle's
+	// lower front set back beside it, a pilaster and an urn at its corner, a small window. South of the front the
+	// bell tower: white, quoins of golden stone, a dark belfry opening on each side, a cornice, a pinnacle on each
+	// corner, a stone spire.
+	_santaMariaChurch( materials ) {
+
+		const T = this.terrain, kit = this.kit, SK = new MeshKit(), paint = new MeshKit(), plaster = new MeshKit();
+		const P0 = [ 19.2, - 47.2 ], P1 = [ 19.2, - 40.1 ], FL = Math.hypot( P1[ 0 ] - P0[ 0 ], P1[ 1 ] - P0[ 1 ] );
+		const U = [ ( P1[ 0 ] - P0[ 0 ] ) / FL, ( P1[ 1 ] - P0[ 1 ] ) / FL ], N = [ - U[ 1 ], U[ 0 ] ]; // (N: out, to the square)
+		const yaw = Math.atan2( - U[ 1 ], U[ 0 ] ), uC = FL / 2, face = [ N[ 0 ], 0, N[ 1 ] ];
+		const G = T.heightAt( P0[ 0 ] + N[ 0 ] + U[ 0 ] * uC, P0[ 1 ] + N[ 1 ] + U[ 1 ] * uC ), EAVE = 65.5, RISE = 3.55 * 0.45;
+		// s along the front from its middle (toward the tower), y over the square, k out from the front
+		const W = ( s, y, k, x0 = P0 ) => [ x0[ 0 ] + U[ 0 ] * ( uC + s ) + N[ 0 ] * k, G + y, x0[ 1 ] + U[ 1 ] * ( uC + s ) + N[ 1 ] * k ];
+		const box = ( K, s, y0, y1, w, k0, k1, x0 = P0 ) => {
+
+			const Q = W( s, 0, ( k0 + k1 ) / 2, x0 );
+			K.box( Q[ 0 ], G + ( y0 + y1 ) / 2, Q[ 2 ], w, y1 - y0, k1 - k0, yaw );
+
+		};
+		const ring = ( K, s, y, r0, r1, a0, a1, k, n = 14, sx = 1, sy = 1 ) => {
+
+			for ( let i = 0; i < n; i ++ ) {
+
+				const t0 = a0 + ( a1 - a0 ) * i / n, t1 = a0 + ( a1 - a0 ) * ( i + 1 ) / n;
+				const q = ( t, r ) => W( s + Math.cos( t ) * r * sx, y + Math.sin( t ) * r * sy, k );
+				K.quadFacing( q( t0, r0 ), q( t1, r0 ), q( t1, r1 ), q( t0, r1 ), face );
+
+			}
+
+		};
+		const STONE = lin( [ 0.82, 0.73, 0.57 ] ), SHADE = lin( [ 0.66, 0.58, 0.45 ] ), DARK = lin( [ 0.08, 0.08, 0.09 ] );
+		// (photo -2003-, the front close: its pilasters and cornice of grey weathered stone; the portal pale, near white)
+		const GREY = lin( [ 0.6, 0.58, 0.53 ] ), GREY2 = lin( [ 0.47, 0.46, 0.42 ] ), PALE = lin( [ 0.86, 0.83, 0.76 ] ), PALE2 = lin( [ 0.72, 0.69, 0.62 ] );
+		SK.vdata = [ 0, 0, 0.53, 4 ];
+		paint.vdata = [ 0, 0, 0.53, 4 ];
+		const e = EAVE - G, hw = uC + 0.2;
+		// the corner pilasters: broad, plain, a moulded base and a capital under the cornice, dark weathering down them
+		for ( const sd of [ - 1, 1 ] ) {
+
+			const s = sd * ( uC - 0.55 );
+			SK.color = GREY;
+			box( SK, s, - 0.3, e, 1.1, 0, 0.22 );
+			SK.color = GREY2;
+			box( SK, s + sd * 0.18, 1.2, e - 0.6, 0.32, 0.22, 0.23 );
+			box( SK, s - sd * 0.3, 2.5, e - 2.5, 0.16, 0.22, 0.23 );
+			box( SK, s, - 0.3, 1.05, 1.24, 0, 0.32 );
+			SK.color = GREY;
+			box( SK, s, 1.05, 1.2, 1.18, 0, 0.27 );
+			box( SK, s, e - 0.4, e - 0.15, 1.2, 0, 0.3 );
+
+		}
+
+		// the cornice, and the mouldings up the pediment's rakes
+		SK.color = GREY2;
+		box( SK, 0, e - 0.15, e, FL + 0.2, 0, 0.26 );
+		SK.color = GREY;
+		box( SK, 0, e, e + 0.28, FL + 0.5, 0, 0.38 );
+		{
+
+			const y0 = e + 0.28, y1 = e + 0.28 + RISE, H = 0.2, kk = 0.28;
+			SK.color = GREY;
+			for ( const sd of [ - 1, 1 ] ) {
+
+				SK.quadFacing( W( sd * hw, y0, kk ), W( 0, y1, kk ), W( 0, y1 + H, kk ), W( sd * hw, y0 + H, kk ), face );
+				SK.quadFacing( W( sd * hw, y0 + H, kk ), W( 0, y1 + H, kk ), W( 0, y1 + H, 0 ), W( sd * hw, y0 + H, 0 ), [ 0, 1, 0 ] );
+
+			}
+
+			// the tympanum's white carried out to the mouldings (the nave's gable is the front's plane)
+			plaster.vdata = [ 20, 0, 0.31, 0 ];
+			plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
+			plaster.quadFacing( W( - hw, y0, 0.12 ), W( hw, y0, 0.12 ), W( 0, y1, 0.12 ), W( 0, y1, 0.12 ), face, [ [ 0, e ], [ FL, e ], [ FL / 2, e + RISE ], [ FL / 2, e + RISE ] ] );
+			// urns like pine cones on the corners, over the pilasters; the cross on the apex
+			for ( const sd of [ - 1, 1 ] ) {
+
+				SK.color = GREY;
+				box( SK, sd * ( uC - 0.4 ), y0, y0 + 0.4, 0.46, 0.05, 0.5 );
+				const Q = W( sd * ( uC - 0.4 ), 0, 0.27 );
+				for ( const [ dy, h, w ] of [ [ 0.4, 0.1, 0.36 ], [ 0.5, 0.22, 0.2 ], [ 0.72, 0.3, 0.36 ], [ 1.02, 0.22, 0.26 ], [ 1.24, 0.14, 0.14 ] ] ) for ( const a of [ 0, Math.PI / 4 ] ) SK.box( Q[ 0 ], G + y0 + dy + h / 2, Q[ 2 ], w, h, w, yaw + a );
+
+			}
+
+			box( SK, 0, y1, y1 + 0.42, 0.5, 0.05, 0.45 );
+			box( SK, 0, y1 + 0.42, y1 + 1.75, 0.13, 0.19, 0.31 );
+			box( SK, 0, y1 + 1.2, y1 + 1.33, 0.72, 0.19, 0.31 );
+
+		}
+
+		// the oval window, high under the cornice: a frame of grey stone, leaded panes in a lattice
+		SK.color = GREY;
+		const yo = e - 1.05;
+		ring( SK, 0, yo, 0.45, 0.6, 0, Math.PI * 2, 0.08, 24, 1.62, 1 );
+		paint.color = lin( [ 0.16, 0.18, 0.2 ] );
+		ring( paint, 0, yo, 0, 0.45, 0, Math.PI * 2, 0.05, 24, 1.62, 1 );
+		kit.vdata = [ 0.29, 0.2, 0, 0 ];
+		kit.color = [ 0.3, 0.3, 0.3 ];
+		for ( let s = - 0.6; s <= 0.61; s += 0.2 ) {
+
+			const h = 0.45 * Math.sqrt( Math.max( 0, 1 - ( s / 0.73 ) ** 2 ) );
+			box( kit, s, yo - h, yo + h, 0.02, 0.06, 0.07 );
+
+		}
+
+		for ( let y = - 0.36; y <= 0.37; y += 0.18 ) {
+
+			const w = 0.73 * Math.sqrt( Math.max( 0, 1 - ( y / 0.45 ) ** 2 ) );
+			box( kit, 0, yo + y - 0.01, yo + y + 0.01, 2 * w, 0.06, 0.07 );
+
+		}
+
+		// before the portal, a step of big stone slabs; two stone bollards on the square
+		kit.vdata = [ 0.43, 0.4, 0, 0 ];
+		kit.color = [ 0.86, 0.85, 0.8 ];
+		box( kit, 0, - 0.3, 0.1, FL - 0.4, 0, 1.4 );
+		this.colliders.addBox( new Vector3( ...W( 0, - 0.1, 0.7 ) ), new Vector3( ( FL - 0.4 ) / 2, 0.2, 0.7 ), yaw, { walkable: true, tag: 'step' } );
+		kit.color = [ 0.8, 0.78, 0.72 ];
+		for ( const s of [ - 5.0, 4.9 ] ) {
+
+			const Q = W( s, 0, 2.6 );
+			for ( const a of [ 0, Math.PI / 4 ] ) kit.box( Q[ 0 ], T.heightAt( Q[ 0 ], Q[ 2 ] ) + 0.3, Q[ 2 ], 0.3, 0.7, 0.3, a );
+			kit.box( Q[ 0 ], T.heightAt( Q[ 0 ], Q[ 2 ] ) + 0.7, Q[ 2 ], 0.2, 0.12, 0.2, 0.4 );
+			this.colliders.addBox( new Vector3( Q[ 0 ], T.heightAt( Q[ 0 ], Q[ 2 ] ) + 0.35, Q[ 2 ] ), new Vector3( 0.17, 0.35, 0.17 ), 0, { walkable: false, tag: 'bollard' } );
+
+		}
+
+		// the portal, pale stone: its lower storey, the round-arched door in pairs of fluted columns on pedestals,
+		// a carved frieze over them
+		SK.color = PALE;
+		box( SK, 0, 0.05, 3.9, 5.7, 0, 0.14 );
+		const wood = new MeshKit();
+		wood.vdata = [ 0, 0, 0.53, 5 ];
+		wood.color = lin( [ 0.3, 0.16, 0.1 ] );
+		box( wood, 0, 0.05, 2.95, 1.95, 0.14, 0.18 );
+		ring( wood, 0, 2.95, 0, 0.975, 0, Math.PI, 0.18, 16 );
+		wood.color = lin( [ 0.24, 0.12, 0.08 ] );
+		box( wood, 0, 0.05, 2.95, 0.04, 0.18, 0.2 );
+		for ( const sd of [ - 1, 1 ] ) for ( let r = 0; r < 3; r ++ ) {
+
+			// (its leaves' panels with diamond points)
+			const yc = 0.6 + r * 0.85, sc = sd * 0.47;
+			wood.color = lin( [ 0.17, 0.09, 0.06 ] );
+			box( wood, sc, yc - 0.34, yc + 0.34, 0.76, 0.18, 0.2 );
+			wood.color = lin( [ 0.36, 0.2, 0.12 ] );
+			box( wood, sc, yc - 0.29, yc + 0.29, 0.66, 0.2, 0.22 );
+			wood.color = lin( [ 0.27, 0.15, 0.09 ] );
+			box( wood, sc, yc - 0.19, yc + 0.19, 0.44, 0.22, 0.26 );
+			wood.color = lin( [ 0.42, 0.25, 0.15 ] );
+			box( wood, sc, yc - 0.08, yc + 0.08, 0.18, 0.26, 0.3 );
+
+		}
+
+		SK.color = PALE2;
+		ring( SK, 0, 2.95, 0.975, 1.28, 0, Math.PI, 0.22, 18 );
+		ring( SK, 0, 2.95, 1.28, 1.36, 0, Math.PI, 0.25, 18 );
+		for ( const sd of [ - 1, 1 ] ) box( SK, sd * 1.13, 0.05, 2.95, 0.3, 0.14, 0.22 );
+		for ( const sd of [ - 1, 1 ] ) {
+
+			// (a tall blank panel between each pair, round-headed like a niche)
+			SK.color = PALE2;
+			box( SK, sd * 1.92, 1.25, 3.2, 0.5, 0.14, 0.16 );
+			ring( SK, sd * 1.92, 3.2, 0, 0.25, 0, Math.PI, 0.16 );
+
+		}
+
+		for ( const s of [ - 2.35, - 1.5, 1.5, 2.35 ] ) {
+
+			SK.color = PALE2;
+			box( SK, s, 0.05, 1.0, 0.56, 0.14, 0.66 );
+			SK.color = PALE;
+			box( SK, s, 1.0, 1.12, 0.5, 0.14, 0.62 );
+			const Q = W( s, 0, 0.4 );
+			for ( let a = 0; a < 4; a ++ ) SK.box( Q[ 0 ], G + 2.35, Q[ 2 ], 0.28, 2.46, 0.28, yaw + a * Math.PI / 8 );
+			SK.color = PALE2;
+			for ( let a = 0; a < 8; a ++ ) {
+
+				// (its flutes)
+				const t = a * Math.PI / 4, c = W( s + Math.cos( t ) * 0.145, 0, 0.4 + Math.sin( t ) * 0.145 );
+				SK.box( c[ 0 ], G + 2.35, c[ 2 ], 0.03, 2.3, 0.03, yaw );
+
+			}
+
+			SK.color = PALE;
+			box( SK, s, 3.58, 3.72, 0.38, 0.18, 0.6 );
+			box( SK, s, 3.72, 3.9, 0.5, 0.14, 0.66 );
+
+		}
+
+		this.colliders.addBox( new Vector3( ...W( 0, 0.5, 0.4 ) ), new Vector3( 2.85, 0.5, 0.26 ), yaw, { walkable: true, tag: 'portal' } );
+		SK.color = PALE2;
+		box( SK, 0, 3.9, 4.12, 5.95, 0, 0.68 );
+		SK.color = PALE;
+		box( SK, 0, 4.12, 4.6, 5.8, 0, 0.62 );
+		SK.color = PALE2;
+		for ( let s = - 2.6; s <= 2.61; s += 0.65 ) box( SK, s, 4.22, 4.5, 0.36, 0.62, 0.65 ); // (the frieze's carving)
+		box( SK, 0, 4.6, 4.8, 6.15, 0, 0.74 );
+		// its upper storey: the Virgin of the Assumption with two angels on clouds in a round-headed niche, rosy
+		// round her; the two inscribed tablets in carved frames; a crest of scrolls and medallions with little ball
+		// finials; the small pediment over the niche, its date plaque under it
+		SK.color = PALE;
+		box( SK, 0, 4.8, 6.75, 4.9, 0, 0.18 );
+		paint.color = lin( [ 0.74, 0.5, 0.45 ] );
+		box( paint, 0, 4.95, 6.2, 0.98, 0.18, 0.19 );
+		ring( paint, 0, 6.2, 0, 0.49, 0, Math.PI, 0.19 );
+		paint.color = lin( [ 0.56, 0.5, 0.47 ] );
+		box( paint, 0, 5.0, 6.2, 0.72, 0.19, 0.2 );
+		ring( paint, 0, 6.2, 0, 0.36, 0, Math.PI, 0.2 );
+		paint.color = lin( [ 0.88, 0.87, 0.84 ] );
+		const fig = ( s, y0, y1, w, k0, k1 ) => box( paint, s, y0, y1, w, k0, k1 );
+		fig( 0, 4.95, 5.12, 0.8, 0.2, 0.42 ); // the clouds
+		fig( - 0.2, 5.05, 5.22, 0.36, 0.22, 0.44 );
+		fig( 0.22, 5.08, 5.24, 0.34, 0.22, 0.44 );
+		for ( const sd of [ - 1, 1 ] ) {
+
+			fig( sd * 0.24, 5.15, 5.5, 0.15, 0.24, 0.4 ); // the angels
+			fig( sd * 0.24, 5.5, 5.6, 0.09, 0.26, 0.38 );
+
+		}
+
+		fig( 0, 5.2, 6.05, 0.32, 0.22, 0.38 ); // her robe
+		fig( 0, 5.85, 5.95, 0.62, 0.24, 0.34 ); // her arms raised
+		fig( 0, 6.06, 6.2, 0.13, 0.25, 0.35 ); // her head
+		for ( const sd of [ - 1, 1 ] ) {
+
+			SK.color = PALE2;
+			box( SK, sd * 1.45, 5.2, 6.0, 1.3, 0.18, 0.22 );
+			SK.color = PALE;
+			box( SK, sd * 1.45, 5.28, 5.92, 1.15, 0.22, 0.24 );
+			paint.color = lin( [ 0.36, 0.35, 0.33 ] );
+			box( paint, sd * 1.45, 5.38, 5.82, 0.95, 0.24, 0.25 );
+			SK.color = PALE2;
+			for ( const dx of [ - 0.5, 0.5 ] ) box( SK, sd * 1.45 + dx, 5.05, 5.18, 0.25, 0.18, 0.26 ); // (strapwork under them)
+			ring( SK, sd * 2.25, 5.6, 0, 0.16, 0, Math.PI * 2, 0.22 );
+			// the crest: a medallion in scrolls over each tablet, ball finials at its ends and by the niche
+			SK.color = PALE2;
+			box( SK, sd * 1.45, 6.75, 6.85, 2.1, 0, 0.26 );
+			ring( SK, sd * 1.45, 7.03, 0.11, 0.2, 0, Math.PI * 2, 0.22, 14, 1.25, 1 );
+			for ( const dx of [ - 0.45, 0.45 ] ) ring( SK, sd * 1.45 + dx, 6.97, 0.05, 0.12, 0, Math.PI * 2, 0.22 );
+			for ( const s of [ sd * 2.3, sd * 0.62 ] ) {
+
+				SK.color = PALE;
+				box( SK, s, 6.85, 7.0, 0.16, 0.05, 0.25 );
+				const Q = W( s, 0, 0.15 );
+				for ( const a of [ 0, Math.PI / 4 ] ) SK.box( Q[ 0 ], G + 7.1, Q[ 2 ], 0.17, 0.2, 0.17, yaw + a );
+
+			}
+
+		}
+
+		SK.color = PALE2;
+		box( SK, 0, 6.75, 6.9, 1.55, 0, 0.32 );
+		paint.color = lin( [ 0.93, 0.92, 0.88 ] );
+		box( paint, 0, 6.98, 7.16, 1.05, 0.12, 0.2 ); // the date plaque
+		SK.color = PALE;
+		box( SK, 0, 6.9, 7.25, 1.3, 0, 0.16 );
+		box( SK, 0, 7.25, 7.33, 1.75, 0, 0.3 );
+		{
+
+			const y0 = 7.33, y1 = 7.8, k = 0.25;
+			SK.quadFacing( W( - 0.86, y0, k ), W( 0.86, y0, k ), W( 0, y1, k ), W( 0, y1, k ), face );
+			for ( const sd of [ - 1, 1 ] ) SK.quadFacing( W( sd * 0.86, y0, k ), W( 0, y1, k ), W( 0, y1, 0 ), W( sd * 0.86, y0, 0 ), [ 0, 1, 0 ] );
+			SK.color = PALE2;
+			SK.quadFacing( W( - 0.62, y0 + 0.05, k + 0.01 ), W( 0.62, y0 + 0.05, k + 0.01 ), W( 0, y1 - 0.1, k + 0.01 ), W( 0, y1 - 0.1, k + 0.01 ), face );
+
+		}
+
+		// the north aisle's front, set back: a grey pilaster at its corner with a finial like a flame, a small
+		// window with red shutters up under its roof, a little barred one low down
+		{
+
+			const A0 = [ 22.9, - 51.8 ];
+			const ea = 63.1 - G;
+			const Wa = ( s, k ) => [ A0[ 0 ] + U[ 0 ] * s + N[ 0 ] * k, A0[ 1 ] + U[ 1 ] * s + N[ 1 ] * k ];
+			const ab = ( K, s0, s1, y0, y1, k0, k1 ) => {
+
+				const Q = Wa( ( s0 + s1 ) / 2, ( k0 + k1 ) / 2 );
+				K.box( Q[ 0 ], G + ( y0 + y1 ) / 2, Q[ 1 ], s1 - s0, y1 - y0, k1 - k0, yaw );
+
+			};
+			SK.color = GREY;
+			ab( SK, 0, 0.8, - 0.3, ea + 0.2, 0, 0.18 );
+			ab( SK, - 0.05, 0.85, - 0.3, 0.9, 0, 0.26 );
+			ab( SK, - 0.05, 0.85, ea + 0.2, ea + 0.45, 0, 0.3 );
+			for ( const [ dy, h, w ] of [ [ 0.45, 0.2, 0.3 ], [ 0.65, 0.3, 0.38 ], [ 0.95, 0.2, 0.26 ], [ 1.15, 0.2, 0.14 ] ] ) for ( const a of [ 0, Math.PI / 4 ] ) {
+
+				const Q = Wa( 0.4, 0.15 );
+				SK.box( Q[ 0 ], G + ea + 0.2 + dy + h / 2, Q[ 1 ], w, h, w, yaw + a );
+
+			}
+
+			ab( SK, 1.9, 2.95, ea - 2.0, ea - 0.75, 0, 0.1 );
+			paint.color = lin( [ 0.5, 0.13, 0.1 ] );
+			ab( paint, 2.02, 2.83, ea - 1.88, ea - 0.87, 0.1, 0.12 );
+			paint.color = lin( [ 0.3, 0.07, 0.06 ] );
+			ab( paint, 2.41, 2.44, ea - 1.88, ea - 0.87, 0.12, 0.13 );
+			ab( SK, 2.15, 2.75, 1.6, 2.5, 0, 0.1 );
+			paint.color = DARK;
+			ab( paint, 2.25, 2.65, 1.7, 2.4, 0.1, 0.11 );
+			kit.vdata = [ 0.29, 0.2, 0, 0 ];
+			kit.color = [ 0.08, 0.08, 0.08 ];
+			for ( const s of [ 2.35, 2.45, 2.55 ] ) ab( kit, s - 0.012, s + 0.012, 1.7, 2.4, 0.11, 0.13 );
+			ab( kit, 2.25, 2.65, 2.04, 2.07, 0.11, 0.13 );
+
+		}
+
+		// the chapel before the bell tower, beside the front to the south (photo -2003-; Town builds it, its gable to
+		// the square, CHAPEL): in its front a big round-arched doorway in a frame of grey stone, up three stone
+		// steps; a moulding across its front at the eave and up its gable
+		{
+
+			const C = SANTA_MARIA_CHAPEL, zc = ( C.z0 + C.z1 ) / 2, hwC = ( C.z1 - C.z0 ) / 2, Xt = [ C.x, zc - uC ];
+			const gt = T.heightAt( C.x - 1.5, zc ) - G, sill = gt + 0.45, ec = C.eave - G, rc = hwC * 0.45;
+			const Wt = ( s, y, k ) => W( s, y, k, Xt );
+			// the steps
+			kit.vdata = [ 0.43, 0.45, 0, 0 ];
+			kit.color = [ 0.78, 0.77, 0.72 ];
+			for ( let i = 1; i <= 3; i ++ ) {
+
+				const top = gt + 0.15 * i, d = 0.36 * ( 4 - i ), Q = Wt( 0, 0, d / 2 );
+				box( kit, 0, gt - 0.3, top, 3.1 - ( i - 1 ) * 0.1, 0, d, Xt );
+				this.colliders.addBox( new Vector3( Q[ 0 ], G + ( gt - 0.3 + top ) / 2, Q[ 2 ] ), new Vector3( 1.55, ( top - gt + 0.3 ) / 2, d / 2 ), yaw, { walkable: true, tag: 'stair' } );
+
+			}
+
+			// the doorway
+			const R0 = 0.95, R1 = 1.25, spring = sill + 2.45;
+			SK.color = GREY;
+			box( SK, 0, sill - 0.05, spring, 2 * R1, 0, 0.12, Xt );
+			paint.color = lin( [ 0.07, 0.07, 0.08 ] );
+			box( paint, 0, sill, spring, 2 * R0, 0.12, 0.14, Xt );
+			for ( let i = 0; i < 12; i ++ ) {
+
+				const t0 = Math.PI * i / 12, t1 = Math.PI * ( i + 1 ) / 12;
+				const q = ( t, r, k ) => Wt( Math.cos( t ) * r, spring + Math.sin( t ) * r, k );
+				paint.quadFacing( Wt( 0, spring, 0.14 ), q( t0, R0, 0.14 ), q( t1, R0, 0.14 ), Wt( 0, spring, 0.14 ), face );
+				SK.quadFacing( q( t0, R0, 0.12 ), q( t1, R0, 0.12 ), q( t1, R1, 0.12 ), q( t0, R1, 0.12 ), face );
+
+			}
+
+			// the moulding along the eave and up the gable
+			SK.color = GREY;
+			box( SK, 0, ec - 0.14, ec + 0.04, 2 * hwC + 0.3, 0, 0.22, Xt );
+			for ( const sd of [ - 1, 1 ] ) {
+
+				SK.quadFacing( Wt( sd * ( hwC + 0.15 ), ec + 0.04, 0.2 ), Wt( 0, ec + 0.04 + rc + 0.07, 0.2 ), Wt( 0, ec + 0.2 + rc + 0.07, 0.2 ), Wt( sd * ( hwC + 0.15 ), ec + 0.2, 0.2 ), face );
+				SK.quadFacing( Wt( sd * ( hwC + 0.15 ), ec + 0.2, 0.2 ), Wt( 0, ec + 0.2 + rc + 0.07, 0.2 ), Wt( 0, ec + 0.2 + rc + 0.07, 0 ), Wt( sd * ( hwC + 0.15 ), ec + 0.2, 0 ), [ 0, 1, 0 ] );
+
+			}
+
+		}
+
+		// the bell tower
+		{
+
+			const X0 = 23.2, X1 = 28.4, Z0 = - 40.1, Z1 = - 34.6, top = G + 14.9, base = G - 1;
+			const C = [ ( X0 + X1 ) / 2, ( Z0 + Z1 ) / 2 ];
+			plaster.vdata = [ 20, 0, 0.47, 0 ];
+			plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
+			const corners = [ [ X0, Z0 ], [ X1, Z0 ], [ X1, Z1 ], [ X0, Z1 ] ];
+			for ( let i = 0; i < 4; i ++ ) {
+
+				const a = corners[ i ], b = corners[ ( i + 1 ) % 4 ], L = Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] );
+				const u = [ ( b[ 0 ] - a[ 0 ] ) / L, ( b[ 1 ] - a[ 1 ] ) / L ], n = [ u[ 1 ], - u[ 0 ] ]; // (out: the corners run counter-clockwise on the map)
+				const m = [ ( a[ 0 ] + b[ 0 ] ) / 2, ( a[ 1 ] + b[ 1 ] ) / 2 ];
+				const out = ( m[ 0 ] - C[ 0 ] ) * n[ 0 ] + ( m[ 1 ] - C[ 1 ] ) * n[ 1 ] > 0 ? n : [ - n[ 0 ], - n[ 1 ] ];
+				plaster.quadFacing( [ a[ 0 ], base, a[ 1 ] ], [ b[ 0 ], base, b[ 1 ] ], [ b[ 0 ], top, b[ 1 ] ], [ a[ 0 ], top, a[ 1 ] ], [ out[ 0 ], 0, out[ 1 ] ], [ [ 0, - 1 ], [ L, - 1 ], [ L, top - G ], [ 0, top - G ] ] );
+				// its belfry opening, round-headed, dark
+				paint.color = DARK;
+				const yaw2 = Math.atan2( - u[ 1 ], u[ 0 ] ), o = [ m[ 0 ] + out[ 0 ] * 0.04, m[ 1 ] + out[ 1 ] * 0.04 ];
+				paint.box( o[ 0 ], top - 2.55, o[ 1 ], 1.3, 2.3, 0.04, yaw2 );
+				for ( let k = 0; k < 8; k ++ ) {
+
+					const t0 = Math.PI * k / 8, t1 = Math.PI * ( k + 1 ) / 8, cx = ( Math.cos( t0 ) + Math.cos( t1 ) ) / 2 * 0.65, h = ( Math.sin( t0 ) + Math.sin( t1 ) ) / 2 * 0.65;
+					paint.box( o[ 0 ] + u[ 0 ] * cx, top - 1.4 + h / 2, o[ 1 ] + u[ 1 ] * cx, 1.3 / 8 + 0.01, h, 0.04, yaw2 );
+
+				}
+
+				SK.color = STONE;
+				SK.box( o[ 0 ], top - 3.75, o[ 1 ], 1.7, 0.12, 0.2, yaw2 ); // its sill
+				this._quoinCorner( a, [ u, [ ( corners[ ( i + 3 ) % 4 ][ 0 ] - a[ 0 ] ) / ( i % 2 ? 5.2 : 5.5 ), ( corners[ ( i + 3 ) % 4 ][ 1 ] - a[ 1 ] ) / ( i % 2 ? 5.2 : 5.5 ) ] ], G, top );
+
+			}
+
+			// the cornice, the pinnacles, the spire
+			SK.color = STONE;
+			SK.box( C[ 0 ], top + 0.15, C[ 1 ], X1 - X0 + 0.5, 0.3, Z1 - Z0 + 0.5, 0 );
+			SK.box( C[ 0 ], top + 0.4, C[ 1 ], X1 - X0 + 0.2, 0.2, Z1 - Z0 + 0.2, 0 );
+			for ( const [ x, z ] of corners ) {
+
+				const px = x + Math.sign( C[ 0 ] - x ) * 0.3, pz = z + Math.sign( C[ 1 ] - z ) * 0.3;
+				SK.box( px, top + 0.8, pz, 0.42, 0.6, 0.42, 0 );
+				for ( const a of [ 0, Math.PI / 4 ] ) {
+
+					SK.box( px, top + 1.3, pz, 0.36, 0.4, 0.36, a );
+					SK.box( px, top + 1.75, pz, 0.12, 0.5, 0.12, a );
+
+				}
+
+			}
+
+			const yb = top + 0.5, yA = yb + 4.2, A = [ C[ 0 ], yA, C[ 1 ] ], inset = 0.7;
+			const B = [ [ X0 + inset, Z0 + inset ], [ X1 - inset, Z0 + inset ], [ X1 - inset, Z1 - inset ], [ X0 + inset, Z1 - inset ] ];
+			kit.vdata = [ 0.43, 0.7, 0, 0 ];
+			kit.color = [ 0.6, 0.6, 0.58 ];
+			for ( let i = 0; i < 4; i ++ ) {
+
+				const a = B[ i ], b = B[ ( i + 1 ) % 4 ], m = [ ( a[ 0 ] + b[ 0 ] ) / 2 - C[ 0 ], 0.5, ( a[ 1 ] + b[ 1 ] ) / 2 - C[ 1 ] ];
+				kit.quadFacing( [ a[ 0 ], yb, a[ 1 ] ], [ b[ 0 ], yb, b[ 1 ] ], A, A, m );
+
+			}
+
+			this.colliders.addBox( new Vector3( C[ 0 ], ( base + top ) / 2, C[ 1 ] ), new Vector3( ( X1 - X0 ) / 2, ( top - base ) / 2, ( Z1 - Z0 ) / 2 ), 0, { walkable: false, tag: 'tower' } );
+
+		}
+
+		for ( const [ K, name ] of [ [ SK, 'santa-maria-church-stone' ], [ paint, 'santa-maria-church-paint' ], [ plaster, 'santa-maria-church-plaster' ], [ wood, 'santa-maria-church-door' ] ] ) {
+
+			const mesh = new Mesh( K.build(), materials.plaster );
+			mesh.name = name;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.staticVelocity = true;
+			this.group.add( mesh );
+
+		}
+
+	}
+
 	// The steps down from Praça de Santa Maria toward the Igreja da Misericórdia (photo
 	// references/...-2fa087ec-...; TerrainData lays the fall): rows of pale stone across the alley every
 	// three metres, the long cobbled treads between them; going down, on the right a white wall with a strong
@@ -3384,8 +4336,30 @@ export class Walls {
 
 		// the walls: on the south (the right going down) as high as the terrace behind it, so its top stays
 		// level while the alley falls; on the north the garden's, taller
-		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.top;
+		// (its top a metre over the café terrace behind it, which lies at the Largo's level)
+		const [ s0, s1 ] = S.south, [ n0, n1 ] = S.north, top = S.cafe + 1.0;
 		this._oldWall( plaster, s0, s1, - 1, alleyY, top - alleyY( s0 ), top - alleyY( s1 ), 53, false, { foot: lin( [ 0.2, 0.34, 0.8 ] ), ivy: false } );
+		// (its top, set over the alley's fall, dips under the level coping where the alley's fall isn't even: the gap
+		// filled up to the coping, whitewashed, both faces; seen from the café terrace since that came down to the Largo)
+		{
+
+			const WL = Math.hypot( s1[ 0 ] - s0[ 0 ], s1[ 1 ] - s0[ 1 ] ), wu = [ ( s1[ 0 ] - s0[ 0 ] ) / WL, ( s1[ 1 ] - s0[ 1 ] ) / WL ], bk = [ wu[ 1 ], - wu[ 0 ] ];
+			const at = ( u, k = 0 ) => [ s0[ 0 ] + wu[ 0 ] * u + bk[ 0 ] * k, s0[ 1 ] + wu[ 1 ] * u + bk[ 1 ] * k ];
+			const H0 = top - alleyY( s0 ), H1 = top - alleyY( s1 ), wallTop = ( u ) => alleyY( at( u ) ) + H0 + ( H1 - H0 ) * u / WL;
+			plaster.vdata = [ 20, 0, 0.47, 0 ];
+			plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
+			for ( let n = Math.ceil( WL * 4 ), i = 0; i < n; i ++ ) {
+
+				const ua = WL * i / n, ub = WL * ( i + 1 ) / n, ya = wallTop( ua ) - 0.02, yb = wallTop( ub ) - 0.02;
+				if ( Math.max( ya, yb ) > top - 0.005 ) continue;
+				const A = at( ua ), B = at( ub ), A2 = at( ua, 0.5 ), B2 = at( ub, 0.5 ), V = ( q, y ) => [ q[ 0 ], y, q[ 1 ] ];
+				plaster.quadFacing( V( A, ya ), V( B, yb ), V( B, top ), V( A, top ), [ - bk[ 0 ], 0, - bk[ 1 ] ], [ [ ua, 4 ], [ ub, 4 ], [ ub, 4.5 ], [ ua, 4.5 ] ] );
+				plaster.quadFacing( V( A2, ya ), V( B2, yb ), V( B2, top ), V( A2, top ), [ bk[ 0 ], 0, bk[ 1 ] ], [ [ ua, 4 ], [ ub, 4 ], [ ub, 4.5 ], [ ua, 4.5 ] ] );
+				plaster.quadFacing( V( A, top ), V( B, top ), V( B2, top ), V( A2, top ), [ 0, 1, 0 ], [ [ ua, 5 ], [ ub, 5 ], [ ub, 5.5 ], [ ua, 5.5 ] ] );
+
+			}
+
+		}
 		const ntop = alleyY( n0 ) + 3.2;
 		// (down at the corner, as high again over the alley's foot as the wall turning down the ramp)
 		const nEnd = alleyY( n1 ) + 4.2;
@@ -3413,8 +4387,9 @@ export class Walls {
 
 		}
 
-		// the terrace's other sides, held up by walls like the front one: its back (south), its east end, and
-		// its west side along the way down from the square (photo references/...-814e8453-...)
+		// the terrace's east end, held up by a wall like the front one beside the stair from the Largo da Misericórdia
+		// (photo references/...-814e8453-...); on the Largo de Santa Maria's side no walls, its ground running on
+		// into the Largo's (photos -1411-, -2021-: TerrainData shapes it)
 		{
 
 			const back = [ - out[ 0 ], - out[ 1 ] ], T = this.terrain, P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
@@ -3426,30 +4401,55 @@ export class Walls {
 				return lo;
 
 			};
-			const blue = lin( [ 0.2, 0.34, 0.8 ] );
-			for ( const [ A, B, n, seed ] of [ [ P( SL, S.DEEP ), P( 0, S.DEEP ), back, 67 ], [ P( SL, 0.25 ), P( SL, S.DEEP ), su, 71 ], [ P( 0, S.DEEP ), P( 0, 0.25 ), [ - su[ 0 ], - su[ 1 ] ], 73 ] ] ) {
+			const blue = lin( [ 0.2, 0.34, 0.8 ] ), EAST = S.DEEP; // (the Misericórdia's side: as it was)
+			{
 
-				const g = base( A, B, n );
-				this._oldWall( plaster, A, B, - 1, () => g, top - g, top - g, seed, false, { foot: blue, ivy: false } );
+				const A = P( SL, 0.25 ), B = P( SL, EAST ), g = base( A, B, su );
+				this._oldWall( plaster, A, B, - 1, () => g, top - g, top - g, 71, false, { foot: blue, ivy: false } );
 
 			}
 
-			// the floor: grey stone paving level just under the walls' tops, over the ground, and a collider for it
-			const F = top - 0.05, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, S.DEEP ), P( 0, S.DEEP ) ];
+			// and along its west side, from the pier at the front wall's end to a little short of the museum's corner,
+			// between it and the way down from the square (the user's mark on the game)
+			const WEST = 5.7;
+			{
+
+				// (its blue foot on the way's side, as the front wall's is on the alley's)
+				const A = P( 0, 0.6 ), B = P( 0, WEST ), g = base( A, B, [ - su[ 0 ], - su[ 1 ] ] );
+				this._oldWall( plaster, A, B, 1, () => g, top - g, top - g, 73, false, { foot: blue, ivy: false } );
+
+			}
+
+			// slabs of grey stone along the front wall's foot, a touch under the terrace's cobbles: they show only in
+			// the ground's dip right behind the wall; and a collider at the terrace's level over it
+			const F = S.cafe - 0.03, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
 			kit.vdata = [ 0.71, 0.3, 0, 0 ];
 			kit.color = [ 0.74, 0.72, 0.67 ];
 			kit.quadFacing( ...corners.map( ( q ) => [ q[ 0 ], F, q[ 1 ] ] ), [ 0, 1, 0 ], corners.map( ( q ) => [ q[ 0 ], q[ 1 ] ] ) );
-			const Cf = P( SL / 2, S.DEEP / 2 ), lo = base( corners[ 0 ], corners[ 2 ], [ 0, 0 ] ) - 0.5;
-			this.colliders.addBox( new Vector3( Cf[ 0 ], ( F + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( F - lo ) / 2, S.DEEP / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
+			const Cf = P( SL / 2, D / 2 ), lo = base( corners[ 0 ], corners[ 2 ], [ 0, 0 ] ) - 0.5;
+			this.colliders.addBox( new Vector3( Cf[ 0 ], ( S.cafe + lo ) / 2, Cf[ 1 ] ), new Vector3( SL / 2, ( S.cafe - lo ) / 2, D / 2 ), Math.atan2( - su[ 1 ], su[ 0 ] ), { walkable: true, tag: 'terrace' } );
 
-			// a coping of old brownish stone along all four tops, moss in it
+			// the front wall's west end, where the alley starts down from the square, finished with a pier under a
+			// slab of grey stone
+			{
+
+				const C = P( 0.32, 0.27 ), g = Math.min( alleyY( s0 ), S.cafe ) - 0.6, py = Math.atan2( - su[ 1 ], su[ 0 ] );
+				plaster.vdata = [ 20, 0, 0.47, 0 ];
+				plaster.color = lin( [ 0.92, 0.91, 0.88 ] );
+				plaster.box( C[ 0 ], ( g + top + 0.15 ) / 2, C[ 1 ], 0.7, top + 0.15 - g, 0.7, py );
+				kit.vdata = [ 0.43, 0.6, 0, 0 ];
+				kit.color = [ 0.66, 0.64, 0.6 ];
+				kit.box( C[ 0 ], top + 0.2, C[ 1 ], 0.84, 0.1, 0.84, py );
+				this.colliders.addBox( new Vector3( C[ 0 ], ( g + top ) / 2, C[ 1 ] ), new Vector3( 0.35, ( top - g ) / 2, 0.35 ), py, { walkable: false, tag: 'wall' } );
+
+			}
+
+			// a coping of old brownish stone along the two walls' tops, moss in it
 			kit.vdata = [ 0.43, 0.6, 0, 0 ];
 			kit.color = [ 0.36, 0.33, 0.27 ];
-			const C = P( SL / 2, S.DEEP / 2 );
-			for ( const [ A, B ] of [ [ P( 0, 0 ), P( SL, 0 ) ], [ P( SL, 0 ), P( SL, S.DEEP ) ], [ P( SL, S.DEEP ), P( 0, S.DEEP ) ], [ P( 0, S.DEEP ), P( 0, 0 ) ] ] ) {
+			for ( const [ A, B, inw ] of [ [ P( 0, 0 ), P( SL, 0 ), back ], [ P( SL, 0 ), P( SL, EAST ), [ - su[ 0 ], - su[ 1 ] ] ], [ P( 0, 0.6 ), P( 0, WEST ), su ] ] ) {
 
 				const M = [ ( A[ 0 ] + B[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] ) / 2 ], l = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
-				const m = Math.hypot( C[ 0 ] - M[ 0 ], C[ 1 ] - M[ 1 ] ), inw = [ ( C[ 0 ] - M[ 0 ] ) / m, ( C[ 1 ] - M[ 1 ] ) / m ];
 				kit.box( M[ 0 ] + inw[ 0 ] * 0.24, top + 0.04, M[ 1 ] + inw[ 1 ] * 0.24, l + 0.1, 0.08, 0.62, Math.atan2( - ( B[ 1 ] - A[ 1 ] ), B[ 0 ] - A[ 0 ] ) );
 
 			}
@@ -3689,11 +4689,11 @@ export class Walls {
 		}
 
 		// on the terrace, three big square white parasols over the tables, open, their tops showing over the
-		// walls from the Largo (photo references/...-2241-...)
+		// wall from the alley (photo references/...-2241-...)
 		{
 
 			const back = [ - out[ 0 ], - out[ 1 ] ], P = ( u, k ) => [ s0[ 0 ] + su[ 0 ] * u + back[ 0 ] * k, s0[ 1 ] + su[ 1 ] * u + back[ 1 ] * k ];
-			const F = top - 0.05, pyaw = Math.atan2( - su[ 1 ], su[ 0 ] );
+			const F = S.cafe, pyaw = Math.atan2( - su[ 1 ], su[ 0 ] );
 			for ( const u of [ 3.0, 6.6, 10.2 ] ) {
 
 				const C = P( u, 1.9 ), yR = F + 2.35, yA = F + 2.75, H = 1.55; // the rim, the apex, half the canopy
@@ -3810,7 +4810,7 @@ export class Walls {
 		for ( const u of [ 1.6, 4.4 ] ) {
 
 			// a small round table, two chairs, a step back from the wall's top
-			const C = [ s0[ 0 ] + su[ 0 ] * u - out[ 0 ] * 1.3, s0[ 1 ] + su[ 1 ] * u - out[ 1 ] * 1.3 ], g = S.top - 0.05;
+			const C = [ s0[ 0 ] + su[ 0 ] * u - out[ 0 ] * 1.3, s0[ 1 ] + su[ 1 ] * u - out[ 1 ] * 1.3 ], g = S.cafe;
 			kit.color = [ 0.06, 0.06, 0.06 ];
 			kit.box( C[ 0 ], g + 0.36, C[ 1 ], 0.05, 0.72, 0.05, 0 );
 			kit.color = [ 0.55, 0.55, 0.53 ];

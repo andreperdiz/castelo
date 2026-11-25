@@ -163,6 +163,21 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 	landing: { x0: 26.3, z0: - 10.6, z1: - 11.3, zL: - 13.3, run: 1.9 },
 	forecourt: { poly: [ [ 21, 9.2 ], [ 26, 10.5 ], [ 24.65, 2.6 ], [ 22.95, 2.25 ] ] }, // (the tower's west and east corners, then the tip)
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
+// Praça de Santa Maria's lower square (photo references/...-1113-814e8453-...): a level floor of calçada in the
+// U of the old retaining wall (OSM: the south arm, the long west side with the Chafariz in it, the north arm; -z is north),
+// the terrace behind it a man's height higher, the Pelourinho on it; the lanes either side fall east along the
+// arms. floor: the lower square east to where it eases back onto the ground (x); terrace: how far back it runs
+// level from the wall to the houses' fronts (x0, easing under them by x1), and how much higher (the wall stands
+// 0.75 m over it, photo -1350-); it is Rua Direita: level across, it climbs north from north[ 0 ] (z) to the
+// north arm's corner by north[ 1 ] m, and runs on into the street's ground past its ends (ends: from the
+// south corner's paving to z, and from the north corner to z); fountain: its middle along the west side (z), the
+// Pelourinho behind it
+export const SANTA_MARIA_SQUARE = { wall: [ [ 1.8, - 28.4 ], [ - 8.3, - 30 ], [ - 6.8, - 54.2 ], [ 4.9, - 53.4 ] ],
+	floor: { x0: 6, x1: 10 }, terrace: { x0: - 14.6, x1: - 16, rise: 2.1, north: [ - 44, 0.4 ], ends: [ - 27.6, - 23.6, - 62 ] }, fountain: { z: - 41.95 } };
+// the chapel before the Igreja de Santa Maria's bell tower (photo references/...-2003-be0365f0-...): its front to
+// the square at x, a metre behind the church's, from z0 to z1; its eave (Town builds it gabled to the square,
+// Walls dresses its front)
+export const SANTA_MARIA_CHAPEL = { x: 20.2, z0: - 40.1, z1: - 35.2, eave: 59.8 };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -213,6 +228,7 @@ export class TerrainData {
 		this._senhoraDaGraca();
 		this._beneficiado();
 		this._misericordia();
+		this._santaMariaSquare();
 		this._santaMariaSteps();
 		this._escadariaBiblioteca();
 		this._pvLaneLevel();
@@ -1031,6 +1047,85 @@ export class TerrainData {
 
 	}
 
+	// Praça de Santa Maria (SANTA_MARIA_SQUARE): the LiDAR smears the retaining wall into a 3 m slope across
+	// the square's west side; here the lower square is one level floor in the wall's U, the terrace behind the
+	// west side level a man's height higher, easing up to the houses. this.santaMariaSquare tells Walls where.
+	_santaMariaSquare() {
+
+		const Q = SANTA_MARIA_SQUARE, W = Q.wall, { res, texel, origin, heights } = this;
+		const F = this.heightAt( - 2, - 42 ), U = F + Q.terrace.rise;
+		const low = [ ...W, [ Q.floor.x1, W[ 3 ][ 1 ] + 0.2 ], [ Q.floor.x1, W[ 0 ][ 1 ] + 0.2 ] ];
+		// the west side's x at z
+		const sideX = ( z ) => W[ 1 ][ 0 ] + ( W[ 2 ][ 0 ] - W[ 1 ][ 0 ] ) * ( z - W[ 1 ][ 1 ] ) / ( W[ 2 ][ 1 ] - W[ 1 ][ 1 ] );
+		const TR = Q.terrace, zS = W[ 1 ][ 1 ], zN = W[ 2 ][ 1 ], UN = U + TR.north[ 1 ];
+		// the terrace's level at z (Rua Direita climbing north)
+		const Ut = ( z ) => lerp( U, UN, smoothstep( TR.north[ 0 ], zN, z ) );
+		const i0 = Math.floor( ( TR.x1 - 1 - origin ) / texel ), i1 = Math.ceil( ( Q.floor.x1 + 1 - origin ) / texel );
+		const j0 = Math.floor( ( TR.ends[ 2 ] - 1 - origin ) / texel ), j1 = Math.ceil( ( TR.ends[ 1 ] + 1 - origin ) / texel );
+		// (targets first, from the untouched ground: the terrace eases onto it under the houses and past its ends)
+		const out = [];
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+			let dw = Infinity;
+			for ( let s = 0; s < 3; s ++ ) dw = Math.min( dw, segmentDistance( x, z, W[ s ], W[ s + 1 ] )[ 0 ] );
+			// across: level to the houses' fronts, easing onto the ground under them
+			const across = smoothstep( TR.x0, TR.x1, x );
+			if ( pointInPolygon( x, z, low ) ) {
+
+				out.push( [ k, F, 1 - smoothstep( Q.floor.x0, Q.floor.x1, x ), true ] );
+
+			} else if ( dw < 1.1 ) {
+
+				// (under the wall and just behind it the floor's level too, so the ground's 1 m step from one
+				// level to the other lies behind the wall, under the paving Walls lays there, not before it)
+				out.push( [ k, F, 1, false ] );
+
+			} else if ( z < zS - 0.3 && z > zN + 0.3 && x < sideX( z ) && x > TR.x1 - 1 ) {
+
+				out.push( [ k, lerp( Ut( z ), heights[ k ], across ), 1, across < 0.5 ] ); // (paved, as the street it is)
+
+			} else if ( x > TR.x1 - 1 && x < W[ 1 ][ 0 ] - 0.3 && z >= zS - 0.3 && z < TR.ends[ 1 ] ) {
+
+				// Rua Direita on south from the terrace: its level from the corner's paving, then easing up the street
+				const e = Math.max( across, smoothstep( TR.ends[ 0 ], TR.ends[ 1 ], z ) );
+				out.push( [ k, lerp( U, heights[ k ], e ), 1, false ] );
+
+			} else if ( x > TR.x1 - 1 && x < W[ 2 ][ 0 ] - 0.6 && z <= zN + 0.3 && z > TR.ends[ 2 ] ) {
+
+				// and on north: from the north corner up into the street's ground
+				const e = Math.max( across, smoothstep( zN - 2.4, TR.ends[ 2 ], z ) );
+				out.push( [ k, lerp( UN, heights[ k ], e ), 1, false ] );
+
+			}
+
+		}
+
+		for ( const [ k, y, w, paved ] of out ) {
+
+			heights[ k ] = lerp( heights[ k ], y, w );
+			if ( paved && w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		}
+
+		// the lane down from the square's south-west corner past the Museu Municipal: setts from the wall to the
+		// museum's foot (photo references/...-1411-...), not just OSM's width
+		this._stroke( [ [ - 13.5, - 28.2 ], [ 1.6, - 25.8 ], [ 12.2, - 24.1 ] ], 3.4, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
+			this.path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
+		this.santaMariaSquare = { ...Q, F, U, UN, Ut, sideX };
+
+	}
+
 	// the steps down from Praça de Santa Maria (SANTA_MARIA_STEPS): one even fall, steeper than the ground's
 	// (the photos: the alley drops near three metres to the corner, the terrace wall four high there), paved;
 	// Walls lays the steps' stone edges on it
@@ -1120,11 +1215,67 @@ export class TerrainData {
 
 		}
 
-		// the café's terrace behind the south wall, level with its top (the photo's tables stand at its edge),
-		// from the wall's face back 9.5 m along the way down from the square (photo references/...-814e8453-...):
-		// Walls builds it, walls round it and a paved floor over the ground, which is left as it is (a raised
-		// ground would bank out over the walls' feet)
-		const top = y0 + 1.5, DEEP = 9.5;
+		// the café's terrace behind the south wall: no walls round it on the Largo's side, its ground level with the
+		// Largo's (photos references/...-1411-..., -2021-), the wall over the alley standing as a parapet over it; a
+		// row of slabs along the wall's foot (Walls lays it a touch under the ground, so it shows only in the ground's
+		// dip right behind the wall); level back DEEP m,
+		// then easing into the Largo's ground; not touched a metre from the wall (changed there it would bank out over
+		// the wall's foot in the alley), nor east past the terrace, where the stair runs
+		const top = y0 + 1.5, DEEP = 9.5, STRIP = 2.2, cafe = this.heightAt( 18.5, - 24 );
+		{
+
+			const [ sA, sB ] = S.south, zl = ( x ) => sA[ 1 ] + ( sB[ 1 ] - sA[ 1 ] ) * ( x - sA[ 0 ] ) / ( sB[ 0 ] - sA[ 0 ] );
+			const xe = sB[ 0 ] - 0.3;
+			const ti0 = Math.floor( ( sA[ 0 ] - 3 - origin ) / texel ), ti1 = Math.ceil( ( xe - origin ) / texel );
+			const tj0 = Math.floor( ( Math.min( sA[ 1 ], sB[ 1 ] ) - DEEP - 3 - origin ) / texel ), tj1 = Math.ceil( ( Math.max( sA[ 1 ], sB[ 1 ] ) - origin ) / texel );
+			for ( let j = tj0; j <= tj1; j ++ ) for ( let i = ti0; i <= ti1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = zl( x ) - z, idx = j * res + i;
+				if ( k < 1.0 || k > DEEP + 2.5 || x > xe ) continue;
+				const lw = 1 - smoothstep( 0, 2.5, sA[ 0 ] - x );
+				const y = lerp( cafe, heights[ idx ], smoothstep( DEEP, DEEP + 2.5, k ) );
+				heights[ idx ] = lerp( heights[ idx ], y, lw );
+				if ( lw > 0.5 ) {
+
+					this.path[ idx ] = 255;
+					this.scarp[ idx ] = 255;
+
+				}
+
+			}
+
+		}
+
+		// the way up from the alley's top to the Largo, between the museum and the terrace's west wall: one gentle
+		// slope from the alley's edge to the Largo's level, not the short steep rise left where the two levels met
+		{
+
+			const zA = - 12.8, zB = - 20.2, xs = [], ya = [], yb = [];
+			const ri0 = Math.floor( ( 8.5 - origin ) / texel ), ri1 = Math.floor( ( 13.0 - origin ) / texel - 0.5 ); // (not past the wall's line: the terrace is behind it)
+			for ( let i = ri0; i <= ri1; i ++ ) {
+
+				const x = origin + ( i + 0.5 ) * texel;
+				xs.push( i );
+				ya.push( this.heightAt( x, zA ) );
+				yb.push( this.heightAt( x, zB ) );
+
+			}
+
+			const rj0 = Math.ceil( ( zB - origin ) / texel - 0.5 ), rj1 = Math.floor( ( zA - origin ) / texel - 0.5 );
+			for ( let j = rj0; j <= rj1; j ++ ) {
+
+				const z = origin + ( j + 0.5 ) * texel, t = ( z - zA ) / ( zB - zA );
+				xs.forEach( ( i, n ) => {
+
+					heights[ j * res + i ] = lerp( ya[ n ], yb[ n ], t );
+					this.path[ j * res + i ] = 255;
+					this.scarp[ j * res + i ] = 255;
+
+				} );
+
+			}
+
+		}
 
 		// the lane from the Largo north under the arch beside the house-tower (Rua Padre António Almeida; photo
 		// references/...-1912-3408fb6f-...): one even climb right across to the walls each side, the walled garden's
@@ -1373,7 +1524,7 @@ export class TerrainData {
 
 		}
 
-		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, lane: LN, forecourt: FC, laneY,
+		this.santaMariaSteps = { from: S.from, to: S.to, north: S.north, south: S.south, dir, length: L, y, HALF, top, DEEP, STRIP, cafe, lane: LN, forecourt: FC, laneY,
 			ramp: { ...R, dir: rdir, length: RL, y: rampY }, cross: S.cross, stair: { ...ST, yB, yT, y: stairY }, landing: { ...LD, y: yL } };
 
 	}
