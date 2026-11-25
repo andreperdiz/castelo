@@ -163,6 +163,15 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 	landing: { x0: 26.3, z0: - 10.6, z1: - 11.3, zL: - 13.3, run: 1.9 },
 	forecourt: { poly: [ [ 21, 9.2 ], [ 26, 10.5 ], [ 24.65, 2.6 ], [ 22.95, 2.25 ] ] }, // (the tower's west and east corners, then the tip)
 	lane: { pts: [ [ 23.5, 2.6 ], [ 21.5, 4.6 ], [ 20.4, 7.6 ], [ 17.4, 16.4 ], [ 16.6, 18.6 ] ], HALF: 1.6, wall: [ [ 21.25, 0.6 ], [ 20.2, 4.0 ], [ 17.0, 13.4 ], [ 16.0, 16.4 ] ] } };
+// Praça de Santa Maria's lower square (photo references/...-1113-814e8453-...): a level floor of calçada in the
+// U of the old retaining wall (OSM: the north arm, the long west side with the Chafariz in it, the south arm),
+// the terrace behind it a man's height higher, the Pelourinho on it; the lanes either side fall east along the
+// arms. floor: the lower square east to where it eases back onto the ground (x); terrace: how far back it runs
+// level from the wall before easing up to the houses (x0 .. x1); fountain: its middle along the west side (z);
+// pillory on the terrace behind it; steps up from the square's corner by the north arm's end onto its lane
+export const SANTA_MARIA_SQUARE = { wall: [ [ 1.8, - 28.4 ], [ - 8.3, - 30 ], [ - 6.8, - 54.2 ], [ 4.9, - 53.4 ] ],
+	floor: { x0: 6, x1: 10 }, terrace: { x0: - 10, x1: - 13.5, rise: 2.35 }, fountain: { z: - 41.95 }, pillory: [ - 10.0, - 41.3 ],
+	steps: { x0: 1.9, x1: 5.6 } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the
@@ -213,6 +222,7 @@ export class TerrainData {
 		this._senhoraDaGraca();
 		this._beneficiado();
 		this._misericordia();
+		this._santaMariaSquare();
 		this._santaMariaSteps();
 		this._escadariaBiblioteca();
 		this._pvLaneLevel();
@@ -1028,6 +1038,60 @@ export class TerrainData {
 
 		} );
 		this.beneficiado = { from: B.from, to: B.to, wall: B.wall, dir, length: L, y, HALF };
+
+	}
+
+	// Praça de Santa Maria (SANTA_MARIA_SQUARE): the LiDAR smears the retaining wall into a 3 m slope across
+	// the square's west side; here the lower square is one level floor in the wall's U, the terrace behind the
+	// west side level a man's height higher, easing up to the houses. this.santaMariaSquare tells Walls where.
+	_santaMariaSquare() {
+
+		const Q = SANTA_MARIA_SQUARE, W = Q.wall, { res, texel, origin, heights } = this;
+		const F = this.heightAt( - 2, - 42 ), U = F + Q.terrace.rise;
+		const low = [ ...W, [ Q.floor.x1, W[ 3 ][ 1 ] + 0.2 ], [ Q.floor.x1, W[ 0 ][ 1 ] + 0.2 ] ];
+		// the west side's x at z
+		const sideX = ( z ) => W[ 1 ][ 0 ] + ( W[ 2 ][ 0 ] - W[ 1 ][ 0 ] ) * ( z - W[ 1 ][ 1 ] ) / ( W[ 2 ][ 1 ] - W[ 1 ][ 1 ] );
+		const i0 = Math.floor( ( Q.terrace.x1 - 1 - origin ) / texel ), i1 = Math.ceil( ( Q.floor.x1 + 1 - origin ) / texel );
+		const j0 = Math.floor( ( W[ 2 ][ 1 ] - 1 - origin ) / texel ), j1 = Math.ceil( ( W[ 0 ][ 1 ] + 1 - origin ) / texel );
+		// (targets first, from the untouched ground: the terrace eases onto it at the houses)
+		const out = [];
+		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
+
+			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
+			let dw = Infinity;
+			for ( let s = 0; s < 3; s ++ ) dw = Math.min( dw, segmentDistance( x, z, W[ s ], W[ s + 1 ] )[ 0 ] );
+			if ( pointInPolygon( x, z, low ) ) {
+
+				out.push( [ k, F, 1 - smoothstep( Q.floor.x0, Q.floor.x1, x ), true ] );
+
+			} else if ( dw < 1.1 ) {
+
+				// (under the wall and just behind it the floor's level too, so the ground's 1 m step from one
+				// level to the other lies behind the wall, under the paving Walls lays there, not before it)
+				out.push( [ k, F, 1, false ] );
+
+			} else if ( z < W[ 1 ][ 1 ] - 0.3 && z > W[ 2 ][ 1 ] + 0.3 && x < sideX( z ) && x > Q.terrace.x1 - 1 ) {
+
+				const e = smoothstep( Q.terrace.x0, Q.terrace.x1, x );
+				out.push( [ k, lerp( U, Math.max( U, heights[ k ] ), e ), 1, true ] ); // (paved, as the street it is)
+
+			}
+
+		}
+
+		for ( const [ k, y, w, paved ] of out ) {
+
+			heights[ k ] = lerp( heights[ k ], y, w );
+			if ( paved && w > 0.5 ) {
+
+				this.path[ k ] = 255;
+				this.scarp[ k ] = 255;
+
+			}
+
+		}
+
+		this.santaMariaSquare = { ...Q, F, U, sideX };
 
 	}
 

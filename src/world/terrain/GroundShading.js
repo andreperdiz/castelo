@@ -1,6 +1,7 @@
 import { ShaderModule } from '../../engine/gpu/Shader.js';
 import { commonModule } from '../../engine/render/wgsl/common.js';
 import { srgb, terrainShadingModule } from './TerrainShading.js';
+import { SANTA_MARIA_SQUARE } from '../TerrainData.js';
 
 // The Óbidos countryside and town ground, shared by the near terrain and the far DEM mesh.
 //
@@ -18,6 +19,7 @@ import { srgb, terrainShadingModule } from './TerrainShading.js';
 //   fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f                          limestone setts (albedo, a = bump)
 //   fn groundRoughStones( xz: vec2f, px: f32 ) -> vec4f                      a wall foot's rough stones in sand
 //   fn groundHash( p: vec2f ) -> f32
+//   fn groundSantaMaria( p: vec2f ) -> f32                                    1 on the dark stones of the square's calçada
 const C = {
 	stubble: srgb( 0.68, 0.58, 0.4 ),
 	stubbleLight: srgb( 0.76, 0.66, 0.47 ),
@@ -42,7 +44,20 @@ const C = {
 	settDark: srgb( 0.34, 0.34, 0.33 ),
 	settWarm: srgb( 0.56, 0.51, 0.44 ),
 	joint: srgb( 0.3, 0.29, 0.26 ),
+	basalt: srgb( 0.2, 0.2, 0.21 ),
+	basaltBlue: srgb( 0.25, 0.27, 0.31 ),
 };
+
+// Praça de Santa Maria's lower square (SANTA_MARIA_SQUARE): its frame, the fountain's middle on the west
+// side's line, a along that side (south), k out from it into the square
+const SM = ( () => {
+
+	const [ , A, B ] = SANTA_MARIA_SQUARE.wall, L = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
+	const u = [ ( B[ 0 ] - A[ 0 ] ) / L, ( B[ 1 ] - A[ 1 ] ) / L ], t = ( SANTA_MARIA_SQUARE.fountain.z - A[ 1 ] ) / u[ 1 ];
+	const f = ( v ) => v.toFixed( 4 );
+	return { o: `vec2f( ${ f( A[ 0 ] + u[ 0 ] * t ) }, ${ f( A[ 1 ] + u[ 1 ] * t ) } )`, u: `vec2f( ${ f( u[ 0 ] ) }, ${ f( u[ 1 ] ) } )`, n: `vec2f( ${ f( - u[ 1 ] ) }, ${ f( u[ 0 ] ) } )` };
+
+} )();
 
 const consts = Object.entries( C ).map( ( [ k, v ] ) => `const GC_${ k }: vec3f = ${ v };` ).join( '\n' );
 
@@ -190,6 +205,31 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 	return vec4f( d1, ( d2 - d1 ) * 0.5, id );
 }
 
+// The calçada of Praça de Santa Maria's lower square (photo references/...-1113-...): lines of dark stones
+// two setts wide on the pale limestone, a frame along the west side and panels across it, and further out
+// a chain of half circles hanging from a line toward the square's open side. p: a sett's centre.
+fn groundSantaMaria( p: vec2f ) -> f32 {
+	let d = p - ${ SM.o };
+	let a = dot( d, ${ SM.u } );
+	let k = dot( d, ${ SM.n } );
+	if ( k < 0.9 || k > 13.5 || abs( a ) > 11.4 ) { return 0.0; }
+	let w = 0.12;
+	var m = 0.0;
+	// along the side
+	m = max( m, step( abs( k - 1.6 ), w ) );
+	m = max( m, step( abs( k - 4.3 ), w ) );
+	m = max( m, step( abs( k - 8.6 ), w ) );
+	// across, between the second and third: panels 4.3 m long, one centred on the fountain
+	let ac = abs( fract( ( a + 2.15 ) / 4.3 ) - 0.5 ) * 4.3;
+	m = max( m, step( ac, w ) * step( 4.3, k ) * step( k, 8.6 ) );
+	// the half circles past the third, one to a panel
+	let ca = ( fract( ( a + 2.15 ) / 4.3 ) - 0.5 ) * 4.3;
+	let r = length( vec2f( ca, k - 8.6 ) );
+	m = max( m, step( abs( r - 2.0 ), w ) * step( 8.6, k ) );
+	m = max( m, step( abs( r - 1.25 ), w * 0.8 ) * step( 8.6, k ) );
+	return m;
+}
+
 // Óbidos street paving: small squarish limestone setts (~0.11 m) and darker ones, set in packed earth;
 // fades to the average tone when a stone is smaller than a few pixels
 fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
@@ -200,11 +240,14 @@ fn groundCobbles( xz: vec2f, px: f32 ) -> vec4f {
 	var col = mix( GC_settMid, GC_settLight, h1 );
 	col = mix( col, GC_settDark, smoothstep( 0.78, 0.92, h2 ) );
 	col = mix( col, GC_settWarm, smoothstep( 0.6, 0.85, groundHash( v.zw + 4.4 ) ) * 0.5 );
+	// (the dark stones of a pattern: whole setts, by their centres)
+	let dark = groundSantaMaria( ( v.zw + 0.5 ) * s );
+	col = mix( col, mix( GC_basalt, GC_basaltBlue, h1 ) * ( 0.85 + h2 * 0.3 ), dark );
 	let pxS = px / s;
 	let joint = 1.0 - smoothstep( 0.03, 0.09 + pxS, v.y );
 	let fade = smoothstep( 0.3, 1.0, pxS ); // (the small stones fade before they shimmer into rings)
 	let jointCol = mix( GC_joint, GC_track, 0.35 );
-	col = mix( mix( col, jointCol, joint * 0.7 ), mix( GC_settMid, jointCol, 0.18 ), fade );
+	col = mix( mix( col, jointCol, joint * 0.7 ), mix( mix( GC_settMid, GC_basalt, dark ), jointCol, 0.18 ), fade );
 	let dome = smoothstep( 0.0, 0.25, v.y ) * 0.016;
 	return vec4f( col, mix( dome - joint * 0.006, 0.0, fade ) );
 }
