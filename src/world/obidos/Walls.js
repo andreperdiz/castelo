@@ -3453,22 +3453,37 @@ export class Walls {
 			for ( let p = 0; p < n; p ++ ) {
 
 				const s0 = S.L * p / n, s1 = S.L * ( p + 1 ) / n, O = P( S, ( s0 + s1 ) / 2, - TH - 2.6 );
-				const top = i === 1 ? U + 0.02 : i === 0 ? ( laneY( S, s0 ) + laneY( S, s1 ) ) / 2 : Math.max( F + 0.05, T.heightAt( O[ 0 ], O[ 1 ] ) + 0.02 );
-				if ( i !== 0 ) put( kit, S, s0 - 0.02, s1 + 0.02, F - 0.4, top, - TH - 1.7, - TH + 0.05, 'bottom' );
+				// (the terrace at its level there, Rua Direita climbing north; the north lane's steps coming to it at the corner)
+				const M = P( S, ( s0 + s1 ) / 2, 0 );
+				const top = i === 1 ? Q.Ut( M[ 1 ] ) + 0.02 : i === 0 ? ( laneY( S, s0 ) + laneY( S, s1 ) ) / 2
+					: lerp( Math.max( F + 0.05, T.heightAt( O[ 0 ], O[ 1 ] ) + 0.02 ), Q.UN + 0.02, 1 - smoothstep( 0, 3, ( s0 + s1 ) / 2 ) );
+				if ( i === 2 ) put( kit, S, s0 - 0.02, s1 + 0.02, F - 0.4, top, - TH - 1.7, - TH + 0.05, 'bottom' );
 				solid( S, s0, s1, F - 0.4, top, - TH - 1.7, - TH, true, 'terrace' );
 
 			}
 
 		} );
+		// (the smooth ones: the south lane's ramp, and the terrace along Rua Direita's climb)
+		for ( const [ S, Y ] of [ [ sides[ 0 ], ( s ) => laneY( sides[ 0 ], s ) ], [ sides[ 1 ], ( s ) => Q.Ut( P( sides[ 1 ], s, 0 )[ 1 ] ) + 0.02 ] ] ) {
+
+			const V = ( s, k, y ) => { const C = P( S, s, k ); return [ C[ 0 ], y, C[ 1 ] ]; }, k0 = - TH + 0.05, k1 = - TH - 1.7, out = [ - S.n[ 0 ], 0, - S.n[ 1 ] ];
+			for ( let p = 0, n = Math.ceil( S.L * 2 ); p < n; p ++ ) {
+
+				const sa = S.L * p / n, sb = S.L * ( p + 1 ) / n, ya = Y( sa ), yb = Y( sb );
+				kit.quadFacing( V( sa, k0, ya ), V( sb, k0, yb ), V( sb, k1, yb ), V( sa, k1, ya ), [ 0, 1, 0 ], [ [ sa, 0 ], [ sb, 0 ], [ sb, 1.75 ], [ sa, 1.75 ] ] );
+				kit.quadFacing( V( sa, k1, F - 0.4 ), V( sb, k1, F - 0.4 ), V( sb, k1, yb ), V( sa, k1, ya ), out, [ [ sa, 0 ], [ sb, 0 ], [ sb, yb - F ], [ sa, ya - F ] ] );
+
+			}
+
+		}
+
 		{
 
 			const S = sides[ 0 ], n = Math.ceil( S.L * 2 ), V = ( s, k, y ) => { const Q = P( S, s, k ); return [ Q[ 0 ], y, Q[ 1 ] ]; };
-			const k0 = - TH + 0.05, k1 = - TH - 1.7, out = [ - S.n[ 0 ], 0, - S.n[ 1 ] ];
+			const out = [ - S.n[ 0 ], 0, - S.n[ 1 ] ];
 			for ( let p = 0; p < n; p ++ ) {
 
 				const sa = S.L * p / n, sb = S.L * ( p + 1 ) / n, ya = laneY( S, sa ), yb = laneY( S, sb );
-				kit.quadFacing( V( sa, k0, ya ), V( sb, k0, yb ), V( sb, k1, yb ), V( sa, k1, ya ), [ 0, 1, 0 ], [ [ sa, 0 ], [ sb, 0 ], [ sb, 1.75 ], [ sa, 1.75 ] ] );
-				kit.quadFacing( V( sa, k1, F - 0.4 ), V( sb, k1, F - 0.4 ), V( sb, k1, yb ), V( sa, k1, ya ), out, [ [ sa, 0 ], [ sb, 0 ], [ sb, yb - F ], [ sa, ya - F ] ] );
 				SK.vdata = [ 0, 0, 0.53, 4 ];
 				SK.color = BLUE;
 				// (on round the corner to the mitre, where it meets the terrace's band)
@@ -3484,6 +3499,9 @@ export class Walls {
 			// (out to the wall's line: the south arm's back, past where the lane's ramp ends, is behind it)
 			put( kit, S1, - TH - 1.75, 0.05, F - 0.4, U - 0.03, - TH - 1.7, 0.05, 'bottom' );
 			solid( S1, - TH - 1.75, 0, F - 0.4, U + 0.02, - TH - 1.7, 0, true, 'terrace' );
+			// and the north corner likewise, where the north lane comes up to Rua Direita
+			put( kit, S1, S1.L - 0.05, S1.L + TH + 1.75, F - 0.4, Q.UN - 0.03, - TH - 1.7, 0.05, 'bottom' );
+			solid( S1, S1.L, S1.L + TH + 1.75, F - 0.4, Q.UN + 0.02, - TH - 1.7, 0, true, 'terrace' );
 
 		}
 
@@ -3780,18 +3798,18 @@ export class Walls {
 				const s = sF + sd * 3.5, g = T.heightAt( ...P( SW, s, - TH - 2.5 ) );
 				SK.vdata = [ 0, 0, 0.53, 4 ];
 				SK.color = YEL;
-				for ( let i = 0; i < 4; i ++ ) put( SK, SW, s - 0.9, s + 0.9, U + 0.42, U + 0.45, - TH - 0.18 - i * 0.11, - TH - 0.27 - i * 0.11 );
-				for ( let i = 0; i < 3; i ++ ) put( SK, SW, s - 0.9, s + 0.9, U + 0.58 + i * 0.13, U + 0.67 + i * 0.13, - TH - 0.1, - TH - 0.13 );
+				for ( let i = 0; i < 4; i ++ ) put( SK, SW, s - 0.9, s + 0.9, g + 0.42, g + 0.45, - TH - 0.18 - i * 0.11, - TH - 0.27 - i * 0.11 );
+				for ( let i = 0; i < 3; i ++ ) put( SK, SW, s - 0.9, s + 0.9, g + 0.58 + i * 0.13, g + 0.67 + i * 0.13, - TH - 0.1, - TH - 0.13 );
 				SK.color = lin( [ 0.05, 0.05, 0.05 ] );
 				for ( const e of [ - 0.75, 0.75 ] ) {
 
-					put( SK, SW, s + e - 0.03, s + e + 0.03, g - 0.05, U + 0.42, - TH - 0.55, - TH - 0.49 );
-					put( SK, SW, s + e - 0.03, s + e + 0.03, g - 0.05, U + 0.95, - TH - 0.14, - TH - 0.08 );
-					put( SK, SW, s + e - 0.03, s + e + 0.03, U + 0.36, U + 0.42, - TH - 0.55, - TH - 0.1 );
+					put( SK, SW, s + e - 0.03, s + e + 0.03, g - 0.05, g + 0.42, - TH - 0.55, - TH - 0.49 );
+					put( SK, SW, s + e - 0.03, s + e + 0.03, g - 0.05, g + 0.95, - TH - 0.14, - TH - 0.08 );
+					put( SK, SW, s + e - 0.03, s + e + 0.03, g + 0.36, g + 0.42, - TH - 0.55, - TH - 0.1 );
 
 				}
 
-				solid( SW, s - 0.9, s + 0.9, g, U + 0.45, - TH - 0.1, - TH - 0.55, true, 'bench' );
+				solid( SW, s - 0.9, s + 0.9, g, g + 0.45, - TH - 0.1, - TH - 0.55, true, 'bench' );
 
 			}
 
@@ -3800,7 +3818,19 @@ export class Walls {
 		// the terrace's side of the west wall: blue along its foot, as on the square's side
 		SK.vdata = [ 0, 0, 0.53, 4 ];
 		SK.color = BLUE;
-		put( SK, SW, - TH * 0.95, SW.L, U - 0.1, U + 0.52, - TH - 0.025, - TH + 0.005, 'top bottom' );
+		{
+
+			// (following the terrace's climb north, round both corners to the mitres)
+			const n = Math.ceil( SW.L ), V = ( s, y ) => { const C = P( SW, s, - TH - 0.025 ); return [ C[ 0 ], y, C[ 1 ] ]; };
+			for ( let p = 0; p < n; p ++ ) {
+
+				const sa = p === 0 ? - TH * 0.95 : SW.L * p / n, sb = p === n - 1 ? SW.L + TH * 0.95 : SW.L * ( p + 1 ) / n;
+				const ya = Q.Ut( P( SW, Math.max( 0, sa ), 0 )[ 1 ] ), yb = Q.Ut( P( SW, Math.min( SW.L, sb ), 0 )[ 1 ] );
+				SK.quadFacing( V( sa, ya - 0.1 ), V( sb, yb - 0.1 ), V( sb, Math.min( yb + 0.52, YT - 0.12 ) ), V( sa, Math.min( ya + 0.52, YT - 0.12 ) ), [ - SW.n[ 0 ], 0, - SW.n[ 1 ] ] ); // (under the coping where the street has climbed)
+
+			}
+
+		}
 
 		// the plane trees before the church's south side, over the café's tables (photo -1350-)
 		this.extraTrees = this.extraTrees || [];

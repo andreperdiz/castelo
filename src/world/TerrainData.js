@@ -167,11 +167,13 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 // U of the old retaining wall (OSM: the south arm, the long west side with the Chafariz in it, the north arm; -z is north),
 // the terrace behind it a man's height higher, the Pelourinho on it; the lanes either side fall east along the
 // arms. floor: the lower square east to where it eases back onto the ground (x); terrace: how far back it runs
-// level from the wall before easing up to the houses (x0 .. x1), and how much higher (the wall stands 0.75 m
-// over it, photo -1350-); fountain: its middle along the west side (z), the Pelourinho behind it; steps up from
+// level from the wall to the houses' fronts (x0, easing under them by x1), and how much higher (the wall stands
+// 0.75 m over it, photo -1350-); it is Rua Direita: level across, it climbs north from north[ 0 ] (z) to the
+// north arm's corner by north[ 1 ] m, and runs on into the street's ground past its ends (ends: from the
+// south corner's paving to z, and from the north corner to z); fountain: its middle along the west side (z), the Pelourinho behind it; steps up from
 // the square's corner by the south arm's end onto its lane
 export const SANTA_MARIA_SQUARE = { wall: [ [ 1.8, - 28.4 ], [ - 8.3, - 30 ], [ - 6.8, - 54.2 ], [ 4.9, - 53.4 ] ],
-	floor: { x0: 6, x1: 10 }, terrace: { x0: - 10, x1: - 13.5, rise: 2.1 }, fountain: { z: - 41.95 },
+	floor: { x0: 6, x1: 10 }, terrace: { x0: - 14.6, x1: - 16, rise: 2.1, north: [ - 44, 0.4 ], ends: [ - 27.6, - 23.6, - 62 ] }, fountain: { z: - 41.95 },
 	steps: { x0: 1.9, x1: 5.6 } };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
@@ -1052,15 +1054,20 @@ export class TerrainData {
 		const low = [ ...W, [ Q.floor.x1, W[ 3 ][ 1 ] + 0.2 ], [ Q.floor.x1, W[ 0 ][ 1 ] + 0.2 ] ];
 		// the west side's x at z
 		const sideX = ( z ) => W[ 1 ][ 0 ] + ( W[ 2 ][ 0 ] - W[ 1 ][ 0 ] ) * ( z - W[ 1 ][ 1 ] ) / ( W[ 2 ][ 1 ] - W[ 1 ][ 1 ] );
-		const i0 = Math.floor( ( Q.terrace.x1 - 1 - origin ) / texel ), i1 = Math.ceil( ( Q.floor.x1 + 1 - origin ) / texel );
-		const j0 = Math.floor( ( W[ 2 ][ 1 ] - 1 - origin ) / texel ), j1 = Math.ceil( ( W[ 0 ][ 1 ] + 1 - origin ) / texel );
-		// (targets first, from the untouched ground: the terrace eases onto it at the houses)
+		const TR = Q.terrace, zS = W[ 1 ][ 1 ], zN = W[ 2 ][ 1 ], UN = U + TR.north[ 1 ];
+		// the terrace's level at z (Rua Direita climbing north)
+		const Ut = ( z ) => lerp( U, UN, smoothstep( TR.north[ 0 ], zN, z ) );
+		const i0 = Math.floor( ( TR.x1 - 1 - origin ) / texel ), i1 = Math.ceil( ( Q.floor.x1 + 1 - origin ) / texel );
+		const j0 = Math.floor( ( TR.ends[ 2 ] - 1 - origin ) / texel ), j1 = Math.ceil( ( TR.ends[ 1 ] + 1 - origin ) / texel );
+		// (targets first, from the untouched ground: the terrace eases onto it under the houses and past its ends)
 		const out = [];
 		for ( let j = j0; j <= j1; j ++ ) for ( let i = i0; i <= i1; i ++ ) {
 
 			const x = origin + ( i + 0.5 ) * texel, z = origin + ( j + 0.5 ) * texel, k = j * res + i;
 			let dw = Infinity;
 			for ( let s = 0; s < 3; s ++ ) dw = Math.min( dw, segmentDistance( x, z, W[ s ], W[ s + 1 ] )[ 0 ] );
+			// across: level to the houses' fronts, easing onto the ground under them
+			const across = smoothstep( TR.x0, TR.x1, x );
 			if ( pointInPolygon( x, z, low ) ) {
 
 				out.push( [ k, F, 1 - smoothstep( Q.floor.x0, Q.floor.x1, x ), true ] );
@@ -1071,10 +1078,21 @@ export class TerrainData {
 				// level to the other lies behind the wall, under the paving Walls lays there, not before it)
 				out.push( [ k, F, 1, false ] );
 
-			} else if ( z < W[ 1 ][ 1 ] - 0.3 && z > W[ 2 ][ 1 ] + 0.3 && x < sideX( z ) && x > Q.terrace.x1 - 1 ) {
+			} else if ( z < zS - 0.3 && z > zN + 0.3 && x < sideX( z ) && x > TR.x1 - 1 ) {
 
-				const e = smoothstep( Q.terrace.x0, Q.terrace.x1, x );
-				out.push( [ k, lerp( U, Math.max( U, heights[ k ] ), e ), 1, true ] ); // (paved, as the street it is)
+				out.push( [ k, lerp( Ut( z ), heights[ k ], across ), 1, across < 0.5 ] ); // (paved, as the street it is)
+
+			} else if ( x > TR.x1 - 1 && x < W[ 1 ][ 0 ] - 0.3 && z >= zS - 0.3 && z < TR.ends[ 1 ] ) {
+
+				// Rua Direita on south from the terrace: its level from the corner's paving, then easing up the street
+				const e = Math.max( across, smoothstep( TR.ends[ 0 ], TR.ends[ 1 ], z ) );
+				out.push( [ k, lerp( U, heights[ k ], e ), 1, false ] );
+
+			} else if ( x > TR.x1 - 1 && x < W[ 2 ][ 0 ] - 0.6 && z <= zN + 0.3 && z > TR.ends[ 2 ] ) {
+
+				// and on north: from the north corner up into the street's ground
+				const e = Math.max( across, smoothstep( zN - 2.4, TR.ends[ 2 ], z ) );
+				out.push( [ k, lerp( UN, heights[ k ], e ), 1, false ] );
 
 			}
 
@@ -1101,7 +1119,7 @@ export class TerrainData {
 			this.scarp[ k ] = 255;
 
 		} );
-		this.santaMariaSquare = { ...Q, F, U, sideX };
+		this.santaMariaSquare = { ...Q, F, U, UN, Ut, sideX };
 
 	}
 
