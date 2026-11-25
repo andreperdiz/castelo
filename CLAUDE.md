@@ -38,7 +38,7 @@ the result by looking at it.
 
 ## Git and GitHub
 
-`main` deploys to the public site (https://jmogielnicki.github.io/castelo/) on every push, so work reaches
+`main` deploys to the public site (https://andreperdiz.github.io/castelo/) on every push, so work reaches
 `main` through a pull request.
 
 - At the start of a session, inspect the current branch and existing changes before switching branches
