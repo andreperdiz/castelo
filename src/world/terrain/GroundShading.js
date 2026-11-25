@@ -205,28 +205,58 @@ fn groundVoronoi( q: vec2f ) -> vec4f {
 	return vec4f( d1, ( d2 - d1 ) * 0.5, id );
 }
 
-// The calçada of Praça de Santa Maria's lower square (photo references/...-1113-...): lines of dark stones
-// two setts wide on the pale limestone, a frame along the west side and panels across it, and further out
-// a chain of half circles hanging from a line toward the square's open side. p: a sett's centre.
+// The calçada of Praça de Santa Maria's lower square, as drawn over the game by someone who knows it: lines of
+// dark stones two setts wide on the pale limestone, mirrored about the fountain (q.x: |a|). Either side a long
+// panel from the wall out into the square, an outer and an inner rectangle joined at their corners like a
+// picture frame; between them before the fountain a longer one, halved down the middle, an inner rectangle in
+// each half with quarter circles in its corners, diagonals from its corners to the panel's, meeting in a point at
+// the middle line top and bottom. p: a sett's centre.
+fn groundSmSeg( q: vec2f, a: vec2f, b: vec2f ) -> f32 {
+	let ab = b - a;
+	let t = clamp( dot( q - a, ab ) / dot( ab, ab ), 0.0, 1.0 );
+	return length( q - a - ab * t );
+}
+fn groundSmRect( q: vec2f, lo: vec2f, hi: vec2f ) -> f32 {
+	let c = clamp( q, lo, hi );
+	let inside = all( q >= lo ) && all( q <= hi );
+	let d = min( min( q.x - lo.x, hi.x - q.x ), min( q.y - lo.y, hi.y - q.y ) );
+	return select( length( q - c ), d, inside );
+}
 fn groundSantaMaria( p: vec2f ) -> f32 {
 	let d = p - ${ SM.o };
 	let a = dot( d, ${ SM.u } );
 	let k = dot( d, ${ SM.n } );
-	if ( k < 0.9 || k > 13.5 || abs( a ) > 11.4 ) { return 0.0; }
+	if ( k < 0.2 || k > 14.2 || abs( a ) > 11.8 ) { return 0.0; }
+	let q = vec2f( abs( a ), k );
 	let w = 0.12;
-	var m = 0.0;
-	// along the side
-	m = max( m, step( abs( k - 1.6 ), w ) );
-	m = max( m, step( abs( k - 4.3 ), w ) );
-	m = max( m, step( abs( k - 8.6 ), w ) );
-	// across, between the second and third: panels 4.3 m long, one centred on the fountain
-	let ac = abs( fract( ( a + 2.15 ) / 4.3 ) - 0.5 ) * 4.3;
-	m = max( m, step( ac, w ) * step( 4.3, k ) * step( k, 8.6 ) );
-	// the half circles past the third, one to a panel
-	let ca = ( fract( ( a + 2.15 ) / 4.3 ) - 0.5 ) * 4.3;
-	let r = length( vec2f( ca, k - 8.6 ) );
-	m = max( m, step( abs( r - 2.0 ), w ) * step( 8.6, k ) );
-	m = max( m, step( abs( r - 1.25 ), w * 0.8 ) * step( 8.6, k ) );
+	var e = 99.0;
+	// the side panels: outer and inner rectangles, their corners joined
+	let so0 = vec2f( 4.7, 0.5 ); let so1 = vec2f( 11.5, 11.2 );
+	let si0 = vec2f( 6.3, 1.6 ); let si1 = vec2f( 10.2, 9.8 );
+	e = min( e, groundSmRect( q, so0, so1 ) );
+	e = min( e, groundSmRect( q, si0, si1 ) );
+	e = min( e, groundSmSeg( q, so0, si0 ) );
+	e = min( e, groundSmSeg( q, so1, si1 ) );
+	e = min( e, groundSmSeg( q, vec2f( so1.x, so0.y ), vec2f( si1.x, si0.y ) ) );
+	e = min( e, groundSmSeg( q, vec2f( so0.x, so1.y ), vec2f( si0.x, si1.y ) ) );
+	// the middle panel, its middle line, the inner rectangles, the diagonals
+	let co0 = vec2f( 0.0, 4.0 ); let co1 = vec2f( 4.7, 13.8 );
+	let ci0 = vec2f( 0.9, 5.7 ); let ci1 = vec2f( 3.5, 12.6 );
+	e = min( e, groundSmRect( q, vec2f( - 1.0, co0.y ), co1 ) );
+	e = min( e, groundSmSeg( q, vec2f( 0.0, co0.y ), vec2f( 0.0, co1.y ) ) );
+	e = min( e, groundSmRect( q, ci0, ci1 ) );
+	e = min( e, groundSmSeg( q, vec2f( co1.x, co0.y ), vec2f( ci1.x, ci0.y ) ) );
+	e = min( e, groundSmSeg( q, vec2f( 0.0, co0.y ), ci0 ) );
+	e = min( e, groundSmSeg( q, co1, ci1 ) );
+	e = min( e, groundSmSeg( q, vec2f( 0.0, co1.y ), vec2f( ci0.x, ci1.y ) ) );
+	var m = step( e, w );
+	// the quarter circles in the inner rectangles' corners
+	if ( all( q >= ci0 ) && all( q <= ci1 ) ) {
+		let r = 0.65;
+		var c = min( length( q - ci0 ), length( q - ci1 ) );
+		c = min( c, min( length( q - vec2f( ci0.x, ci1.y ) ), length( q - vec2f( ci1.x, ci0.y ) ) ) );
+		m = max( m, step( abs( c - r ), w * 0.8 ) );
+	}
 	return m;
 }
 
