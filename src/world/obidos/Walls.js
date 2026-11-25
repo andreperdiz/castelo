@@ -4406,6 +4406,17 @@ export class Walls {
 
 			}
 
+			// and along its west side, from the pier at the front wall's end to a little short of the museum's corner,
+			// between it and the way down from the square (the user's mark on the game)
+			const WEST = 5.7;
+			{
+
+				// (its blue foot on the way's side, as the front wall's is on the alley's)
+				const A = P( 0, 0.6 ), B = P( 0, WEST ), g = base( A, B, [ - su[ 0 ], - su[ 1 ] ] );
+				this._oldWall( plaster, A, B, 1, () => g, top - g, top - g, 73, false, { foot: blue, ivy: false } );
+
+			}
+
 			// slabs of grey stone along the front wall's foot, a touch under the terrace's cobbles: they show only in
 			// the ground's dip right behind the wall; and a collider at the terrace's level over it
 			const F = S.cafe - 0.03, D = S.STRIP, corners = [ P( 0, 0 ), P( SL, 0 ), P( SL, D ), P( 0, D ) ];
@@ -4433,7 +4444,7 @@ export class Walls {
 			// a coping of old brownish stone along the two walls' tops, moss in it
 			kit.vdata = [ 0.43, 0.6, 0, 0 ];
 			kit.color = [ 0.36, 0.33, 0.27 ];
-			for ( const [ A, B, inw ] of [ [ P( 0, 0 ), P( SL, 0 ), back ], [ P( SL, 0 ), P( SL, EAST ), [ - su[ 0 ], - su[ 1 ] ] ] ] ) {
+			for ( const [ A, B, inw ] of [ [ P( 0, 0 ), P( SL, 0 ), back ], [ P( SL, 0 ), P( SL, EAST ), [ - su[ 0 ], - su[ 1 ] ] ], [ P( 0, 0.6 ), P( 0, WEST ), su ] ] ) {
 
 				const M = [ ( A[ 0 ] + B[ 0 ] ) / 2, ( A[ 1 ] + B[ 1 ] ) / 2 ], l = Math.hypot( B[ 0 ] - A[ 0 ], B[ 1 ] - A[ 1 ] );
 				kit.box( M[ 0 ] + inw[ 0 ] * 0.24, top + 0.04, M[ 1 ] + inw[ 1 ] * 0.24, l + 0.1, 0.08, 0.62, Math.atan2( - ( B[ 1 ] - A[ 1 ] ), B[ 0 ] - A[ 0 ] ) );
