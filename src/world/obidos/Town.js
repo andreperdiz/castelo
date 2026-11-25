@@ -157,7 +157,9 @@ const STONE_HOUSES = { 299064346: [ 23, 12 ] };
 // Largo, the baroque portal (photo references/...-1512-...), by a point on that front
 const BLANK_FRONTS = { 299064033: [ [ 27.3, 0.3 ], [ 27.7, - 2.3 ], [ 27.95, - 5.0 ], [ 28.15, - 7.8 ] ], // (along it: its roof's crease splits it)
 	// and the Igreja de Santa Maria's front and its north aisle's (Walls._santaMariaChurch)
-	'147555812n': [ [ 19.2, - 41 ], [ 19.2, - 46.3 ] ], '147555812a': [ [ 22.9, - 49.5 ] ] };
+	'147555812n': [ [ 19.2, - 41 ], [ 19.2, - 46.3 ] ], '147555812a': [ [ 22.9, - 49.5 ] ],
+	// and the Museu Municipal's side down the lane south of Praça de Santa Maria (Town._santaMariaFronts)
+	299063768: [ [ - 6, - 23.33 ], [ 5, - 21.3 ] ] };
 const STOREYS = { 298902328: 2,
 	// Casa da Picva, outside Porta Este: one storey (photos references/...-img-4392, -inicio-de-rua-...)
 	299088208: 1,
@@ -704,6 +706,35 @@ export class Town {
 
 			opening( 1.6, g, 1.0, 2.2, true, WOOD );
 			opening( 4.3, g + 1.2, 0.82, 1.1, false );
+
+		}
+
+		// the Museu Municipal's side down the lane south of the square (photo -1411-): its red foot (Town's) with
+		// small vents in stone frames, one barred, the upper floor's windows in grey stone frames, a door near the
+		// Largo
+		const fm = find( 299063768 );
+		if ( fm ) {
+
+			const tools = this._frontTools( fm, [ [ - 13, - 24.6 ], [ 1.3, - 22 ], [ 10, - 20.4 ] ] ), { ground, part, opening, STONE } = tools;
+			const tx = ( x ) => x <= 1.3 ? ( x + 13 ) / 0.9839 : 14.53 + ( x - 1.3 ) / 0.9834;
+			const DARKV = srgbToLinear( [ 0.06, 0.06, 0.06 ] );
+			for ( const x of [ - 11.5, - 9.2, - 6.95, - 4.7, - 2.2, - 0.15, 4.6, 7.0 ] ) {
+
+				const t = tx( x );
+				opening( t, ground( t ) + 3.3, 0.9, 1.35, false );
+
+			}
+
+			opening( tx( 2.4 ), ground( tx( 2.4 ) ), 1.1, 2.3, true, WOOD );
+			// the vents low in the red foot: stone frames, dark inside; the bigger one barred
+			for ( const [ x, w, h, y, bars ] of [ [ - 10.0, 0.4, 0.28, 0.5, false ], [ - 6.5, 0.55, 0.5, 0.35, true ], [ - 5.9, 0.32, 0.26, 0.55, false ], [ - 3.0, 0.42, 0.34, 0.45, false ], [ - 0.5, 0.36, 0.28, 0.5, false ] ] ) {
+
+				const t = tx( x ), g = ground( t ) + y;
+				part( t - w / 2 - 0.1, t + w / 2 + 0.1, g - 0.1, g + h + 0.1, 0.07, STONE );
+				part( t - w / 2, t + w / 2, g, g + h, 0.09, DARKV );
+				if ( bars ) for ( let k = 1; k < 4; k ++ ) part( t - w / 2 + w * k / 4 - 0.012, t - w / 2 + w * k / 4 + 0.012, g, g + h, 0.11, IRON );
+
+			}
 
 		}
 

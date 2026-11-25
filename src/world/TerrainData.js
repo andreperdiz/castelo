@@ -1092,6 +1092,15 @@ export class TerrainData {
 
 		}
 
+		// the lane down from the square's south-west corner past the Museu Municipal: setts from the wall to the
+		// museum's foot (photo references/...-1411-...), not just OSM's width
+		this._stroke( [ [ - 13.5, - 28.2 ], [ 1.6, - 25.8 ], [ 12.2, - 24.1 ] ], 3.4, 0.6, ( k, t ) => {
+
+			if ( t < 0.5 ) return;
+			this.path[ k ] = 255;
+			this.scarp[ k ] = 255;
+
+		} );
 		this.santaMariaSquare = { ...Q, F, U, sideX };
 
 	}

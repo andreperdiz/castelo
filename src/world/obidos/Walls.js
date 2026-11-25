@@ -3427,22 +3427,54 @@ export class Walls {
 		}
 
 		// behind it a strip of setts level with what lies there (the terrace; the lanes either side, falling
-		// east), over the ground's step down to the square's level under the wall
+		// east), over the ground's step down to the square's level under the wall: along the terrace level; along
+		// the north arm's lane in steps (photo -1151-); along the south arm's a smooth ramp, as the lane runs on
+		// down to the Largo (photo -1411-), blue along the wall's foot on that side (a band following the lane)
 		kit.vdata = [ 0.29, 0.6, 0, 1 ];
 		kit.color = [ 0.8, 0.78, 0.74 ];
+		const laneY = ( S, s ) => {
+
+			let y = 0;
+			for ( const d of [ - 0.5, 0, 0.5 ] ) {
+
+				// (the ground just past its outer edge, so the two meet flush)
+				const O = P( S, Math.min( S.L, Math.max( 0, s + d ) ), - TH - 1.9 );
+				y += T.heightAt( O[ 0 ], O[ 1 ] ) / 3;
+
+			}
+
+			return Math.max( F + 0.05, y );
+
+		};
 		sides.forEach( ( S, i ) => {
 
 			const n = Math.ceil( S.L );
 			for ( let p = 0; p < n; p ++ ) {
 
 				const s0 = S.L * p / n, s1 = S.L * ( p + 1 ) / n, O = P( S, ( s0 + s1 ) / 2, - TH - 2.6 );
-				const top = i === 1 ? U + 0.02 : Math.max( F + 0.05, T.heightAt( O[ 0 ], O[ 1 ] ) + 0.02 );
-				put( kit, S, s0 - 0.02, s1 + 0.02, F - 0.4, top, - TH - 1.7, - TH + 0.05, 'bottom' );
+				const top = i === 1 ? U + 0.02 : i === 0 ? ( laneY( S, s0 ) + laneY( S, s1 ) ) / 2 : Math.max( F + 0.05, T.heightAt( O[ 0 ], O[ 1 ] ) + 0.02 );
+				if ( i !== 0 ) put( kit, S, s0 - 0.02, s1 + 0.02, F - 0.4, top, - TH - 1.7, - TH + 0.05, 'bottom' );
 				solid( S, s0, s1, F - 0.4, top, - TH - 1.7, - TH, true, 'terrace' );
 
 			}
 
 		} );
+		{
+
+			const S = sides[ 0 ], n = Math.ceil( S.L * 2 ), V = ( s, k, y ) => { const Q = P( S, s, k ); return [ Q[ 0 ], y, Q[ 1 ] ]; };
+			const k0 = - TH + 0.05, k1 = - TH - 1.7, out = [ - S.n[ 0 ], 0, - S.n[ 1 ] ];
+			for ( let p = 0; p < n; p ++ ) {
+
+				const sa = S.L * p / n, sb = S.L * ( p + 1 ) / n, ya = laneY( S, sa ), yb = laneY( S, sb );
+				kit.quadFacing( V( sa, k0, ya ), V( sb, k0, yb ), V( sb, k1, yb ), V( sa, k1, ya ), [ 0, 1, 0 ], [ [ sa, 0 ], [ sb, 0 ], [ sb, 1.75 ], [ sa, 1.75 ] ] );
+				kit.quadFacing( V( sa, k1, F - 0.4 ), V( sb, k1, F - 0.4 ), V( sb, k1, yb ), V( sa, k1, ya ), out, [ [ sa, 0 ], [ sb, 0 ], [ sb, yb - F ], [ sa, ya - F ] ] );
+				SK.vdata = [ 0, 0, 0.53, 4 ];
+				SK.color = BLUE;
+				SK.quadFacing( V( sa, - TH - 0.02, ya - 0.05 ), V( sb, - TH - 0.02, yb - 0.05 ), V( sb, - TH - 0.02, yb + 0.5 ), V( sa, - TH - 0.02, ya + 0.5 ), out );
+
+			}
+
+		}
 
 		// the seat along its foot: blue, under a slab of reddish stone; on the west side broken by the fountain and
 		// the low beds either side of it
