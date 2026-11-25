@@ -2,7 +2,7 @@ import { Group, Mesh, Vector3, Color } from '../../engine/index.js';
 import { MeshKit } from './MeshKit.js';
 import { mulberry32, smoothstep, lerp } from '../../util/Noise.js';
 import { OSM, resample, pointInPolygon, polygonArea, SegmentIndex, segmentDistance } from './Geo.js';
-import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS } from '../TerrainData.js';
+import { PV_ALLEY, VALE_STEPS, ORNELAS_MARKERS, SANTA_MARIA_CHAPEL } from '../TerrainData.js';
 
 // The walls of Óbidos: the curtain round the town, the castle's own enclosure, the towers and the
 // gates, with a walkable wall walk all the way round.
@@ -4156,30 +4156,47 @@ export class Walls {
 
 		}
 
-		// the bell tower's foot, beside the front to the south (photo -2003-): a big round-arched doorway in a frame
-		// of grey stone, a pediment of mouldings over it
+		// the chapel before the bell tower, beside the front to the south (photo -2003-; Town builds it, its gable to
+		// the square, CHAPEL): in its front a big round-arched doorway in a frame of grey stone, up three stone
+		// steps; a moulding across its front at the eave and up its gable
 		{
 
-			const Xt = [ 23.2, - 37.35 - uC ], gt = T.heightAt( 22.6, - 37.35 ) - G;
-			SK.color = GREY;
-			box( SK, 0, gt - 0.2, gt + 3.3, 2.75, 0, 0.12, Xt );
-			paint.color = lin( [ 0.07, 0.07, 0.08 ] );
-			box( paint, 0, gt - 0.05, gt + 3.3, 2.16, 0.12, 0.14, Xt );
+			const C = SANTA_MARIA_CHAPEL, zc = ( C.z0 + C.z1 ) / 2, hwC = ( C.z1 - C.z0 ) / 2, Xt = [ C.x, zc - uC ];
+			const gt = T.heightAt( C.x - 1.5, zc ) - G, sill = gt + 0.45, ec = C.eave - G, rc = hwC * 0.45;
 			const Wt = ( s, y, k ) => W( s, y, k, Xt );
-			for ( let i = 0; i < 12; i ++ ) {
+			// the steps
+			kit.vdata = [ 0.43, 0.45, 0, 0 ];
+			kit.color = [ 0.78, 0.77, 0.72 ];
+			for ( let i = 1; i <= 3; i ++ ) {
 
-				const t0 = Math.PI * i / 12, t1 = Math.PI * ( i + 1 ) / 12;
-				paint.quadFacing( Wt( 0, gt + 3.3, 0.14 ), Wt( Math.cos( t0 ) * 1.08, gt + 3.3 + Math.sin( t0 ) * 1.08, 0.14 ), Wt( Math.cos( t1 ) * 1.08, gt + 3.3 + Math.sin( t1 ) * 1.08, 0.14 ), Wt( 0, gt + 3.3, 0.14 ), face );
-				SK.quadFacing( Wt( Math.cos( t0 ) * 1.08, gt + 3.3 + Math.sin( t0 ) * 1.08, 0.12 ), Wt( Math.cos( t1 ) * 1.08, gt + 3.3 + Math.sin( t1 ) * 1.08, 0.12 ), Wt( Math.cos( t1 ) * 1.38, gt + 3.3 + Math.sin( t1 ) * 1.38, 0.12 ), Wt( Math.cos( t0 ) * 1.38, gt + 3.3 + Math.sin( t0 ) * 1.38, 0.12 ), face );
+				const top = gt + 0.15 * i, d = 0.36 * ( 4 - i ), Q = Wt( 0, 0, d / 2 );
+				box( kit, 0, gt - 0.3, top, 3.1 - ( i - 1 ) * 0.1, 0, d, Xt );
+				this.colliders.addBox( new Vector3( Q[ 0 ], G + ( gt - 0.3 + top ) / 2, Q[ 2 ] ), new Vector3( 1.55, ( top - gt + 0.3 ) / 2, d / 2 ), yaw, { walkable: true, tag: 'stair' } );
 
 			}
 
-			const y0 = gt + 5.0, y1 = gt + 6.0, hw2 = 2.0;
-			box( SK, 0, y0 - 0.15, y0, 2 * hw2 + 0.3, 0, 0.18, Xt );
+			// the doorway
+			const R0 = 0.95, R1 = 1.25, spring = sill + 2.45;
+			SK.color = GREY;
+			box( SK, 0, sill - 0.05, spring, 2 * R1, 0, 0.12, Xt );
+			paint.color = lin( [ 0.07, 0.07, 0.08 ] );
+			box( paint, 0, sill, spring, 2 * R0, 0.12, 0.14, Xt );
+			for ( let i = 0; i < 12; i ++ ) {
+
+				const t0 = Math.PI * i / 12, t1 = Math.PI * ( i + 1 ) / 12;
+				const q = ( t, r, k ) => Wt( Math.cos( t ) * r, spring + Math.sin( t ) * r, k );
+				paint.quadFacing( Wt( 0, spring, 0.14 ), q( t0, R0, 0.14 ), q( t1, R0, 0.14 ), Wt( 0, spring, 0.14 ), face );
+				SK.quadFacing( q( t0, R0, 0.12 ), q( t1, R0, 0.12 ), q( t1, R1, 0.12 ), q( t0, R1, 0.12 ), face );
+
+			}
+
+			// the moulding along the eave and up the gable
+			SK.color = GREY;
+			box( SK, 0, ec - 0.14, ec + 0.04, 2 * hwC + 0.3, 0, 0.22, Xt );
 			for ( const sd of [ - 1, 1 ] ) {
 
-				SK.quadFacing( Wt( sd * hw2, y0, 0.16 ), Wt( 0, y1, 0.16 ), Wt( 0, y1 + 0.16, 0.16 ), Wt( sd * hw2, y0 + 0.16, 0.16 ), face );
-				SK.quadFacing( Wt( sd * hw2, y0 + 0.16, 0.16 ), Wt( 0, y1 + 0.16, 0.16 ), Wt( 0, y1 + 0.16, 0 ), Wt( sd * hw2, y0 + 0.16, 0 ), [ 0, 1, 0 ] );
+				SK.quadFacing( Wt( sd * ( hwC + 0.15 ), ec + 0.04, 0.2 ), Wt( 0, ec + 0.04 + rc + 0.07, 0.2 ), Wt( 0, ec + 0.2 + rc + 0.07, 0.2 ), Wt( sd * ( hwC + 0.15 ), ec + 0.2, 0.2 ), face );
+				SK.quadFacing( Wt( sd * ( hwC + 0.15 ), ec + 0.2, 0.2 ), Wt( 0, ec + 0.2 + rc + 0.07, 0.2 ), Wt( 0, ec + 0.2 + rc + 0.07, 0 ), Wt( sd * ( hwC + 0.15 ), ec + 0.2, 0 ), [ 0, 1, 0 ] );
 
 			}
 

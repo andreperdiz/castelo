@@ -175,6 +175,10 @@ export const SANTA_MARIA_STEPS = { from: [ 9.8, - 11.3 ], to: [ 24.0, - 11.0 ], 
 export const SANTA_MARIA_SQUARE = { wall: [ [ 1.8, - 28.4 ], [ - 8.3, - 30 ], [ - 6.8, - 54.2 ], [ 4.9, - 53.4 ] ],
 	floor: { x0: 6, x1: 10 }, terrace: { x0: - 14.6, x1: - 16, rise: 2.1, north: [ - 44, 0.4 ], ends: [ - 27.6, - 23.6, - 62 ] }, fountain: { z: - 41.95 },
 	steps: { x0: 1.9, x1: 5.6 } };
+// the chapel before the Igreja de Santa Maria's bell tower (photo references/...-2003-be0365f0-...): its front to
+// the square at x, a metre behind the church's, from z0 to z1; its eave (Town builds it gabled to the square,
+// Walls dresses its front)
+export const SANTA_MARIA_CHAPEL = { x: 20.2, z0: - 40.1, z1: - 35.2, eave: 59.8 };
 // the stairs by the Biblioteca Municipal (photo references/...-escadariabiblioteca): west from Rua Padre Nunes
 // Tavares up between the library's walled yard (north) and the garden of São Pedro (south), to a landing at
 // the church's front with the Largo de São João de Deus on its right. Its sides: the yard's wall and the

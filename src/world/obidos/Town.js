@@ -3,7 +3,7 @@ import { MeshKit } from './MeshKit.js';
 import { OSM, pointInPolygon, polygonArea, SegmentIndex } from './Geo.js';
 import { orientedBox } from './Walls.js';
 import { mulberry32 } from '../../util/Noise.js';
-import { ORNELAS_MARKERS } from '../TerrainData.js';
+import { ORNELAS_MARKERS, SANTA_MARIA_CHAPEL as CH } from '../TerrainData.js';
 
 // distance from ( x, z ) to the segment a-b
 const segDist = ( x, z, a, b ) => {
@@ -87,12 +87,15 @@ const PARTS = { 299063419: [
 		{ id: '147555812n', pts: [ [ 19.2, - 40.1 ], [ 19.2, - 47.2 ], [ 48.6, - 47.2 ], [ 48.6, - 40.1 ] ] },
 		{ id: '147555812a', pts: [ [ 22.9, - 47.2 ], [ 22.9, - 51.8 ], [ 48.6, - 51.8 ], [ 48.6, - 47.2 ] ] },
 		{ id: '147555812s', pts: [ [ 28.4, - 40.1 ], [ 28.4, - 34.6 ], [ 36.1, - 34.6 ], [ 36.1, - 30.4 ], [ 43.4, - 30.4 ], [ 47.4, - 30.3 ], [ 47.4, - 34.8 ], [ 48.7, - 34.8 ], [ 48.7, - 40.1 ] ] },
-		{ id: '147555812e', pts: [ [ 48.6, - 47.6 ], [ 50.5, - 47.6 ], [ 50.5, - 38.6 ], [ 48.7, - 38.6 ], [ 48.7, - 40.1 ], [ 48.6, - 40.1 ] ] } ] };
+		{ id: '147555812e', pts: [ [ 48.6, - 47.6 ], [ 50.5, - 47.6 ], [ 50.5, - 38.6 ], [ 48.7, - 38.6 ], [ 48.7, - 40.1 ], [ 48.6, - 40.1 ] ] },
+		// and the chapel before the bell tower, not in OSM (photo references/...-2003-): from the tower's foot out
+		// toward the square
+		{ id: '147555812c', pts: [ [ CH.x, CH.z0 ], [ CH.x, CH.z1 ], [ 23.2, CH.z1 ], [ 23.2, CH.z0 ] ] } ] };
 // the Telheiro's porch (photo references/...-1151-3b65f969-...): the house's front set back from OSM's line
 // (wall: west to east) behind a porch depth deep, its floor level with the lane's top
 const TELHEIRO = { wall: [ [ - 10.44, - 60.88 ], [ 5.86, - 58.78 ] ], depth: 2.2, floor: 59.2 };
 // the ridge's direction (x, z) where the footprint's box would turn it the other way: the annex's along its front
-const RIDGE = { '299063419a': [ 0, 1 ], '299063419c': [ 0, 1 ], '147555812n': [ 1, 0 ], '147555812a': [ 1, 0 ], '147555812s': [ 1, 0 ] };
+const RIDGE = { '299063419a': [ 0, 1 ], '299063419c': [ 0, 1 ], '147555812n': [ 1, 0 ], '147555812c': [ 1, 0 ], '147555812a': [ 1, 0 ], '147555812s': [ 1, 0 ] };
 // (and these keep that outline: the walls' clear lines would push their street corners in behind the curtain)
 const KEEP_OUTLINE = new Set( [ 299072134, 299064033 ] );
 // (and these keep their corners on OSM's street lines too: the Misericórdia's on the old Praça line by the stair)
@@ -120,7 +123,7 @@ const PAINT = { 298902328: [ 0.08, 0.2, 0.72 ],
 	299088432: [ 0.13, 0.24, 0.6 ],
 	299088405: [ 0.88, 0.66, 0.2 ],
 	// behind Praça de Santa Maria's terrace (photo references/...-1113-...): window surrounds of grey stone
-	299063325: [ 0.7, 0.66, 0.58 ], '299063419a': [ 0.93, 0.92, 0.89 ], '299063419b': [ 0.7, 0.66, 0.58 ], '299063419d': [ 0.7, 0.66, 0.58 ], '299063419e': [ 0.7, 0.66, 0.58 ], 298877060: [ 0.88, 0.66, 0.2 ], '147555812n': [ 0.82, 0.72, 0.55 ], '147555812a': [ 0.82, 0.72, 0.55 ], '147555812s': [ 0.82, 0.72, 0.55 ], '147555812e': [ 0.82, 0.72, 0.55 ], '299063419c': [ 0.7, 0.66, 0.58 ] };
+	299063325: [ 0.7, 0.66, 0.58 ], '299063419a': [ 0.93, 0.92, 0.89 ], '299063419b': [ 0.7, 0.66, 0.58 ], '299063419d': [ 0.7, 0.66, 0.58 ], '299063419e': [ 0.7, 0.66, 0.58 ], 298877060: [ 0.88, 0.66, 0.2 ], '147555812n': [ 0.82, 0.72, 0.55 ], '147555812a': [ 0.82, 0.72, 0.55 ], '147555812s': [ 0.82, 0.72, 0.55 ], '147555812e': [ 0.82, 0.72, 0.55 ], '147555812c': [ 0.6, 0.58, 0.53 ], '299063419c': [ 0.7, 0.66, 0.58 ] };
 // the eave itself, for houses the footprint's size and slope would make too tall: going up Rua Dom João de
 // Ornelas, the long footprint holding the blue house and the white one beyond it, two low storeys, then a
 // lower one (photo references/...-img-4391; the street fronts: Town._ornelasFronts)
@@ -146,7 +149,7 @@ const EAVE = { 299088554: 43.2, 299088587: 43.5,
 	298877060: 65.6,
 	// the Igreja de Santa Maria (photo references/...-1350-): its front's cornice ten metres over the square, the
 	// aisles lower
-	'147555812n': 65.5, '147555812a': 63.1, '147555812s': 63.1, '147555812e': 63.4,
+	'147555812n': 65.5, '147555812a': 63.1, '147555812s': 63.1, '147555812e': 63.4, '147555812c': CH.eave,
 	// and the ones behind them, on the lane up to Rua Dom Antão Moniz and on that street: only sky shows over the
 	// white house's roof in the photo
 	299065370: 66.4, 299065511: 70.0, 299065556: 71.5 }; // (the first still a storey over its upper lane)
@@ -157,7 +160,7 @@ const STONE_HOUSES = { 299064346: [ 23, 12 ] };
 // Largo, the baroque portal (photo references/...-1512-...), by a point on that front
 const BLANK_FRONTS = { 299064033: [ [ 27.3, 0.3 ], [ 27.7, - 2.3 ], [ 27.95, - 5.0 ], [ 28.15, - 7.8 ] ], // (along it: its roof's crease splits it)
 	// and the Igreja de Santa Maria's front and its north aisle's (Walls._santaMariaChurch)
-	'147555812n': [ [ 19.2, - 41 ], [ 19.2, - 46.3 ] ], '147555812a': [ [ 22.9, - 49.5 ] ],
+	'147555812n': [ [ 19.2, - 41 ], [ 19.2, - 46.3 ] ], '147555812a': [ [ 22.9, - 49.5 ] ], '147555812c': [ [ CH.x, ( CH.z0 + CH.z1 ) / 2 ] ],
 	// and the Museu Municipal's side down the lane south of Praça de Santa Maria (Town._santaMariaFronts)
 	299063768: [ [ - 6, - 23.33 ], [ 5, - 21.3 ] ] };
 const STOREYS = { 298902328: 2,
